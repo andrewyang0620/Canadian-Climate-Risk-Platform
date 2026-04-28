@@ -1,3 +1,8 @@
+# Airflow runtime artifacts
+airflow/logs/
+airflow/plugins/
+airflow/*.pid
+
 # Python
 __pycache__/
 *.py[cod]
@@ -17,9 +22,7 @@ env/
 .env.local
 
 # Docker / runtime
-airflow/logs/
-airflow/plugins/
-airflow/*.pid
+docker-compose.override.yml
 
 # Local lakehouse / warehouse outputs
 data/

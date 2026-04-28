@@ -1,66 +1,94 @@
-<div align="center">
-
 # Canadian Climate & Property Risk Data Platform
 
-[![Status: Ongoing](https://img.shields.io/badge/Status-Ongoing-0078D4?style=for-the-badge)](#)
+![Status](https://img.shields.io/badge/status-in%20development-yellow)
+![Azure](https://img.shields.io/badge/cloud-Azure-blue)
+![Spark](https://img.shields.io/badge/processing-Apache%20Spark-orange)
+![Delta Lake](https://img.shields.io/badge/lakehouse-Delta%20Lake-0B7285)
+![Airflow](https://img.shields.io/badge/orchestration-Airflow-017CEE)
+![dbt](https://img.shields.io/badge/transformation-dbt-FF694B)
+![PostGIS](https://img.shields.io/badge/serving-PostGIS-336791)
+![Power BI](https://img.shields.io/badge/dashboard-Power%20BI-F2C811)
+![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC)
 
-[![Azure](https://img.shields.io/badge/azure-%230072C6.svg?style=for-the-badge&logo=microsoftazure&logoColor=white)](#)
-[![Apache Spark](https://img.shields.io/badge/apache%20spark-E25A1C?style=for-the-badge&logo=apachespark&logoColor=white)](#)
-[![Apache Airflow](https://img.shields.io/badge/Airflow-017CEE?style=for-the-badge&logo=Apache%20Airflow&logoColor=white)](#)
-[![dbt](https://img.shields.io/badge/dbt-FF694B?style=for-the-badge&logo=dbt&logoColor=white)](#)
-[![Power BI](https://img.shields.io/badge/power_bi-F2C811?style=for-the-badge&logo=powerbi&logoColor=black)](#)
-[![Terraform](https://img.shields.io/badge/terraform-%235835CC.svg?style=for-the-badge&logo=terraform&logoColor=white)](#)
-
-> 🚧 **STATUS: ONGOING** 🚧
-> 
-> *The `main` branch is currently being initialized. Infrastructure provisioning and core pipeline development are actively running in feature branches. The initial production release will be merged here soon.*
-
-</div>
+> **Status:** In development  
+> This repository is being built as a production-style data engineering portfolio project. The `develop` branch contains active work. The first stable release will be merged into `main` after the full pipeline, marts, dashboard evidence, and documentation are complete.
 
 ---
 
 ## Project At A Glance
 
-- **Live Demo:** `[Public Power BI Dashboard — Link Coming Soon]`
-- **Architecture:** Azure VM + PySpark + Delta Lake + Apache Airflow + dbt Core + PostgreSQL
-- **Scope:** British Columbia & Alberta, covering a 10-year historical baseline (2016–2025)
-- **Validation:** Out-of-time backtesting against the Canadian Disaster Database (CDD)
-- **Data Quality:** Automated checks for source freshness, schema hashing, row count anomalies, and geospatial coordinate validation
-- **Deployment:** Infrastructure as Code via Terraform, CI/CD via GitHub Actions, and containerized local/VM execution via Docker Compose
+- **One-sentence pitch:** Build a production-style Azure + Spark geospatial lakehouse that ingests, validates, transforms, models, and serves Canadian climate, hydrometric, wildfire, building-permit, disaster-event, floodplain, and municipal property datasets into trusted exposure marts for British Columbia and Alberta.
+- **Architecture:** Azure VM + ADLS Gen2 + Delta Lake + PySpark/Sedona + Airflow + dbt Core + PostgreSQL/PostGIS + Power BI.
+- **Scope:** British Columbia + Alberta province-wide 10km grid, Vancouver/Calgary 1km city grids, Vancouver parcel exposure screening, and Calgary property flood exposure screening.
+- **Data quality:** Source freshness, schema hash, row-count anomaly checks, CRS validation, geometry validation, spatial join audit, dbt tests, and pipeline status JSON.
+- **Validation:** Canadian Disaster Database backtesting, lift/top-K capture, score sensitivity, and rank stability checks.
+- **Dashboard:** Public Power BI dashboard planned; screenshots and demo video will be provided as fallback if public embedding is unavailable.
+- **Limitation:** This is a public-data-based exposure screening and prioritization platform. It is not an insurance-grade, legal, engineering-grade, or property appraisal risk model.
 
 ---
 
-## Project Overview
+## Business Problem
 
-This project is a Spark-based Azure data platform designed to integrate Canadian climate, hydrometric, wildfire, building-permit, and disaster-event data. The pipeline transforms raw public data into validated, municipality-level climate-exposure priority marts. 
+Western Canada faces overlapping climate, flood, wildfire, hydrometric, infrastructure, and development exposure. Public data exists across federal, provincial, and municipal portals, but it is fragmented across different formats, spatial grains, coordinate systems, update frequencies, and quality levels.
 
-The final output is an interactive Power BI dashboard that prioritizes municipalities for monitoring based on historical hazard signals and development exposure, avoiding subjective "risk weight" assumptions by validating against actual historical disaster events.
+The purpose of this project is to build a reliable data engineering platform that turns fragmented public datasets into curated, validated, and BI-ready geospatial data products.
 
-## Current Development Roadmap
-
-We are currently laying the groundwork before the first major merge to `main`. Here is what is being built right now:
-
-- [x] **Project Scoping & Architecture Design:** Finalizing tech stack and data models.
-- [x] **Repository Initialization:** Setting up `.gitignore`, formatting rules, and branch protections.
-- [ ] **Infrastructure Provisioning:** Writing Terraform scripts for ADLS Gen2, Azure VM, and PostgreSQL Flexible Server.
-- [ ] **Ingestion Layer:** Developing Airflow DAGs for ECCC Climate, HYDAT, and NRCan Wildfire data.
-- [ ] **Data Quality Framework:** Implementing Layer 1 (Source/Ingestion) audits.
-- [ ] **First PR to Main:** Merging the base Airflow/Spark Docker Compose environment.
+The intended fictional stakeholder is a municipal or provincial climate resilience analytics team that needs repeatable data products for monitoring areas that may deserve deeper planning review.
 
 ---
 
-## Tech Stack Highlights
+## Core Data Products
 
-| Layer | Technology |
-|---|---|
-| **Cloud & Storage** | Azure VM, ADLS Gen2, Delta Lake |
-| **Processing & Geospatial** | PySpark, Apache Sedona |
-| **Orchestration** | Apache Airflow |
-| **Transformation & Serving** | dbt Core, Azure PostgreSQL |
-| **CI/CD & IaC** | GitHub Actions, Terraform, Docker |
+### Grid-Level Marts
+
+- `mart_grid_month_hazard_exposure`
+- `mart_grid_month_priority`
+- `mart_municipality_month_priority`
+
+These marts support BC/Alberta grid-level monitoring, monthly prioritization, hazard component analysis, and municipality-level aggregation.
+
+### Property-Context Marts
+
+- `mart_vancouver_parcel_exposure`
+- `mart_calgary_property_flood_exposure`
+
+These marts support city-level property-context screening using public parcel, property assessment, floodplain/flood hazard, and permit data.
+
+### Reliability and Validation Marts
+
+- `mart_data_reliability`
+- `mart_score_validation`
+- `mart_sensitivity_analysis`
+
+These marts make data quality, source freshness, spatial join success, dbt test results, and score validation visible as first-class outputs.
 
 ---
 
-<div align="center">
-  <p><i>Check back soon. First pipelines are scheduled to land in the coming weeks.</i></p>
-</div>
+## High-Level Architecture
+
+```text
+External Public Sources
+|
+v
+Airflow ingestion DAGs
+|
+v
+ADLS Gen2 / Delta Bronze
+|
+v
+PySpark + Apache Sedona standardization
+|
+v
+Delta Silver geospatial and feature tables
+|
+v
+dbt Core transformations and tests
+|
+v
+PostgreSQL / PostGIS Gold serving marts
+|
+v
+Power BI dashboard + public project page
+|
+v
+pipeline_status.json + screenshots + documentation

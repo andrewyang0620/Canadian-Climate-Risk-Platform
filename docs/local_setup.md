@@ -1,27 +1,21 @@
-@'
 # Local Development Setup
 
-## Environment
+This document explains how to run the local development environment for the Canadian Climate & Property Risk Data Platform.
 
-This project uses a hybrid local development setup:
+## Purpose
 
-- Python 3.11 conda environment for lightweight scripts, validation, and tests
-- Docker Compose for PostgreSQL, Spark, and Airflow
-- Azure CLI and Terraform for later cloud deployment
+The local environment is used to test the core data engineering stack before deploying to Azure.
 
-## Required Software
+Local services:
 
-- Git
-- Python 3.11
-- Java 17
-- Docker Desktop
-- Azure CLI
-- Terraform
-- VS Code
-
-## Python Environment
-
-```powershell
-conda activate climate-risk
-python --version
-pip install -r requirements-dev.txt
+```text
+PostgreSQL/PostGIS
+|
+v
+Airflow webserver + scheduler
+|
+v
+Spark master + worker
+|
+v
+dbt container

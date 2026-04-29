@@ -35,6 +35,7 @@ class BronzeWriteResult:
     source_name: str
     raw_file_path: Path
     metadata_path: Path
+    manifest_path: Path
     file_checksum: str
     load_status: str
 
@@ -42,8 +43,13 @@ class BronzeWriteResult:
 class BronzeWriter:
     """Write raw source snapshots and metadata into the Bronze lakehouse layer."""
 
-    def __init__(self, bronze_base_path: str | Path = "lakehouse/bronze") -> None:
+    def __init__(
+        self,
+        bronze_base_path: str | Path = "lakehouse/bronze",
+        manifest_relative_path: str | Path = "_manifests/bronze_runs.jsonl",
+    ) -> None:
         self.bronze_base_path = Path(bronze_base_path)
+        self.manifest_path = self.bronze_base_path / manifest_relative_path
 
     def build_run_paths(
         self,
@@ -90,7 +96,7 @@ class BronzeWriter:
         ingestion_method: str | None = None,
         extra_metadata: dict[str, Any] | None = None,
     ) -> BronzeWriteResult:
-        """Write bytes to a Bronze raw snapshot and create metadata.json."""
+        """Write bytes to a Bronze raw snapshot and create metadata + manifest record."""
         if not content:
             raise BronzeWriterError("Cannot write empty Bronze content.")
 
@@ -136,11 +142,14 @@ class BronzeWriter:
             encoding="utf-8",
         )
 
+        self._append_manifest_record(metadata=metadata, metadata_path=paths.metadata_path)
+
         return BronzeWriteResult(
             run_id=paths.run_id,
             source_name=source.name,
             raw_file_path=raw_file_path,
             metadata_path=paths.metadata_path,
+            manifest_path=self.manifest_path,
             file_checksum=file_checksum,
             load_status="success",
         )
@@ -159,6 +168,39 @@ class BronzeWriter:
             content=content.encode("utf-8"),
             **kwargs,
         )
+
+    def _append_manifest_record(
+        self,
+        *,
+        metadata: dict[str, Any],
+        metadata_path: Path,
+    ) -> None:
+        """Append one successful Bronze run record to a JSONL manifest."""
+        self.manifest_path.parent.mkdir(parents=True, exist_ok=True)
+
+        manifest_record = {
+            "run_id": metadata["run_id"],
+            "source_name": metadata["source_name"],
+            "source_group": metadata["source_group"],
+            "provider": metadata["provider"],
+            "extract_timestamp": metadata["extract_timestamp"],
+            "extract_date": metadata["extract_date"],
+            "raw_file_path": metadata["raw_file_path"],
+            "metadata_path": _path_as_posix(metadata_path),
+            "file_name": metadata["file_name"],
+            "file_size_bytes": metadata["file_size_bytes"],
+            "file_checksum": metadata["file_checksum"],
+            "checksum_algorithm": metadata["checksum_algorithm"],
+            "ingestion_method": metadata["ingestion_method"],
+            "row_count": metadata["row_count"],
+            "target_bronze_table": metadata["target_bronze_table"],
+            "target_silver_table": metadata["target_silver_table"],
+            "load_status": metadata["load_status"],
+            "manifest_record_created_at": utc_now_iso(),
+        }
+
+        with self.manifest_path.open("a", encoding="utf-8") as file:
+            file.write(json.dumps(manifest_record, sort_keys=True) + "\n")
 
 
 def _safe_path_part(value: str) -> str:

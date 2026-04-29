@@ -109,7 +109,9 @@ class OpenCanadaDownloader:
 
         return OpenCanadaPackage(
             dataset_id=dataset_id,
-            title=str(package_raw.get("title") or package_raw.get("title_translated") or dataset_id),
+            title=str(
+                package_raw.get("title") or package_raw.get("title_translated") or dataset_id
+            ),
             resources=resources,
             raw=package_raw,
         )

@@ -5,6 +5,11 @@ from src.ingestion.downloaders.national_sources import (
     NationalSourceDownloader,
     NationalSourceDownloaderError,
 )
+from src.ingestion.downloaders.open_canada import (
+    OpenCanadaDownloadResult,
+    OpenCanadaPackage,
+    OpenCanadaResource,
+)
 from src.ingestion.source_registry import SourceRegistry
 
 
@@ -23,6 +28,53 @@ class DummyHttpDownloader:
             size_bytes=len(b"<html>ok</html>"),
             checksum="dummy-checksum",
             downloaded_at="2026-04-29T00:00:00+00:00",
+        )
+
+
+class DummyOpenCanadaDownloader:
+    def __init__(self):
+        self.calls = []
+
+    def download_resource(self, api_url, dataset_id, preferred_formats):
+        self.calls.append(
+            {
+                "api_url": api_url,
+                "dataset_id": dataset_id,
+                "preferred_formats": preferred_formats,
+            }
+        )
+
+        package = OpenCanadaPackage(
+            dataset_id=dataset_id,
+            title="Canadian Disaster Database",
+            resources=[],
+            raw={},
+        )
+
+        resource = OpenCanadaResource(
+            name="CDD CSV",
+            url="https://example.com/cdd.csv",
+            format="CSV",
+            language="eng",
+            resource_id="resource-csv",
+            raw={},
+        )
+
+        download = HttpDownloadResult(
+            url="https://example.com/cdd.csv",
+            final_url="https://example.com/cdd.csv",
+            status_code=200,
+            content_type="text/csv",
+            content=b"event_id,event_date,province\n1,2020-01-01,BC\n",
+            size_bytes=42,
+            checksum="dummy-checksum",
+            downloaded_at="2026-04-29T00:00:00+00:00",
+        )
+
+        return OpenCanadaDownloadResult(
+            package=package,
+            resource=resource,
+            download=download,
         )
 
 
@@ -46,7 +98,7 @@ def test_national_source_downloader_builds_plan():
     assert plan.source_url.startswith("http")
     assert plan.target_bronze_table == "bronze_disaster_events"
     assert plan.suggested_raw_filename.startswith("canadian_disaster_database_raw")
-    assert plan.implemented is False
+    assert plan.implemented is True
 
 
 def test_national_source_specific_plan_methods():
@@ -79,3 +131,18 @@ def test_probe_source_landing_page_uses_http_downloader():
 
     assert result.status_code == 200
     assert dummy_http.urls == [expected_url]
+
+
+def test_download_canadian_disaster_database_uses_open_canada_metadata():
+    dummy_open_canada = DummyOpenCanadaDownloader()
+    downloader = NationalSourceDownloader(open_canada_downloader=dummy_open_canada)
+
+    result = downloader.download_canadian_disaster_database()
+
+    assert result.package.title == "Canadian Disaster Database"
+    assert result.resource.format == "CSV"
+    assert result.download.content.startswith(b"event_id")
+
+    call = dummy_open_canada.calls[0]
+    assert call["dataset_id"] == "1c3d15f9-9cfa-4010-8462-0d67e493d9b9"
+    assert "CSV" in call["preferred_formats"]

@@ -1,0 +1,395 @@
+﻿sources:
+  eccc_historical_climate:
+    display_name: ECCC Historical Climate Data
+    source_group: national
+    provider: Environment and Climate Change Canada
+    source_url: https://climate.weather.gc.ca/
+    access_method: bulk_csv
+    expected_frequency: periodic
+    file_format: csv
+    spatial_grain: station
+    temporal_grain: daily
+    time_window:
+      start_year: 2016
+      end_year: 2025
+    target_bronze_table: bronze_climate
+    target_silver_table: silver_climate_daily
+    downstream_use:
+      - weather_extreme_score
+      - grid_month_hazard_exposure
+    required_fields:
+      - station_id
+      - date
+      - latitude
+      - longitude
+    validation_checks:
+      - schema_hash
+      - row_count
+      - coordinate_range
+      - date_range
+    redistribution: public
+
+  eccc_hydrometric_realtime:
+    display_name: ECCC Hydrometric Real-Time Data
+    source_group: national
+    provider: Water Survey of Canada
+    source_url: https://wateroffice.ec.gc.ca/
+    access_method: rest_api
+    expected_frequency: daily
+    file_format: json_or_csv
+    spatial_grain: station
+    temporal_grain: daily_or_subdaily
+    time_window:
+      start_year: 2026
+      end_year: null
+    target_bronze_table: bronze_hydrometric_realtime
+    target_silver_table: silver_hydro_daily
+    downstream_use:
+      - flood_hydrometric_signal
+      - daily_hazard_pipeline
+    required_fields:
+      - station_id
+      - observed_at
+      - latitude
+      - longitude
+    validation_checks:
+      - schema_hash
+      - row_count
+      - coordinate_range
+      - freshness
+    redistribution: public
+
+  hydat_archive:
+    display_name: HYDAT Historical Hydrometric Archive
+    source_group: national
+    provider: Water Survey of Canada
+    source_url: https://www.canada.ca/en/environment-climate-change/services/water-overview/quantity/monitoring/survey/data-products-services/national-archive-hydat.html
+    access_method: bulk_sqlite
+    expected_frequency: quarterly
+    file_format: sqlite
+    spatial_grain: station
+    temporal_grain: daily
+    time_window:
+      start_year: 2016
+      end_year: 2025
+    target_bronze_table: bronze_hydat
+    target_silver_table: silver_hydro_baseline
+    downstream_use:
+      - hydrometric_baseline
+      - water_level_percentile
+    required_fields:
+      - station_id
+      - date
+    validation_checks:
+      - schema_hash
+      - row_count
+      - date_range
+    redistribution: public
+
+  wildfire_history:
+    display_name: CWFIS / CNFDB Wildfire History
+    source_group: national
+    provider: Natural Resources Canada
+    source_url: https://cwfis.cfs.nrcan.gc.ca/
+    access_method: bulk_geojson_or_csv
+    expected_frequency: seasonal
+    file_format: geojson_or_csv
+    spatial_grain: point
+    temporal_grain: event
+    time_window:
+      start_year: 2016
+      end_year: 2025
+    target_bronze_table: bronze_wildfire
+    target_silver_table: silver_wildfire_event
+    downstream_use:
+      - wildfire_exposure_score
+      - wildfire_proximity_features
+    required_fields:
+      - event_id
+      - latitude
+      - longitude
+      - event_date
+    validation_checks:
+      - schema_hash
+      - row_count
+      - coordinate_range
+      - geometry_validity
+    redistribution: public
+
+  statcan_building_permits:
+    display_name: Statistics Canada Building Permits
+    source_group: national
+    provider: Statistics Canada
+    source_url: https://www150.statcan.gc.ca/
+    access_method: bulk_csv
+    expected_frequency: monthly
+    file_format: csv
+    spatial_grain: municipality
+    temporal_grain: monthly
+    time_window:
+      start_year: 2016
+      end_year: null
+    target_bronze_table: bronze_statcan_building_permits
+    target_silver_table: silver_permit_monthly
+    downstream_use:
+      - development_exposure_score
+      - municipality_month_priority
+    required_fields:
+      - municipality
+      - period
+      - permit_value
+    validation_checks:
+      - schema_hash
+      - row_count
+      - non_negative_values
+      - date_range
+    redistribution: public
+
+  census_boundaries:
+    display_name: Census / CSD / Province Boundaries
+    source_group: national
+    provider: Statistics Canada
+    source_url: https://www12.statcan.gc.ca/census-recensement/index-eng.cfm
+    access_method: boundary_file_download
+    expected_frequency: periodic
+    file_format: shapefile_or_geojson
+    spatial_grain: polygon
+    temporal_grain: static_or_periodic
+    time_window:
+      start_year: null
+      end_year: null
+    target_bronze_table: bronze_boundaries
+    target_silver_table: silver_boundary_municipality
+    downstream_use:
+      - grid_generation
+      - municipality_rollup
+      - validation_mapping
+    required_fields:
+      - municipality_key
+      - geometry
+    validation_checks:
+      - schema_hash
+      - row_count
+      - geometry_validity
+      - crs_check
+    redistribution: public
+
+  canadian_disaster_database:
+    display_name: Canadian Disaster Database
+    source_group: national
+    provider: Public Safety Canada
+    source_url: https://www.publicsafety.gc.ca/cnt/rsrcs/cndn-dsstr-dtbs/index-en.aspx
+    access_method: spreadsheet_download
+    expected_frequency: periodic
+    file_format: xlsx_or_csv
+    spatial_grain: municipality_or_region
+    temporal_grain: event
+    time_window:
+      start_year: 2016
+      end_year: 2025
+    target_bronze_table: bronze_disaster_events
+    target_silver_table: silver_disaster_event_month
+    downstream_use:
+      - score_validation
+      - event_capture_at_top_k
+      - lift_at_top_k
+    required_fields:
+      - event_id
+      - event_date
+      - province
+    validation_checks:
+      - schema_hash
+      - row_count
+      - date_range
+    redistribution: public
+
+  vancouver_property_parcels:
+    display_name: Vancouver Property Parcel Polygons
+    source_group: municipal
+    provider: City of Vancouver
+    source_url: https://opendata.vancouver.ca/explore/dataset/property-parcel-polygons/
+    access_method: open_data_api_or_download
+    expected_frequency: periodic
+    file_format: geojson
+    spatial_grain: parcel_polygon
+    temporal_grain: current_snapshot
+    time_window:
+      start_year: null
+      end_year: null
+    target_bronze_table: bronze_vancouver_property_parcels
+    target_silver_table: silver_vancouver_parcel
+    downstream_use:
+      - vancouver_parcel_exposure
+      - parcel_floodplain_overlay
+    required_fields:
+      - parcel_id
+      - geometry
+    validation_checks:
+      - schema_hash
+      - row_count
+      - geometry_validity
+      - crs_check
+    redistribution: public
+
+  vancouver_property_tax:
+    display_name: Vancouver Property Tax Report
+    source_group: municipal
+    provider: City of Vancouver
+    source_url: https://vancouver.opendatasoft.com/explore/dataset/property-tax-report/
+    access_method: open_data_api_or_download
+    expected_frequency: annual
+    file_format: csv
+    spatial_grain: parcel_or_property
+    temporal_grain: annual
+    time_window:
+      start_year: null
+      end_year: null
+    target_bronze_table: bronze_vancouver_property_tax
+    target_silver_table: silver_vancouver_property_tax
+    downstream_use:
+      - vancouver_property_value_proxy
+      - vancouver_parcel_exposure
+    required_fields:
+      - property_tax_year
+      - total_value
+    validation_checks:
+      - schema_hash
+      - row_count
+      - non_negative_values
+    redistribution: public
+
+  vancouver_building_permits:
+    display_name: Vancouver Issued Building Permits
+    source_group: municipal
+    provider: City of Vancouver
+    source_url: https://vancouver.aws-ec2-ca-central-1.opendatasoft.com/explore/dataset/issued-building-permits/
+    access_method: open_data_api_or_download
+    expected_frequency: monthly
+    file_format: csv_or_geojson
+    spatial_grain: address_or_parcel
+    temporal_grain: permit
+    time_window:
+      start_year: 2017
+      end_year: null
+    target_bronze_table: bronze_vancouver_building_permits
+    target_silver_table: silver_vancouver_permit_property_map
+    downstream_use:
+      - vancouver_development_activity
+      - vancouver_parcel_exposure
+    required_fields:
+      - permit_id
+      - issue_date
+    validation_checks:
+      - schema_hash
+      - row_count
+      - date_range
+    redistribution: public
+
+  vancouver_floodplain:
+    display_name: Vancouver Designated Floodplain
+    source_group: municipal
+    provider: City of Vancouver
+    source_url: https://opendata.vancouver.ca/
+    access_method: open_data_api_or_download
+    expected_frequency: periodic
+    file_format: geojson
+    spatial_grain: polygon
+    temporal_grain: current_snapshot
+    time_window:
+      start_year: null
+      end_year: null
+    target_bronze_table: bronze_vancouver_floodplain
+    target_silver_table: silver_vancouver_parcel_flood_overlay
+    downstream_use:
+      - floodplain_overlap_pct
+      - vancouver_parcel_exposure
+    required_fields:
+      - geometry
+    validation_checks:
+      - schema_hash
+      - row_count
+      - geometry_validity
+      - crs_check
+    redistribution: public
+
+  calgary_property_assessment:
+    display_name: Calgary Property Assessment
+    source_group: municipal
+    provider: City of Calgary
+    source_url: https://data.calgary.ca/
+    access_method: open_data_api_or_download
+    expected_frequency: annual
+    file_format: csv_or_geojson
+    spatial_grain: property_or_parcel
+    temporal_grain: annual
+    time_window:
+      start_year: null
+      end_year: null
+    target_bronze_table: bronze_calgary_property_assessment
+    target_silver_table: silver_calgary_property
+    downstream_use:
+      - calgary_property_flood_exposure
+      - assessed_value_proxy
+    required_fields:
+      - property_id
+      - assessment_year
+      - assessed_value
+    validation_checks:
+      - schema_hash
+      - row_count
+      - non_negative_values
+    redistribution: public
+
+  calgary_flood_hazard:
+    display_name: Calgary Regulatory Flood Hazard Map
+    source_group: municipal
+    provider: City of Calgary
+    source_url: https://data.calgary.ca/Environment/Regulatory-Flood-Hazard-Map-Steplines/3q69-wm6a/about
+    access_method: open_data_api_or_download
+    expected_frequency: periodic
+    file_format: geojson
+    spatial_grain: polygon
+    temporal_grain: current_snapshot
+    time_window:
+      start_year: null
+      end_year: null
+    target_bronze_table: bronze_calgary_flood_hazard
+    target_silver_table: silver_calgary_flood_hazard
+    downstream_use:
+      - calgary_property_flood_overlay
+      - flood_zone_category
+    required_fields:
+      - geometry
+    validation_checks:
+      - schema_hash
+      - row_count
+      - geometry_validity
+      - crs_check
+    redistribution: public
+
+  calgary_building_permits:
+    display_name: Calgary Building Permits
+    source_group: municipal
+    provider: City of Calgary
+    source_url: https://data.calgary.ca/
+    access_method: open_data_api_or_download
+    expected_frequency: monthly
+    file_format: csv_or_geojson
+    spatial_grain: address_or_property
+    temporal_grain: permit
+    time_window:
+      start_year: null
+      end_year: null
+    target_bronze_table: bronze_calgary_building_permits
+    target_silver_table: silver_calgary_permit_property_map
+    downstream_use:
+      - calgary_development_activity
+      - calgary_property_flood_exposure
+    required_fields:
+      - permit_id
+      - issue_date
+    validation_checks:
+      - schema_hash
+      - row_count
+      - date_range
+    redistribution: public

@@ -1,0 +1,80 @@
+﻿project:
+  name: canadian_climate_property_risk_platform
+  display_name: Canadian Climate & Property Risk Data Platform
+  environment: local-dev
+  description: >
+    DE-focused Azure/Spark geospatial lakehouse for BC and Alberta climate,
+    hydrometric, wildfire, disaster, development, and municipal property-context
+    exposure screening.
+
+geographic_scope:
+  provinces:
+    - code: BC
+      name: British Columbia
+    - code: AB
+      name: Alberta
+
+  cities:
+    - name: Vancouver
+      province: BC
+      role: parcel_exposure_deep_dive
+    - name: Calgary
+      province: AB
+      role: property_flood_exposure_deep_dive
+
+time_scope:
+  historical_baseline:
+    start_year: 2016
+    end_year: 2025
+    purpose: historical_baseline_percentiles_anomalies_backtesting
+
+  incremental_refresh:
+    start_year: 2026
+    purpose: current_monitoring_layer
+
+  vancouver_permits:
+    start_year: 2017
+    end_year: null
+
+  municipal_property:
+    start_year: null
+    end_year: null
+
+spatial_units:
+  province_grid:
+    name: grid_10km_bc_ab
+    resolution_m: 10000
+    area: BC_AB
+    core: true
+
+  city_grid:
+    name: grid_1km_vancouver_calgary
+    resolution_m: 1000
+    area:
+      - Vancouver
+      - Calgary
+    core: true
+
+  vancouver_parcel:
+    name: vancouver_property_parcel
+    geometry_type: polygon
+    core: true
+
+  calgary_property:
+    name: calgary_property_or_parcel
+    geometry_type: polygon_or_centroid
+    core: true
+
+  municipality:
+    name: census_subdivision_municipality
+    geometry_type: polygon
+    core: true
+
+non_goals:
+  - insurance_underwriting_model
+  - legal_property_risk_assessment
+  - engineering_grade_flood_depth_model
+  - property_value_prediction_model
+  - full_stack_webgis_application
+  - real_time_streaming_platform
+  - full_canada_property_level_model

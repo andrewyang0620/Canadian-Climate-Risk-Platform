@@ -5,7 +5,6 @@ from typing import Any
 
 from src.utils.config import ConfigError, load_project_config
 
-
 REQUIRED_SOURCE_FIELDS = {
     "display_name",
     "source_group",
@@ -142,7 +141,9 @@ class SourceRegistry:
         for table_field in ("target_bronze_table", "target_silver_table"):
             value = metadata[table_field]
             if not isinstance(value, str) or not value.strip():
-                raise ConfigError(f"Source '{source_name}' field '{table_field}' must be non-empty.")
+                raise ConfigError(
+                    f"Source '{source_name}' field '{table_field}' must be non-empty."
+                )
 
         source_url = metadata["source_url"]
         if not isinstance(source_url, str) or not source_url.startswith("http"):
@@ -161,11 +162,7 @@ class SourceRegistry:
 
     def filter_by_group(self, source_group: str) -> list[SourceDefinition]:
         """Return sources that belong to a source group."""
-        return [
-            source
-            for source in self.sources.values()
-            if source.source_group == source_group
-        ]
+        return [source for source in self.sources.values() if source.source_group == source_group]
 
     def bronze_tables(self) -> set[str]:
         """Return all configured Bronze table names."""

@@ -7,9 +7,7 @@ from src.ingestion.source_registry import SourceRegistry
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Run Bronze ingestion framework smoke tests."
-    )
+    parser = argparse.ArgumentParser(description="Run Bronze ingestion framework smoke tests.")
 
     parser.add_argument(
         "--group",

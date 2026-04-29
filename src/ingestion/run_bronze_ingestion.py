@@ -3,11 +3,14 @@
 import argparse
 
 from src.ingestion.bronze_writer import BronzeWriter
+from src.ingestion.downloaders.national_sources import NationalSourceDownloader
 from src.ingestion.source_registry import SourceRegistry
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run Bronze ingestion framework smoke tests.")
+    parser = argparse.ArgumentParser(
+        description="Run Bronze ingestion framework utilities."
+    )
 
     parser.add_argument(
         "--group",
@@ -19,7 +22,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--source",
         default=None,
-        help="Optional single source name to ingest.",
+        help="Optional single source name.",
     )
 
     parser.add_argument(
@@ -34,6 +37,18 @@ def parse_args() -> argparse.Namespace:
         help="Write small smoke-test raw files instead of downloading real sources.",
     )
 
+    parser.add_argument(
+        "--list-plans",
+        action="store_true",
+        help="Print national/provincial download plans.",
+    )
+
+    parser.add_argument(
+        "--probe-source",
+        action="store_true",
+        help="Probe a configured national/provincial source landing page.",
+    )
+
     return parser.parse_args()
 
 
@@ -42,6 +57,39 @@ def main() -> None:
 
     registry = SourceRegistry()
     writer = BronzeWriter(args.bronze_base_path)
+    national_downloader = NationalSourceDownloader(registry=registry)
+
+    if args.list_plans:
+        plans = (
+            [national_downloader.build_plan(args.source)]
+            if args.source
+            else national_downloader.build_all_plans()
+        )
+
+        for plan in plans:
+            print(
+                f"[PLAN] {plan.source_name} | "
+                f"method={plan.access_method} | "
+                f"format={plan.file_format} | "
+                f"bronze={plan.target_bronze_table} | "
+                f"filename={plan.suggested_raw_filename} | "
+                f"implemented={plan.implemented}"
+            )
+
+        return
+
+    if args.probe_source:
+        if not args.source:
+            raise ValueError("--probe-source requires --source")
+
+        result = national_downloader.probe_source_landing_page(args.source)
+        print(
+            f"[PROBE OK] {args.source} | "
+            f"status={result.status_code} | "
+            f"bytes={result.size_bytes} | "
+            f"content_type={result.content_type}"
+        )
+        return
 
     if args.source:
         sources = [registry.get_source(args.source)]

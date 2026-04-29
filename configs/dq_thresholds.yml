@@ -1,0 +1,70 @@
+﻿freshness:
+  daily:
+    warning_after_days: 2
+    critical_after_days: 4
+  monthly:
+    warning_after_days: 45
+    critical_after_days: 75
+  quarterly:
+    warning_after_days: 120
+    critical_after_days: 180
+  annual:
+    warning_after_days: 425
+    critical_after_days: 550
+  periodic:
+    warning_after_days: 365
+    critical_after_days: 730
+
+row_count_anomaly:
+  rolling_window_runs: 5
+  warning_change_pct: 0.30
+  critical_change_pct: 0.60
+  allow_zero_rows: false
+
+schema_hash:
+  fail_on_missing_required_field: true
+  warn_on_new_field: true
+  critical_on_type_change: true
+
+coordinates:
+  latitude:
+    min: 40
+    max: 85
+  longitude:
+    min: -145
+    max: -50
+  province_bbox_required: true
+
+geometry:
+  minimum_valid_rate: 0.98
+  warning_invalid_rate: 0.02
+  critical_invalid_rate: 0.05
+  repair_invalid_geometries: true
+  fail_if_repair_rate_above: 0.10
+
+crs:
+  required_processing_epsg: 3347
+  required_serving_epsg: 4326
+  fail_on_unknown_source_crs: false
+  warn_on_unknown_source_crs: true
+
+spatial_join:
+  warning_match_rate_below: 0.90
+  critical_match_rate_below: 0.75
+  warning_p95_distance_km_above: 100
+  critical_p95_distance_km_above: 250
+
+values:
+  precipitation:
+    allow_negative: false
+  permit_value:
+    allow_negative: false
+  assessed_value:
+    allow_negative: false
+  score:
+    min: 0
+    max: 100
+
+dbt:
+  fail_on_test_error: true
+  warn_if_tests_failed_above: 0

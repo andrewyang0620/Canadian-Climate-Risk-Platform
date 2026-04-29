@@ -1,0 +1,115 @@
+﻿score_versions:
+  current: v0.1.0
+
+grid_priority_score:
+  name: Grid-Level Climate-Hazard Exposure Priority Score
+  grain: grid_month
+  score_range:
+    min: 0
+    max: 100
+  components:
+    flood_signal_score:
+      weight: 0.30
+      inputs:
+        - water_level_percentile
+        - nearest_hydro_station_km
+        - hydro_station_count_75km
+
+    wildfire_exposure_score:
+      weight: 0.25
+      inputs:
+        - wildfire_count_25km
+        - wildfire_count_50km
+        - nearest_wildfire_km
+
+    weather_extreme_score:
+      weight: 0.25
+      inputs:
+        - precip_percentile
+        - heat_anomaly_score
+
+    development_exposure_score:
+      weight: 0.20
+      inputs:
+        - permit_value_monthly
+        - permit_unit_count_monthly
+
+  baselines:
+    - equal_weight
+    - hazard_only
+    - validation_calibrated
+
+  priority_tiers:
+    high:
+      min_score: 80
+      max_score: 100
+    medium:
+      min_score: 50
+      max_score: 79.999
+    low:
+      min_score: 0
+      max_score: 49.999
+
+coverage_confidence:
+  rule: report_separately_not_hidden_inside_score
+  score_range:
+    min: 0
+    max: 100
+
+vancouver_parcel_exposure_score:
+  name: Vancouver Parcel Exposure Screening Score
+  grain: parcel_year
+  score_range:
+    min: 0
+    max: 100
+  components:
+    floodplain_overlap_component:
+      weight: 0.45
+    property_value_exposure_component:
+      weight: 0.35
+    permit_activity_component:
+      weight: 0.20
+  tiers:
+    high:
+      min_score: 80
+      max_score: 100
+    medium:
+      min_score: 50
+      max_score: 79.999
+    low:
+      min_score: 0
+      max_score: 49.999
+
+calgary_property_flood_exposure_score:
+  name: Calgary Property Flood Exposure Screening Score
+  grain: property_year
+  score_range:
+    min: 0
+    max: 100
+  components:
+    regulatory_flood_zone_component:
+      weight: 0.50
+    assessed_value_exposure_component:
+      weight: 0.30
+    building_or_development_activity_component:
+      weight: 0.20
+  tiers:
+    high:
+      min_score: 80
+      max_score: 100
+    medium:
+      min_score: 50
+      max_score: 79.999
+    low:
+      min_score: 0
+      max_score: 49.999
+
+validation_metrics:
+  - event_capture_at_top_10_pct
+  - lift_at_top_10_pct
+  - precision_at_k
+  - recall_at_k
+  - pr_auc
+  - spearman_rank_stability
+  - jaccard_top_k_stability
+  - weight_sensitivity

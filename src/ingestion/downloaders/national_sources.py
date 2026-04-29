@@ -51,10 +51,7 @@ class NationalSourceDownloader:
 
     def list_sources(self) -> list[str]:
         """List configured national/provincial source names."""
-        return [
-            source.name
-            for source in self._national_source_definitions()
-        ]
+        return [source.name for source in self._national_source_definitions()]
 
     def build_plan(self, source_name: str) -> NationalDownloadPlan:
         """Build a download plan for one configured source."""
@@ -82,10 +79,7 @@ class NationalSourceDownloader:
 
     def build_all_plans(self) -> list[NationalDownloadPlan]:
         """Build download plans for all national/provincial sources."""
-        return [
-            self.build_plan(source.name)
-            for source in self._national_source_definitions()
-        ]
+        return [self.build_plan(source.name) for source in self._national_source_definitions()]
 
     def probe_source_landing_page(self, source_name: str) -> HttpDownloadResult:
         """Probe a source landing page to confirm basic HTTP accessibility.

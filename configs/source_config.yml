@@ -179,6 +179,12 @@
     source_group: national
     provider: Public Safety Canada
     source_url: https://www.publicsafety.gc.ca/cnt/rsrcs/cndn-dsstr-dtbs/index-en.aspx
+    open_data_dataset_id: 1c3d15f9-9cfa-4010-8462-0d67e493d9b9
+    open_data_api_url: https://open.canada.ca/data/api/action/package_show
+    preferred_resource_formats:
+      - CSV
+      - XLSX
+      - XLS
     access_method: spreadsheet_download
     expected_frequency: periodic
     file_format: xlsx_or_csv

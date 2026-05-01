@@ -236,6 +236,10 @@
       - geometry_validity
       - crs_check
     redistribution: public
+    portal_type: opendatasoft
+    opendatasoft_base_url: https://opendata.vancouver.ca
+    dataset_id: property-parcel-polygons
+    preferred_export_format: geojson
 
   vancouver_property_tax:
     display_name: Vancouver Property Tax Report
@@ -263,6 +267,10 @@
       - row_count
       - non_negative_values
     redistribution: public
+    portal_type: opendatasoft
+    opendatasoft_base_url: https://opendata.vancouver.ca
+    dataset_id: property-tax-report
+    preferred_export_format: csv
 
   vancouver_building_permits:
     display_name: Vancouver Issued Building Permits
@@ -290,6 +298,10 @@
       - row_count
       - date_range
     redistribution: public
+    portal_type: opendatasoft
+    opendatasoft_base_url: https://opendata.vancouver.ca
+    dataset_id: issued-building-permits
+    preferred_export_format: csv
 
   vancouver_floodplain:
     display_name: Vancouver Designated Floodplain
@@ -317,6 +329,10 @@
       - geometry_validity
       - crs_check
     redistribution: public
+    portal_type: opendatasoft
+    opendatasoft_base_url: https://opendata.vancouver.ca
+    dataset_id: designated-floodplain
+    preferred_export_format: geojson
 
   calgary_property_assessment:
     display_name: Calgary Property Assessment
@@ -345,6 +361,10 @@
       - row_count
       - non_negative_values
     redistribution: public
+    portal_type: socrata
+    socrata_domain: data.calgary.ca
+    dataset_id: 4bsw-nn7w
+    preferred_export_format: csv
 
   calgary_flood_hazard:
     display_name: Calgary Regulatory Flood Hazard Map
@@ -372,6 +392,10 @@
       - geometry_validity
       - crs_check
     redistribution: public
+    portal_type: socrata
+    socrata_domain: data.calgary.ca
+    dataset_id: 3q69-wm6a
+    preferred_export_format: geojson
 
   calgary_building_permits:
     display_name: Calgary Building Permits
@@ -387,6 +411,41 @@
       start_year: null
       end_year: null
     target_bronze_table: bronze_calgary_building_permits
+    target_silver_table: silver_calgary_permit_property_map
+    downstream_use:
+      - calgary_development_activity
+      - calgary_property_flood_exposure
+    required_fields:
+      - permit_id
+      - issue_date
+    validation_checks:
+      - schema_hash
+      - row_count
+      - date_range
+    redistribution: public
+    portal_type: socrata
+    socrata_domain: data.calgary.ca
+    dataset_id: c2es-76ed
+    preferred_export_format: csv
+
+  calgary_development_permits:
+    display_name: Calgary Development Permits
+    source_group: municipal
+    provider: City of Calgary
+    source_url: https://data.calgary.ca/Business-and-Economic-Activity/Development-Permits/6933-unw5
+    portal_type: socrata
+    socrata_domain: data.calgary.ca
+    dataset_id: 6933-unw5
+    preferred_export_format: csv
+    access_method: open_data_api_or_download
+    expected_frequency: monthly
+    file_format: csv
+    spatial_grain: address_or_property
+    temporal_grain: permit
+    time_window:
+      start_year: null
+      end_year: null
+    target_bronze_table: bronze_calgary_development_permits
     target_silver_table: silver_calgary_permit_property_map
     downstream_use:
       - calgary_development_activity

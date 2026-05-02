@@ -31,6 +31,8 @@ class DummyMunicipalDownloader:
             target_bronze_table="bronze_vancouver_property_parcels",
             suggested_raw_filename="vancouver_property_parcels_raw.geojson",
             implemented=True,
+            paginated=False,
+            page_limit=None,
         )
 
         download = HttpDownloadResult(
@@ -76,6 +78,8 @@ def test_municipal_bronze_ingestor_writes_raw_and_metadata(tmp_path):
     assert metadata["extra_metadata"]["municipal_dataset_id"] == "property-parcel-polygons"
     assert metadata["extra_metadata"]["municipal_export_format"] == "geojson"
     assert metadata["extra_metadata"]["download_status_code"] == 200
+    assert metadata["extra_metadata"]["municipal_paginated"] is False
+    assert metadata["extra_metadata"]["municipal_page_limit"] is None
 
     manifest_lines = result.bronze_result.manifest_path.read_text(encoding="utf-8").splitlines()
     assert len(manifest_lines) == 1

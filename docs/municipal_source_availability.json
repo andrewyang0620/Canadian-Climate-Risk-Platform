@@ -87,10 +87,10 @@
     },
     {
       "download": {
-        "checksum": "bdcb554675042fb0dd1b01555b3905ccff0ee284bb10f71654b0a3f1063c1387",
+        "checksum": "7286b4717e428a7626f1fe6643eb557a6a7b1f2c9c5363e69dd56434fc10806c",
         "content_type": "text/csv; charset=UTF-8",
         "final_url": "https://data.calgary.ca/resource/4bsw-nn7w.csv",
-        "size_bytes": 507075,
+        "size_bytes": 361648964,
         "status_code": 200
       },
       "error": null,
@@ -129,10 +129,10 @@
     },
     {
       "download": {
-        "checksum": "056260d067e59a56a60d4ced00b559945d257347429e0aec915d060dc1f18816",
+        "checksum": "e1f678e229822ff0027fc1e20c08a462a25570f0515cff731d25f402bfc595d8",
         "content_type": "text/csv; charset=UTF-8",
         "final_url": "https://data.calgary.ca/resource/c2es-76ed.csv",
-        "size_bytes": 837842,
+        "size_bytes": 342520040,
         "status_code": 200
       },
       "error": null,
@@ -150,10 +150,10 @@
     },
     {
       "download": {
-        "checksum": "43cea17343bb189330c1ed80bd1571708afba28212f786bfbe19db52043bf4b1",
+        "checksum": "3cb4a752fa183aeb67f5c31da846a5ef59ad775ada4db6723487c82cbd669c59",
         "content_type": "text/csv; charset=UTF-8",
         "final_url": "https://data.calgary.ca/resource/6933-unw5.csv",
-        "size_bytes": 796308,
+        "size_bytes": 141329881,
         "status_code": 200
       },
       "error": null,
@@ -170,5 +170,5 @@
       "status": "available"
     }
   ],
-  "validated_at": "2026-05-01T18:14:11+00:00"
+  "validated_at": "2026-05-02T03:19:49+00:00"
 }

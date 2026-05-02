@@ -73,6 +73,8 @@ class MunicipalBronzeIngestor:
                 "municipal_dataset_id": plan.dataset_id,
                 "municipal_export_format": plan.export_format,
                 "municipal_download_url": plan.download_url,
+                "municipal_paginated": plan.paginated,
+                "municipal_page_limit": plan.page_limit,
                 "download_final_url": download.final_url,
                 "download_status_code": download.status_code,
                 "download_content_type": download.content_type,

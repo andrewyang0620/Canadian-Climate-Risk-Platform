@@ -38,12 +38,16 @@ class DummySocrataDownloader:
     def build_export_plan(self, domain, dataset_id, export_format):
         from src.ingestion.downloaders.socrata import SocrataDownloadPlan
 
+        is_paginated = export_format == "csv"
+
         return SocrataDownloadPlan(
             domain=domain,
             dataset_id=dataset_id,
             export_format=export_format,
             download_url=f"https://{domain}/resource/{dataset_id}.{export_format}",
             suggested_filename=f"{dataset_id}_raw.{export_format}",
+            paginated=is_paginated,
+            page_limit=50000 if is_paginated else None,
         )
 
     def download_dataset(self, domain, dataset_id, export_format):
@@ -91,6 +95,7 @@ def test_municipal_source_downloader_builds_vancouver_plan():
     assert plan.export_format == "geojson"
     assert plan.target_bronze_table == "bronze_vancouver_property_parcels"
     assert plan.implemented is True
+    assert plan.paginated is False
 
 
 def test_municipal_source_downloader_builds_calgary_plan():
@@ -104,6 +109,8 @@ def test_municipal_source_downloader_builds_calgary_plan():
     assert plan.export_format == "csv"
     assert plan.target_bronze_table == "bronze_calgary_building_permits"
     assert plan.implemented is True
+    assert plan.paginated is True
+    assert plan.page_limit == 50000
 
 
 def test_municipal_source_downloader_rejects_national_source():

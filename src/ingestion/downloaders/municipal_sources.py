@@ -29,6 +29,8 @@ class MunicipalDownloadPlan:
     target_bronze_table: str
     suggested_raw_filename: str
     implemented: bool
+    paginated: bool = False
+    page_limit: int | None = None
 
 
 @dataclass(frozen=True)
@@ -80,6 +82,8 @@ class MunicipalSourceDownloader:
                 target_bronze_table=source.target_bronze_table,
                 suggested_raw_filename=f"{source.name}_raw.{_extension_from_filename(ods_plan.suggested_filename)}",
                 implemented=True,
+                paginated=False,
+                page_limit=None,
             )
 
         if portal_type == "socrata":
@@ -95,6 +99,8 @@ class MunicipalSourceDownloader:
                 target_bronze_table=source.target_bronze_table,
                 suggested_raw_filename=f"{source.name}_raw.{_extension_from_filename(socrata_plan.suggested_filename)}",
                 implemented=True,
+                paginated=socrata_plan.paginated,
+                page_limit=socrata_plan.page_limit,
             )
 
         raise MunicipalSourceDownloaderError(

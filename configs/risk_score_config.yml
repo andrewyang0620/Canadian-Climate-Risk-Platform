@@ -69,7 +69,7 @@ vancouver_parcel_exposure_score:
       weight: 0.35
     permit_activity_component:
       weight: 0.20
-  tiers:
+  priority_tiers:
     high:
       min_score: 80
       max_score: 100
@@ -93,7 +93,7 @@ calgary_property_flood_exposure_score:
       weight: 0.30
     building_or_development_activity_component:
       weight: 0.20
-  tiers:
+  priority_tiers:
     high:
       min_score: 80
       max_score: 100

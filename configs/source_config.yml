@@ -22,11 +22,44 @@
       - date
       - latitude
       - longitude
+    climate_measurement_contract:
+      required_measurements:
+        - temperature
+        - precipitation
+      validation_rule: at_least_one_weather_measurement_present_after_silver_standardization
+      downstream_standard_names:
+        max_temperature: max_temp_c
+        min_temperature: min_temp_c
+        mean_temperature: mean_temp_c
+        total_precipitation: total_precip_mm
+      candidate_raw_fields:
+        temperature:
+          - MAX_TEMP
+          - MIN_TEMP
+          - MEAN_TEMP
+          - max_temp
+          - min_temp
+          - mean_temp
+        precipitation:
+          - TOTAL_PRECIP
+          - TOTAL_RAIN
+          - TOTAL_SNOW
+          - precip
+          - precipitation
+      note: >
+        ECCC climate downloads may expose weather fields with different names across
+        formats. Silver standardization must produce temperature and/or precipitation
+        measurements required by weather extreme features.
     validation_checks:
       - schema_hash
       - row_count
       - coordinate_range
       - date_range
+    post_silver_validation_checks:
+      - climate_measurement_presence
+      - temperature_reasonable_range
+      - precipitation_non_negative
+      - station_date_uniqueness
     redistribution: public
 
   eccc_hydrometric_realtime:
@@ -52,11 +85,27 @@
       - observed_at
       - latitude
       - longitude
+    measurement_contract:
+      required_measurements:
+        - discharge
+        - water_level
+      validation_rule: at_least_one_measurement_present_after_silver_standardization
+      downstream_standard_names:
+        discharge: discharge_cms
+        water_level: water_level_m
+      note: >
+        Real-time hydrometric data must produce at least one standardized water
+        measurement after Silver processing. Raw API field names may differ, so this
+        requirement is enforced after source-specific standardization.
     validation_checks:
       - schema_hash
       - row_count
       - coordinate_range
       - freshness
+    post_silver_validation_checks:
+      - hydrometric_measurement_presence
+      - non_negative_discharge
+      - station_timestamp_uniqueness
     redistribution: public
 
   hydat_archive:
@@ -77,13 +126,30 @@
     downstream_use:
       - hydrometric_baseline
       - water_level_percentile
+      - discharge_percentile
     required_fields:
       - station_id
       - date
+    measurement_contract:
+      required_measurements:
+        - discharge
+        - water_level
+      validation_rule: at_least_one_measurement_present_after_silver_standardization
+      downstream_standard_names:
+        discharge: discharge_cms
+        water_level: water_level_m
+      note: >
+        HYDAT is a structured archive rather than a single flat file. Raw field names
+        may differ by table, so discharge and water-level requirements are enforced
+        after Silver standardization rather than as direct Bronze field names.
     validation_checks:
       - schema_hash
       - row_count
       - date_range
+    post_silver_validation_checks:
+      - hydrometric_measurement_presence
+      - non_negative_discharge
+      - station_date_uniqueness
     redistribution: public
 
   wildfire_history:
@@ -113,7 +179,11 @@
       - schema_hash
       - row_count
       - coordinate_range
+      - event_date_range
+    post_silver_validation_checks:
+      - geometry_constructed_from_coordinates
       - geometry_validity
+      - crs_check
     redistribution: public
 
   statcan_building_permits:
@@ -138,40 +208,93 @@
       - municipality
       - period
       - permit_value
+    municipality_mapping_contract:
+      intended_join_target: census_boundaries
+      intended_join_target_silver_table: silver_boundary_municipality
+      join_required_for_downstream: true
+      candidate_geography_fields:
+        - municipality
+        - geo
+        - geo_code
+        - csd_name
+        - csd_uid
+        - province
+      validation_rule: at_least_one_municipality_identifier_present_after_silver_standardization
+      downstream_standard_names:
+        municipality_key: municipality_key
+        municipality_name: municipality_name
+        province: province
+      note: >
+        Statistics Canada building permit geography must be standardized to the
+        municipality/CSD boundary table before municipality-month priority marts can
+        be built.
     validation_checks:
       - schema_hash
       - row_count
       - non_negative_values
       - date_range
+    post_silver_validation_checks:
+      - municipality_identifier_presence
+      - municipality_boundary_join_coverage
+      - permit_value_non_negative
+      - municipality_month_uniqueness
     redistribution: public
 
   census_boundaries:
-    display_name: Census / CSD / Province Boundaries
+    display_name: Census Province and Municipality Boundaries
     source_group: national
     provider: Statistics Canada
     source_url: https://www12.statcan.gc.ca/census-recensement/index-eng.cfm
     access_method: boundary_file_download
     expected_frequency: periodic
     file_format: shapefile_or_geojson
-    spatial_grain: polygon
+    spatial_grain: province_and_municipality_polygon
     temporal_grain: static_or_periodic
     time_window:
       start_year: null
       end_year: null
     target_bronze_table: bronze_boundaries
     target_silver_table: silver_boundary_municipality
+    additional_silver_tables:
+      - silver_boundary_province
     downstream_use:
-      - grid_generation
+      - province_filtering
+      - province_grid_clipping
       - municipality_rollup
+      - grid_to_municipality_map
       - validation_mapping
     required_fields:
-      - municipality_key
       - geometry
+    boundary_contract:
+      required_boundary_outputs:
+        - silver_boundary_province
+        - silver_boundary_municipality
+      required_standard_fields:
+        silver_boundary_province:
+          - province_key
+          - province_name
+          - geometry
+        silver_boundary_municipality:
+          - municipality_key
+          - municipality_name
+          - province
+          - geometry
+      validation_rule: both_province_and_municipality_boundaries_required_after_silver_standardization
+      note: >
+        The raw boundary download may contain multiple boundary layers or files.
+        Bronze validation only requires geometry. Silver standardization must produce
+        both province-level and municipality/CSD-level boundary tables with stable
+        standard fields for grid clipping and municipality rollups.
     validation_checks:
       - schema_hash
       - row_count
       - geometry_validity
       - crs_check
+    post_silver_validation_checks:
+      - province_boundary_standard_fields
+      - municipality_boundary_standard_fields
+      - boundary_geometry_validity
+      - boundary_crs_check
     redistribution: public
 
   canadian_disaster_database:
@@ -203,10 +326,33 @@
       - event_id
       - event_date
       - province
+    location_mapping_contract:
+      required_for_downstream_validation: true
+      minimum_geographic_grain: province_plus_location_text
+      candidate_location_fields:
+        - municipality
+        - event_location
+        - location
+        - place
+        - affected_area
+        - geographic_area
+      fallback_mapping_methods:
+        - province_level_event_month
+        - manual_location_lookup_table
+        - text_to_municipality_standardization
+      validation_rule: province_required_and_at_least_one_location_candidate_or_mapping_available
+      note: >
+        CDD event geography may be reported as municipality, region, affected area,
+        or free-text location. Silver processing must preserve enough geographic
+        information to support disaster-event mapping for score validation.
     validation_checks:
       - schema_hash
       - row_count
       - date_range
+    post_silver_validation_checks:
+      - disaster_location_candidate_presence
+      - province_event_month_mapping
+      - validation_event_geography_coverage
     redistribution: public
 
   vancouver_property_parcels:
@@ -226,15 +372,29 @@
     target_silver_table: silver_vancouver_parcel
     downstream_use:
       - vancouver_parcel_exposure
-      - parcel_floodplain_overlay
+      - vancouver_parcel_flood_overlay
     required_fields:
-      - parcel_id
       - geometry
+    identity_contract:
+      primary_entity: parcel
+      stable_id_required: true
+      candidate_id_fields:
+        - parcel_id
+        - pid
+        - site_id
+        - legal_description
+      validation_rule: at_least_one_candidate_id_present
+      note: >
+        The parcel source must provide a stable parcel identity for downstream joins,
+        but the exact raw field name should be confirmed during Silver profiling.
     validation_checks:
       - schema_hash
       - row_count
       - geometry_validity
       - crs_check
+    post_silver_validation_checks:
+      - parcel_identity_candidate_presence
+      - parcel_geometry_validity
     redistribution: public
     portal_type: opendatasoft
     opendatasoft_base_url: https://opendata.vancouver.ca
@@ -245,7 +405,7 @@
     display_name: Vancouver Property Tax Report
     source_group: municipal
     provider: City of Vancouver
-    source_url: https://vancouver.opendatasoft.com/explore/dataset/property-tax-report/
+    source_url: https://opendata.vancouver.ca/explore/dataset/property-tax-report/
     access_method: open_data_api_or_download
     expected_frequency: annual
     file_format: csv
@@ -262,10 +422,28 @@
     required_fields:
       - property_tax_year
       - total_value
+    join_contract:
+      intended_join_target: vancouver_property_parcels
+      intended_join_target_silver_table: silver_vancouver_parcel
+      join_required_for_downstream: true
+      candidate_join_keys:
+        - pid
+        - parcel_id
+        - legal_description
+        - civic_address
+        - folio
+      validation_rule: at_least_one_candidate_key_present
+      note: >
+        The exact Vancouver property tax join key should be confirmed during Silver
+        profiling. The contract records candidate keys instead of prematurely forcing
+        a raw field name that may not exist in the source export.
     validation_checks:
       - schema_hash
       - row_count
       - non_negative_values
+    post_silver_validation_checks:
+      - join_key_candidate_presence
+      - parcel_join_coverage
     redistribution: public
     portal_type: opendatasoft
     opendatasoft_base_url: https://opendata.vancouver.ca
@@ -276,27 +454,41 @@
     display_name: Vancouver Issued Building Permits
     source_group: municipal
     provider: City of Vancouver
-    source_url: https://vancouver.aws-ec2-ca-central-1.opendatasoft.com/explore/dataset/issued-building-permits/
+    source_url: https://opendata.vancouver.ca/explore/dataset/issued-building-permits/
     access_method: open_data_api_or_download
     expected_frequency: monthly
-    file_format: csv_or_geojson
+    file_format: csv
     spatial_grain: address_or_parcel
     temporal_grain: permit
     time_window:
       start_year: 2017
       end_year: null
     target_bronze_table: bronze_vancouver_building_permits
-    target_silver_table: silver_vancouver_permit_property_map
+    target_silver_table: silver_vancouver_building_permits
     downstream_use:
       - vancouver_development_activity
       - vancouver_parcel_exposure
+      - vancouver_permit_property_map
     required_fields:
       - permit_id
       - issue_date
+    join_contract:
+      intended_join_target: vancouver_property_parcels
+      intended_join_target_silver_table: silver_vancouver_parcel
+      join_required_for_downstream: true
+      candidate_join_keys:
+        - pid
+        - parcel_id
+        - civic_address
+        - address
+      validation_rule: at_least_one_candidate_key_or_geocodable_address_present
     validation_checks:
       - schema_hash
       - row_count
       - date_range
+    post_silver_validation_checks:
+      - permit_date_validity
+      - parcel_or_address_join_coverage
     redistribution: public
     portal_type: opendatasoft
     opendatasoft_base_url: https://opendata.vancouver.ca
@@ -307,7 +499,7 @@
     display_name: Vancouver Designated Floodplain
     source_group: municipal
     provider: City of Vancouver
-    source_url: https://opendata.vancouver.ca/
+    source_url: https://opendata.vancouver.ca/explore/dataset/designated-floodplain/
     access_method: open_data_api_or_download
     expected_frequency: periodic
     file_format: geojson
@@ -317,8 +509,9 @@
       start_year: null
       end_year: null
     target_bronze_table: bronze_vancouver_floodplain
-    target_silver_table: silver_vancouver_parcel_flood_overlay
+    target_silver_table: silver_vancouver_floodplain
     downstream_use:
+      - vancouver_parcel_flood_overlay
       - floodplain_overlap_pct
       - vancouver_parcel_exposure
     required_fields:
@@ -341,7 +534,7 @@
     source_url: https://data.calgary.ca/
     access_method: open_data_api_or_download
     expected_frequency: annual
-    file_format: csv_or_geojson
+    file_format: csv
     spatial_grain: property_or_parcel
     temporal_grain: annual
     time_window:
@@ -356,10 +549,31 @@
       - property_id
       - assessment_year
       - assessed_value
+    coordinate_contract:
+      required_for_spatial_overlay: true
+      candidate_latitude_fields:
+        - latitude
+        - lat
+      candidate_longitude_fields:
+        - longitude
+        - lon
+        - lng
+      candidate_geometry_fields:
+        - location
+        - point
+        - geometry
+      validation_rule: coordinate_pair_or_geometry_field_required_after_silver_standardization
+      note: >
+        Calgary property records must provide coordinates or a geometry-like field
+        after Silver standardization to support flood hazard overlay.
     validation_checks:
       - schema_hash
       - row_count
       - non_negative_values
+      - coordinate_range
+    post_silver_validation_checks:
+      - coordinate_candidate_presence
+      - property_flood_overlay_coverage
     redistribution: public
     portal_type: socrata
     socrata_domain: data.calgary.ca
@@ -401,27 +615,41 @@
     display_name: Calgary Building Permits
     source_group: municipal
     provider: City of Calgary
-    source_url: https://data.calgary.ca/
+    source_url: https://data.calgary.ca/Business-and-Economic-Activity/Building-Permits/c2es-76ed
     access_method: open_data_api_or_download
     expected_frequency: monthly
-    file_format: csv_or_geojson
+    file_format: csv
     spatial_grain: address_or_property
     temporal_grain: permit
     time_window:
       start_year: null
       end_year: null
     target_bronze_table: bronze_calgary_building_permits
-    target_silver_table: silver_calgary_permit_property_map
+    target_silver_table: silver_calgary_building_permits
     downstream_use:
       - calgary_development_activity
       - calgary_property_flood_exposure
+      - calgary_permit_property_map
     required_fields:
       - permit_id
       - issue_date
+    join_contract:
+      intended_join_target: calgary_property_assessment
+      intended_join_target_silver_table: silver_calgary_property
+      join_required_for_downstream: true
+      candidate_join_keys:
+        - property_id
+        - roll_number
+        - address
+        - location
+      validation_rule: at_least_one_candidate_key_or_geocodable_address_present
     validation_checks:
       - schema_hash
       - row_count
       - date_range
+    post_silver_validation_checks:
+      - permit_date_validity
+      - property_or_address_join_coverage
     redistribution: public
     portal_type: socrata
     socrata_domain: data.calgary.ca
@@ -433,10 +661,6 @@
     source_group: municipal
     provider: City of Calgary
     source_url: https://data.calgary.ca/Business-and-Economic-Activity/Development-Permits/6933-unw5
-    portal_type: socrata
-    socrata_domain: data.calgary.ca
-    dataset_id: 6933-unw5
-    preferred_export_format: csv
     access_method: open_data_api_or_download
     expected_frequency: monthly
     file_format: csv
@@ -446,15 +670,33 @@
       start_year: null
       end_year: null
     target_bronze_table: bronze_calgary_development_permits
-    target_silver_table: silver_calgary_permit_property_map
+    target_silver_table: silver_calgary_development_permits
     downstream_use:
       - calgary_development_activity
       - calgary_property_flood_exposure
+      - calgary_permit_property_map
     required_fields:
       - permit_id
       - issue_date
+    join_contract:
+      intended_join_target: calgary_property_assessment
+      intended_join_target_silver_table: silver_calgary_property
+      join_required_for_downstream: true
+      candidate_join_keys:
+        - property_id
+        - roll_number
+        - address
+        - location
+      validation_rule: at_least_one_candidate_key_or_geocodable_address_present
     validation_checks:
       - schema_hash
       - row_count
       - date_range
+    post_silver_validation_checks:
+      - permit_date_validity
+      - property_or_address_join_coverage
     redistribution: public
+    portal_type: socrata
+    socrata_domain: data.calgary.ca
+    dataset_id: 6933-unw5
+    preferred_export_format: csv

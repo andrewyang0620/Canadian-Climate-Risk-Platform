@@ -27,12 +27,22 @@ schema_hash:
   critical_on_type_change: true
 
 coordinates:
-  latitude:
-    min: 40
-    max: 85
-  longitude:
-    min: -145
-    max: -50
+  raw_canada_range:
+    latitude:
+      min: 40
+      max: 85
+    longitude:
+      min: -145
+      max: -50
+
+  project_scope_range:
+    latitude:
+      min: 48.0
+      max: 60.5
+    longitude:
+      min: -140.0
+      max: -109.0
+      
   province_bbox_required: true
 
 geometry:
@@ -40,7 +50,7 @@ geometry:
   warning_invalid_rate: 0.02
   critical_invalid_rate: 0.05
   repair_invalid_geometries: true
-  fail_if_repair_rate_above: 0.10
+  fail_if_repair_rate_above: 0.05
 
 crs:
   required_processing_epsg: 3347

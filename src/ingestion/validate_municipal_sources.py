@@ -48,6 +48,7 @@ def main() -> None:
             "status": "unknown",
             "plan": None,
             "download": None,
+            "extra_metadata": None,
             "error": None,
         }
 
@@ -61,6 +62,8 @@ def main() -> None:
                 "target_bronze_table": plan.target_bronze_table,
                 "suggested_raw_filename": plan.suggested_raw_filename,
                 "implemented": plan.implemented,
+                "paginated": plan.paginated,
+                "page_limit": plan.page_limit,
             }
 
             if args.download:
@@ -72,6 +75,7 @@ def main() -> None:
                     "final_url": result.download.final_url,
                     "checksum": result.download.checksum,
                 }
+                record["extra_metadata"] = result.extra_metadata
 
             record["status"] = "available"
 
@@ -98,7 +102,8 @@ def main() -> None:
         print(f"[WARN] {len(failed)} municipal source(s) failed availability validation.")
         for item in failed:
             print(
-                f"  - {item['source_name']}: {item['error']['type']} | {item['error']['message']}"
+                f"  - {item['source_name']}: "
+                f"{item['error']['type']} | {item['error']['message']}"
             )
     else:
         print("[OK] all municipal sources available.")

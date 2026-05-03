@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 from src.ingestion.downloaders.http_downloader import HttpDownloadResult
 from src.ingestion.downloaders.opendatasoft import (
@@ -39,6 +40,7 @@ class MunicipalDownloadResult:
 
     plan: MunicipalDownloadPlan
     download: HttpDownloadResult
+    extra_metadata: dict[str, Any] = field(default_factory=dict)
 
 
 class MunicipalSourceDownloader:
@@ -80,7 +82,9 @@ class MunicipalSourceDownloader:
                 export_format=ods_plan.export_format,
                 download_url=ods_plan.download_url,
                 target_bronze_table=source.target_bronze_table,
-                suggested_raw_filename=f"{source.name}_raw.{_extension_from_filename(ods_plan.suggested_filename)}",
+                suggested_raw_filename=(
+                    f"{source.name}_raw.{_extension_from_filename(ods_plan.suggested_filename)}"
+                ),
                 implemented=True,
                 paginated=False,
                 page_limit=None,
@@ -97,7 +101,9 @@ class MunicipalSourceDownloader:
                 export_format=socrata_plan.export_format,
                 download_url=socrata_plan.download_url,
                 target_bronze_table=source.target_bronze_table,
-                suggested_raw_filename=f"{source.name}_raw.{_extension_from_filename(socrata_plan.suggested_filename)}",
+                suggested_raw_filename=(
+                    f"{source.name}_raw.{_extension_from_filename(socrata_plan.suggested_filename)}"
+                ),
                 implemented=True,
                 paginated=socrata_plan.paginated,
                 page_limit=socrata_plan.page_limit,
@@ -119,22 +125,46 @@ class MunicipalSourceDownloader:
         portal_type = str(source.raw.get("portal_type", "")).lower()
 
         if portal_type == "opendatasoft":
-            ods_plan, download = self.opendatasoft_downloader.download_dataset(
+            _, download = self.opendatasoft_downloader.download_dataset(
                 base_url=str(source.raw["opendatasoft_base_url"]),
                 dataset_id=str(source.raw["dataset_id"]),
                 export_format=str(source.raw["preferred_export_format"]),
             )
             plan = self.build_plan(source_name)
-            return MunicipalDownloadResult(plan=plan, download=download)
+            return MunicipalDownloadResult(
+                plan=plan,
+                download=download,
+                extra_metadata={
+                    "row_count_validation_supported": False,
+                    "row_count_validation_reason": "opendatasoft_export_count_not_implemented",
+                },
+            )
 
         if portal_type == "socrata":
-            socrata_plan, download = self.socrata_downloader.download_dataset(
+            socrata_result = self.socrata_downloader.download_dataset(
                 domain=str(source.raw["socrata_domain"]),
                 dataset_id=str(source.raw["dataset_id"]),
                 export_format=str(source.raw["preferred_export_format"]),
             )
             plan = self.build_plan(source_name)
-            return MunicipalDownloadResult(plan=plan, download=download)
+            return MunicipalDownloadResult(
+                plan=plan,
+                download=socrata_result.download,
+                extra_metadata={
+                    "row_count_validation_supported": (
+                        socrata_result.row_count_validation_supported
+                    ),
+                    "socrata_expected_row_count": socrata_result.expected_row_count,
+                    "socrata_actual_row_count": socrata_result.actual_row_count,
+                    "socrata_pages_downloaded": socrata_result.pages_downloaded,
+                    "socrata_row_count_validation_passed": (
+                        socrata_result.row_count_validation_passed
+                    ),
+                    "socrata_row_count_validation_error": (
+                        socrata_result.row_count_validation_error
+                    ),
+                },
+            )
 
         raise MunicipalSourceDownloaderError(
             f"Source '{source.name}' has unsupported portal_type: {portal_type}"

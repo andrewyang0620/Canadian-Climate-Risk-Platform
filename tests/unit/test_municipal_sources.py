@@ -51,8 +51,11 @@ class DummySocrataDownloader:
         )
 
     def download_dataset(self, domain, dataset_id, export_format):
+        from src.ingestion.downloaders.socrata import SocrataDownloadResult
+
         plan = self.build_export_plan(domain, dataset_id, export_format)
-        result = HttpDownloadResult(
+
+        download = HttpDownloadResult(
             url=plan.download_url,
             final_url=plan.download_url,
             status_code=200,
@@ -62,7 +65,29 @@ class DummySocrataDownloader:
             checksum="checksum",
             downloaded_at="2026-04-29T00:00:00+00:00",
         )
-        return plan, result
+
+        if plan.paginated:
+            return SocrataDownloadResult(
+                plan=plan,
+                download=download,
+                expected_row_count=1,
+                actual_row_count=1,
+                pages_downloaded=1,
+                row_count_validation_supported=True,
+                row_count_validation_passed=True,
+                row_count_validation_error=None,
+            )
+
+        return SocrataDownloadResult(
+            plan=plan,
+            download=download,
+            expected_row_count=None,
+            actual_row_count=None,
+            pages_downloaded=None,
+            row_count_validation_supported=False,
+            row_count_validation_passed=None,
+            row_count_validation_error="row_count_validation_not_supported_for_non_csv_export",
+        )
 
 
 def make_downloader():
@@ -96,6 +121,7 @@ def test_municipal_source_downloader_builds_vancouver_plan():
     assert plan.target_bronze_table == "bronze_vancouver_property_parcels"
     assert plan.implemented is True
     assert plan.paginated is False
+    assert plan.page_limit is None
 
 
 def test_municipal_source_downloader_builds_calgary_plan():
@@ -120,11 +146,36 @@ def test_municipal_source_downloader_rejects_national_source():
         downloader.build_plan("canadian_disaster_database")
 
 
-def test_municipal_source_downloader_downloads_source():
+def test_municipal_source_downloader_downloads_socrata_source():
+    downloader = make_downloader()
+
+    result = downloader.download_source("calgary_building_permits")
+
+    assert result.plan.source_name == "calgary_building_permits"
+    assert result.plan.portal_type == "socrata"
+    assert result.download.status_code == 200
+    assert result.download.content
+
+    assert result.extra_metadata["row_count_validation_supported"] is True
+    assert result.extra_metadata["socrata_expected_row_count"] == 1
+    assert result.extra_metadata["socrata_actual_row_count"] == 1
+    assert result.extra_metadata["socrata_pages_downloaded"] == 1
+    assert result.extra_metadata["socrata_row_count_validation_passed"] is True
+    assert result.extra_metadata["socrata_row_count_validation_error"] is None
+
+
+def test_municipal_source_downloader_downloads_opendatasoft_source():
     downloader = make_downloader()
 
     result = downloader.download_source("vancouver_floodplain")
 
     assert result.plan.source_name == "vancouver_floodplain"
+    assert result.plan.portal_type == "opendatasoft"
     assert result.download.status_code == 200
     assert result.download.content
+
+    assert result.extra_metadata["row_count_validation_supported"] is False
+    assert (
+        result.extra_metadata["row_count_validation_reason"]
+        == "opendatasoft_export_count_not_implemented"
+    )

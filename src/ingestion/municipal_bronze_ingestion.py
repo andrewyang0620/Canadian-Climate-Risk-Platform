@@ -36,7 +36,6 @@ class MunicipalBronzeIngestor:
 
     def ingest_source(self, source_name: str) -> MunicipalBronzeIngestionResult:
         """Download one municipal source and write it to Bronze."""
-        source = self.registry.get_source(source_name)
         download_result = self.downloader.download_source(source_name)
 
         bronze_result = self._write_download_to_bronze(
@@ -62,25 +61,26 @@ class MunicipalBronzeIngestor:
         plan = download_result.plan
         download = download_result.download
 
+        extra_metadata = {
+            "municipal_portal_type": plan.portal_type,
+            "municipal_dataset_id": plan.dataset_id,
+            "municipal_export_format": plan.export_format,
+            "municipal_download_url": plan.download_url,
+            "municipal_paginated": plan.paginated,
+            "municipal_page_limit": plan.page_limit,
+            "download_final_url": download.final_url,
+            "download_status_code": download.status_code,
+            "download_content_type": download.content_type,
+            "download_size_bytes": download.size_bytes,
+            "source_note": ("Raw municipal open data export downloaded and preserved in Bronze."),
+        }
+        extra_metadata.update(download_result.extra_metadata)
+
         return self.writer.write_bytes(
             source=source,
             filename=plan.suggested_raw_filename,
             content=download.content,
-            row_count=None,
+            row_count=download_result.extra_metadata.get("socrata_actual_row_count"),
             ingestion_method=f"{plan.portal_type}_dataset_export",
-            extra_metadata={
-                "municipal_portal_type": plan.portal_type,
-                "municipal_dataset_id": plan.dataset_id,
-                "municipal_export_format": plan.export_format,
-                "municipal_download_url": plan.download_url,
-                "municipal_paginated": plan.paginated,
-                "municipal_page_limit": plan.page_limit,
-                "download_final_url": download.final_url,
-                "download_status_code": download.status_code,
-                "download_content_type": download.content_type,
-                "download_size_bytes": download.size_bytes,
-                "source_note": (
-                    "Raw municipal open data export downloaded and preserved in Bronze."
-                ),
-            },
+            extra_metadata=extra_metadata,
         )

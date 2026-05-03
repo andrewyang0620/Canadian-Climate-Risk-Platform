@@ -39,6 +39,10 @@ time_scope:
   municipal_property:
     start_year: null
     end_year: null
+    selection_policy: latest_available_snapshot
+    note: >
+      Municipal property datasets are treated as current or latest available
+      snapshots unless historical years are explicitly exposed by the source.
 
 spatial_units:
   province_grid:

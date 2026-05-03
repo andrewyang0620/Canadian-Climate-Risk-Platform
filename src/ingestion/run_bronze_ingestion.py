@@ -1,9 +1,12 @@
 ﻿from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 from src.ingestion.bronze_writer import BronzeWriter
+from src.ingestion.downloaders.municipal_sources import MunicipalSourceDownloader
 from src.ingestion.downloaders.national_sources import NationalSourceDownloader
+from src.ingestion.municipal_bronze_ingestion import MunicipalBronzeIngestor
 from src.ingestion.source_registry import SourceRegistry
 
 
@@ -42,6 +45,12 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--list-municipal-plans",
+        action="store_true",
+        help="Print municipal download plans.",
+    )
+
+    parser.add_argument(
         "--probe-source",
         action="store_true",
         help="Probe a configured national/provincial source landing page.",
@@ -53,6 +62,24 @@ def parse_args() -> argparse.Namespace:
         help="Download Canadian Disaster Database raw file into Bronze.",
     )
 
+    parser.add_argument(
+        "--download-municipal-source",
+        action="store_true",
+        help="Download one configured municipal source into Bronze.",
+    )
+
+    parser.add_argument(
+        "--ingest-local-file",
+        action="store_true",
+        help="Write a manually downloaded local file into Bronze.",
+    )
+
+    parser.add_argument(
+        "--local-file-path",
+        default=None,
+        help="Path to a local raw file for manual Bronze ingestion.",
+    )
+
     return parser.parse_args()
 
 
@@ -62,6 +89,12 @@ def main() -> None:
     registry = SourceRegistry()
     writer = BronzeWriter(args.bronze_base_path)
     national_downloader = NationalSourceDownloader(registry=registry)
+    municipal_downloader = MunicipalSourceDownloader(registry=registry)
+    municipal_ingestor = MunicipalBronzeIngestor(
+        registry=registry,
+        writer=writer,
+        downloader=municipal_downloader,
+    )
 
     if args.list_plans:
         plans = (
@@ -82,6 +115,26 @@ def main() -> None:
 
         return
 
+    if args.list_municipal_plans:
+        plans = (
+            [municipal_downloader.build_plan(args.source)]
+            if args.source
+            else municipal_downloader.build_all_plans()
+        )
+
+        for plan in plans:
+            print(
+                f"[MUNICIPAL PLAN] {plan.source_name} | "
+                f"portal={plan.portal_type} | "
+                f"dataset_id={plan.dataset_id} | "
+                f"format={plan.export_format} | "
+                f"bronze={plan.target_bronze_table} | "
+                f"filename={plan.suggested_raw_filename} | "
+                f"implemented={plan.implemented}"
+            )
+
+        return
+
     if args.probe_source:
         if not args.source:
             raise ValueError("--probe-source requires --source")
@@ -92,6 +145,41 @@ def main() -> None:
             f"status={result.status_code} | "
             f"bytes={result.size_bytes} | "
             f"content_type={result.content_type}"
+        )
+        return
+
+    if args.ingest_local_file:
+        if not args.source:
+            raise ValueError("--ingest-local-file requires --source")
+
+        if not args.local_file_path:
+            raise ValueError("--ingest-local-file requires --local-file-path")
+
+        source = registry.get_source(args.source)
+        local_file_path = Path(args.local_file_path)
+
+        if not local_file_path.exists():
+            raise FileNotFoundError(f"Local file not found: {local_file_path}")
+
+        result = writer.write_bytes(
+            source=source,
+            filename=local_file_path.name,
+            content=local_file_path.read_bytes(),
+            row_count=None,
+            ingestion_method="manual_local_file",
+            extra_metadata={
+                "manual_ingestion": True,
+                "local_source_path": str(local_file_path),
+                "source_note": (
+                    "Raw file was manually downloaded and ingested into Bronze "
+                    "because live source download was unavailable or intentionally skipped."
+                ),
+            },
+        )
+
+        print(
+            f"[LOCAL FILE OK] {result.source_name} -> "
+            f"{result.raw_file_path} | metadata={result.metadata_path}"
         )
         return
 
@@ -133,6 +221,21 @@ def main() -> None:
         )
         return
 
+    if args.download_municipal_source:
+        if not args.source:
+            raise ValueError("--download-municipal-source requires --source")
+
+        result = municipal_ingestor.ingest_source(args.source)
+        bronze = result.bronze_result
+
+        print(
+            f"[MUNICIPAL OK] {result.source_name} | "
+            f"portal={result.portal_type} | "
+            f"dataset_id={result.dataset_id} -> "
+            f"{bronze.raw_file_path} | metadata={bronze.metadata_path}"
+        )
+        return
+
     if args.source:
         sources = [registry.get_source(args.source)]
     else:
@@ -144,9 +247,8 @@ def main() -> None:
     if not args.smoke_test:
         source_names = ", ".join(source.name for source in sources)
         raise NotImplementedError(
-            "Real source downloaders are not implemented yet. "
-            "Use --smoke-test to validate Bronze writing, or --download-cdd for the first "
-            "implemented real source. "
+            "Real source downloaders are not implemented for this mode. "
+            "Use --smoke-test, --download-cdd, or --download-municipal-source. "
             f"Selected sources: {source_names}"
         )
 

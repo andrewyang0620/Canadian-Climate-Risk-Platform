@@ -1,0 +1,238 @@
+{
+  "download_mode": true,
+  "sources": [
+    {
+      "download": {
+        "checksum": "935b626ff59c33588bb34ef4e84cc239606796ebd3aaabc7adf4ea623848b57a",
+        "content_type": "application/json; charset=utf-8",
+        "final_url": "https://opendata.vancouver.ca/api/explore/v2.1/catalog/datasets/property-parcel-polygons/exports/geojson",
+        "size_bytes": 53620642,
+        "status_code": 200
+      },
+      "error": null,
+      "extra_metadata": {
+        "row_count_validation_reason": "opendatasoft_export_count_not_implemented",
+        "row_count_validation_supported": false
+      },
+      "plan": {
+        "dataset_id": "property-parcel-polygons",
+        "download_url": "https://opendata.vancouver.ca/api/explore/v2.1/catalog/datasets/property-parcel-polygons/exports/geojson",
+        "export_format": "geojson",
+        "implemented": true,
+        "page_limit": null,
+        "paginated": false,
+        "portal_type": "opendatasoft",
+        "suggested_raw_filename": "vancouver_property_parcels_raw.geojson",
+        "target_bronze_table": "bronze_vancouver_property_parcels"
+      },
+      "source_name": "vancouver_property_parcels",
+      "status": "available"
+    },
+    {
+      "download": {
+        "checksum": "782da749804a27c55ec6297198f1bb6eb623e0c9837ba092bebbfb9f227e9391",
+        "content_type": "text/csv; charset=utf-8",
+        "final_url": "https://opendata.vancouver.ca/api/explore/v2.1/catalog/datasets/property-tax-report/exports/csv",
+        "size_bytes": 442124511,
+        "status_code": 200
+      },
+      "error": null,
+      "extra_metadata": {
+        "row_count_validation_reason": "opendatasoft_export_count_not_implemented",
+        "row_count_validation_supported": false
+      },
+      "plan": {
+        "dataset_id": "property-tax-report",
+        "download_url": "https://opendata.vancouver.ca/api/explore/v2.1/catalog/datasets/property-tax-report/exports/csv",
+        "export_format": "csv",
+        "implemented": true,
+        "page_limit": null,
+        "paginated": false,
+        "portal_type": "opendatasoft",
+        "suggested_raw_filename": "vancouver_property_tax_raw.csv",
+        "target_bronze_table": "bronze_vancouver_property_tax"
+      },
+      "source_name": "vancouver_property_tax",
+      "status": "available"
+    },
+    {
+      "download": {
+        "checksum": "e67f16faafcafdd91cf6a06b2cfcf79fc75d837d8c3d95543dbd71d84a849953",
+        "content_type": "text/csv; charset=utf-8",
+        "final_url": "https://opendata.vancouver.ca/api/explore/v2.1/catalog/datasets/issued-building-permits/exports/csv",
+        "size_bytes": 56123011,
+        "status_code": 200
+      },
+      "error": null,
+      "extra_metadata": {
+        "row_count_validation_reason": "opendatasoft_export_count_not_implemented",
+        "row_count_validation_supported": false
+      },
+      "plan": {
+        "dataset_id": "issued-building-permits",
+        "download_url": "https://opendata.vancouver.ca/api/explore/v2.1/catalog/datasets/issued-building-permits/exports/csv",
+        "export_format": "csv",
+        "implemented": true,
+        "page_limit": null,
+        "paginated": false,
+        "portal_type": "opendatasoft",
+        "suggested_raw_filename": "vancouver_building_permits_raw.csv",
+        "target_bronze_table": "bronze_vancouver_building_permits"
+      },
+      "source_name": "vancouver_building_permits",
+      "status": "available"
+    },
+    {
+      "download": {
+        "checksum": "e9c3c2e6fd2b4969b2a34d60c44c12cb8b806e2b22d946ef004d74031ae9b3f7",
+        "content_type": "application/json; charset=utf-8",
+        "final_url": "https://opendata.vancouver.ca/api/explore/v2.1/catalog/datasets/designated-floodplain/exports/geojson",
+        "size_bytes": 6779212,
+        "status_code": 200
+      },
+      "error": null,
+      "extra_metadata": {
+        "row_count_validation_reason": "opendatasoft_export_count_not_implemented",
+        "row_count_validation_supported": false
+      },
+      "plan": {
+        "dataset_id": "designated-floodplain",
+        "download_url": "https://opendata.vancouver.ca/api/explore/v2.1/catalog/datasets/designated-floodplain/exports/geojson",
+        "export_format": "geojson",
+        "implemented": true,
+        "page_limit": null,
+        "paginated": false,
+        "portal_type": "opendatasoft",
+        "suggested_raw_filename": "vancouver_floodplain_raw.geojson",
+        "target_bronze_table": "bronze_vancouver_floodplain"
+      },
+      "source_name": "vancouver_floodplain",
+      "status": "available"
+    },
+    {
+      "download": {
+        "checksum": "2bc9e5a036944395e295f3dc9e08e873860772a7581b049d9f69d9bb04b04976",
+        "content_type": "text/csv; charset=UTF-8",
+        "final_url": "https://data.calgary.ca/resource/4bsw-nn7w.csv",
+        "size_bytes": 336182006,
+        "status_code": 200
+      },
+      "error": null,
+      "extra_metadata": {
+        "row_count_validation_supported": true,
+        "socrata_actual_row_count": 607905,
+        "socrata_expected_row_count": 607905,
+        "socrata_pages_downloaded": 13,
+        "socrata_row_count_validation_error": null,
+        "socrata_row_count_validation_passed": true
+      },
+      "plan": {
+        "dataset_id": "4bsw-nn7w",
+        "download_url": "https://data.calgary.ca/resource/4bsw-nn7w.csv",
+        "export_format": "csv",
+        "implemented": true,
+        "page_limit": 50000,
+        "paginated": true,
+        "portal_type": "socrata",
+        "suggested_raw_filename": "calgary_property_assessment_raw.csv",
+        "target_bronze_table": "bronze_calgary_property_assessment"
+      },
+      "source_name": "calgary_property_assessment",
+      "status": "available"
+    },
+    {
+      "download": {
+        "checksum": "3db30a3f0e6c000c3e28a4695a9c4415f049f05e85ef6c38c9276f0795c25997",
+        "content_type": "application/vnd.geo+json; charset=UTF-8",
+        "final_url": "https://data.calgary.ca/resource/3q69-wm6a.geojson",
+        "size_bytes": 51133,
+        "status_code": 200
+      },
+      "error": null,
+      "extra_metadata": {
+        "row_count_validation_supported": false,
+        "socrata_actual_row_count": null,
+        "socrata_expected_row_count": null,
+        "socrata_pages_downloaded": null,
+        "socrata_row_count_validation_error": "row_count_validation_not_supported_for_non_csv_export",
+        "socrata_row_count_validation_passed": null
+      },
+      "plan": {
+        "dataset_id": "3q69-wm6a",
+        "download_url": "https://data.calgary.ca/resource/3q69-wm6a.geojson",
+        "export_format": "geojson",
+        "implemented": true,
+        "page_limit": null,
+        "paginated": false,
+        "portal_type": "socrata",
+        "suggested_raw_filename": "calgary_flood_hazard_raw.geojson",
+        "target_bronze_table": "bronze_calgary_flood_hazard"
+      },
+      "source_name": "calgary_flood_hazard",
+      "status": "available"
+    },
+    {
+      "download": {
+        "checksum": "a3952c8d9154388b006c2fc2ab92b56edbc5744e61ff2820dee67c91d8714c7a",
+        "content_type": "text/csv; charset=UTF-8",
+        "final_url": "https://data.calgary.ca/resource/c2es-76ed.csv",
+        "size_bytes": 316642856,
+        "status_code": 200
+      },
+      "error": null,
+      "extra_metadata": {
+        "row_count_validation_supported": true,
+        "socrata_actual_row_count": 489631,
+        "socrata_expected_row_count": 489631,
+        "socrata_pages_downloaded": 10,
+        "socrata_row_count_validation_error": null,
+        "socrata_row_count_validation_passed": true
+      },
+      "plan": {
+        "dataset_id": "c2es-76ed",
+        "download_url": "https://data.calgary.ca/resource/c2es-76ed.csv",
+        "export_format": "csv",
+        "implemented": true,
+        "page_limit": 50000,
+        "paginated": true,
+        "portal_type": "socrata",
+        "suggested_raw_filename": "calgary_building_permits_raw.csv",
+        "target_bronze_table": "bronze_calgary_building_permits"
+      },
+      "source_name": "calgary_building_permits",
+      "status": "available"
+    },
+    {
+      "download": {
+        "checksum": "4ca56450fe7a44afedabe3783a9f386853bf3e5a4e3573e9fa3c94f6fa528414",
+        "content_type": "text/csv; charset=UTF-8",
+        "final_url": "https://data.calgary.ca/resource/6933-unw5.csv",
+        "size_bytes": 131443403,
+        "status_code": 200
+      },
+      "error": null,
+      "extra_metadata": {
+        "row_count_validation_supported": true,
+        "socrata_actual_row_count": 190293,
+        "socrata_expected_row_count": 190293,
+        "socrata_pages_downloaded": 4,
+        "socrata_row_count_validation_error": null,
+        "socrata_row_count_validation_passed": true
+      },
+      "plan": {
+        "dataset_id": "6933-unw5",
+        "download_url": "https://data.calgary.ca/resource/6933-unw5.csv",
+        "export_format": "csv",
+        "implemented": true,
+        "page_limit": 50000,
+        "paginated": true,
+        "portal_type": "socrata",
+        "suggested_raw_filename": "calgary_development_permits_raw.csv",
+        "target_bronze_table": "bronze_calgary_development_permits"
+      },
+      "source_name": "calgary_development_permits",
+      "status": "available"
+    }
+  ],
+  "validated_at": "2026-05-03T17:57:33+00:00"
+}

@@ -1,35 +1,39 @@
-# PLAN_FINAL.md
-# Canadian Climate & Property Risk Data Platform — Final DE Project Plan
+# Canadian Climate Risk Data Platform — PLAN_FINAL
 
 ## 0. Final Project Identity
 
 ### Project Name
 
-**Canadian Climate & Property Risk Data Platform**
+**Canadian Climate Risk Data Platform**
 
 ### Final One-Sentence Definition
 
-Build a production-style **Azure + Spark data engineering platform** that ingests, validates, transforms, models, and serves Canadian climate, hydrometric, wildfire, building-permit, disaster-event, floodplain, and municipal property datasets into trusted **grid-level and property-context geospatial exposure marts** for British Columbia and Alberta, with a stable Power BI dashboard and public project page as downstream evidence.
+Build a production-style **AWS S3 + Snowflake ELT data engineering platform** that ingests, validates, profiles, transforms, models, and serves Canadian climate, hydrometric, wildfire, disaster-event, census/boundary, building-permit, floodplain, and municipal property datasets into trusted **grid-level and city property-context geospatial exposure marts** for British Columbia and Alberta, with dbt-modeled Snowflake marts, auditability, data-quality evidence, Power BI reporting, and a lightweight public front-end demo.
 
 ### Core Positioning
 
 This is a **Data Engineering project first**.
 
-The project is not mainly a dashboard project, not a WebGIS front-end project, and not a climate-science model. The core value is that heterogeneous public data flows reliably through a lakehouse pipeline into curated analytical marts with data quality, lineage, validation, and monitoring.
+The project is not mainly a dashboard project, not a WebGIS/front-end project, and not a climate-science model. The core value is that heterogeneous public data flows reliably through a modern ELT platform into curated analytical marts with data quality, lineage, validation, observability, and reproducible cloud-oriented design.
 
 ### What the Project Claims
 
 The project claims to build:
 
-- a reproducible cloud data platform;
-- a lakehouse Bronze/Silver/Gold data flow;
-- a geospatial feature-engineering pipeline;
+- a reproducible AWS + Snowflake data platform;
+- a local-first development workflow that can target cloud storage;
+- a Bronze/Silver/Gold ELT data flow;
+- raw-source preservation with metadata, manifests, and checksums;
+- config-driven source contracts;
+- schema profiling before Silver standardization;
+- geospatial feature-engineering pipelines;
 - grid-level climate and hazard exposure marts;
 - Vancouver parcel-level exposure screening marts;
 - Calgary property flood exposure screening marts;
 - municipality-level aggregation and validation marts;
-- public BI and data-quality evidence;
-- a documented, honest exposure-prioritization methodology.
+- Snowflake/dbt-modeled analytical tables;
+- data-quality, lineage, audit, and pipeline-status outputs;
+- a Power BI dashboard and static public project page as downstream evidence.
 
 ### What the Project Does Not Claim
 
@@ -44,7 +48,7 @@ The project does **not** claim to build:
 - a real-time streaming risk system;
 - a full-Canada property-level platform.
 
-The correct wording is:
+Correct wording:
 
 > This project provides public-data-based climate, hazard, and property-context exposure screening. It is not an insurance-grade, engineering-grade, legal, or property appraisal risk model.
 
@@ -61,7 +65,7 @@ Western Canada faces overlapping climate and infrastructure risks:
 - Public datasets exist, but they are fragmented across federal, provincial, and municipal portals.
 - These datasets arrive in different formats, spatial grains, frequencies, coordinate systems, and quality levels.
 
-The business problem is not that one more map is needed. The real problem is that planners, analysts, and decision makers need **trusted, refreshable, comparable, and validated geospatial exposure data products**.
+The business problem is not that one more map is needed. The real problem is that planners, analysts, and decision makers need **trusted, refreshable, comparable, validated geospatial exposure data products**.
 
 ### 1.2 Stakeholder Framing
 
@@ -89,17 +93,21 @@ Potential users:
 3. Which Vancouver parcels intersect designated floodplain areas and also show property/development exposure signals?
 4. Which Calgary properties fall into regulatory flood-related zones and show high assessed-value or development-activity exposure?
 5. Do high-priority grid or municipality areas capture more historical Canadian Disaster Database events than random or equal-weight baselines?
-6. Which parts of the output are reliable, and which parts have weak station coverage, failed joins, stale sources, or geometry issues?
+6. Which outputs are reliable, and which are limited by weak station coverage, failed joins, stale sources, schema drift, or geometry issues?
 
-### 1.5 Business Narrative for Portfolio
-
-The project story should be told in this order:
+### 1.5 Portfolio Narrative
 
 ```text
 Public climate and hazard data is valuable but fragmented.
 |
 v
-I built a cloud lakehouse pipeline that ingests and preserves raw data.
+I built a modern ELT pipeline that ingests and preserves raw data.
+|
+v
+I validated source availability, pagination, row counts, checksums, and metadata.
+|
+v
+I profiled real raw files before committing Silver transformations.
 |
 v
 I standardized schemas, dates, coordinates, geometries, and spatial units.
@@ -114,7 +122,7 @@ v
 I added Vancouver and Calgary property-context deep dives because those cities have useful municipal open data.
 |
 v
-I modeled curated dbt/PostgreSQL/PostGIS marts for downstream BI and analysis.
+I modeled Snowflake/dbt marts for downstream BI and analysis.
 |
 v
 I tracked data quality, freshness, schema drift, CRS transforms, and spatial join success.
@@ -123,12 +131,12 @@ v
 I validated prioritization scores against Canadian Disaster Database events.
 |
 v
-I surfaced both results and reliability in a public Power BI dashboard and GitHub Pages project page.
+I surfaced both results and reliability in Power BI and a public static project page.
 ```
 
 ### 1.6 Recruiter-Friendly Summary
 
-> Built a DE-focused Azure/Spark geospatial lakehouse that integrates Canadian climate, hydrometric, wildfire, permit, disaster, and municipal property data into trusted grid-level and property-level exposure marts, with Airflow orchestration, Delta Lake storage, dbt/PostGIS serving, data-quality monitoring, and Power BI public reporting.
+> Built an AWS S3 + Snowflake ELT geospatial data platform integrating Canadian climate, hydrometric, wildfire, permit, disaster, and municipal property data into trusted grid-level and property-context exposure marts, with Airflow orchestration, PySpark/Sedona processing, dbt modeling, source profiling, data-quality auditing, and Power BI/public-site reporting.
 
 ---
 
@@ -163,17 +171,13 @@ Excluded:
 
 | Data Type | Time Window | Purpose |
 |---|---|---|
-| Climate / hydrometric / wildfire / CDD | 2016-2025 | Historical baseline, percentiles, anomalies, backtesting |
+| Climate / hydrometric / wildfire / CDD | 2016-2025 | Historical baseline, percentiles, anomalies, validation |
 | Current hazard signals | 2026 incremental refresh | Current monitoring layer |
 | Vancouver permits | 2017-present where available | Parcel development exposure |
 | Vancouver property tax | Current + available historical extracts | Parcel exposure proxy |
 | Calgary assessment / permits / flood data | Current + available historical extracts | Property flood exposure screening |
 
-The 2016-2025 baseline is long enough to support seasonal baselines, percentile ranking, and out-of-time validation without turning the project into climate science research.
-
 ### 2.3 Final Spatial Scale
-
-This project uses **multi-scale spatial units** because public data arrives at different spatial resolutions.
 
 | Layer | Spatial Unit | Area | Purpose | Status |
 |---|---|---|---|---|
@@ -183,9 +187,7 @@ This project uses **multi-scale spatial units** because public data arrives at d
 | Calgary property / parcel | Property geometry or centroid depending on available fields | City of Calgary | Property flood exposure screening | Core |
 | Municipality / CSD | Census subdivision / municipality polygon | BC + Alberta | Aggregation, comparison, validation, BI slicers | Core support |
 
-### 2.4 Why This Scale Is the Final Choice
-
-The final scale is:
+### 2.4 Final Scale Choice
 
 ```text
 BC + Alberta province-wide 10km grid
@@ -202,11 +204,11 @@ municipality aggregation layer
 This is the best balance because:
 
 - 10km grid proves province-scale data engineering.
-- 1km city grids prove finer spatial feature engineering without full property overload.
-- Vancouver parcel layer uses real parcel polygons where city data supports it.
-- Calgary property flood layer uses strong flood/property municipal data.
-- Municipality layer keeps the output understandable for BI, validation, and interview storytelling.
-- The scope remains Data Engineering focused rather than becoming a full-stack WebGIS product.
+- 1km city grids prove finer spatial feature engineering.
+- Vancouver parcel data supports a high-value parcel overlay story.
+- Calgary property/flood data supports a flood-centric property screening story.
+- Municipality aggregation keeps the output understandable for BI and validation.
+- The project remains Data Engineering focused instead of becoming a full WebGIS product.
 
 ---
 
@@ -214,22 +216,52 @@ This is the best balance because:
 
 | Layer | Technology | Final Decision | Why It Exists |
 |---|---|---|---|
-| Cloud | Azure | Primary cloud platform | Enterprise cloud relevance and Canadian-market familiarity |
-| Object Storage | ADLS Gen2 + HNS | Lakehouse storage | Durable raw/processed/gold storage |
-| Lake Format | Delta Lake | Bronze/Silver/Gold tables | ACID, schema evolution, reproducible backfills |
+| Cloud | AWS | Primary target cloud platform | Common DE stack and strong JD relevance |
+| Object Storage | AWS S3 | Bronze/Silver/Audit data lake storage | Durable storage, cloud-native ELT pattern |
 | Processing | PySpark | Core transformation engine | Historical backfill, feature engineering, aggregation |
 | Geospatial Processing | Apache Sedona + GeoPandas fallback | Distributed spatial joins and local fallback | High-value geospatial DE signal |
 | Orchestration | Apache Airflow | DAGs, retry, backfill, audit | Production-style pipeline control |
-| Transformation | dbt Core | Staging, intermediate, marts, tests | Analytics engineering and lineage |
-| Serving | Azure PostgreSQL Flexible Server + PostGIS | BI and geospatial marts | Geometry columns, spatial indexes, downstream serving |
-| BI / Demo | Power BI Desktop + Power BI Service / Publish to Web | Stable public dashboard | Reliable portfolio demonstration |
-| Public Site | GitHub Pages or Azure Static Web Apps | Landing page, status JSON, documentation | Public proof of work |
-| IaC | Terraform | Azure infrastructure | Reproducible cloud setup |
-| Containerization | Docker Compose | Local/dev Airflow + Spark + dbt + Postgres | Reproducible development |
-| CI/CD | GitHub Actions | lint, unit tests, dbt compile/test, Docker build | Engineering workflow proof |
+| Warehouse | Snowflake | Primary analytical warehouse | Modern cloud data warehouse and dbt target |
+| Transformation | dbt Core + dbt-snowflake | Staging, intermediate, marts, tests | Analytics engineering, lineage, data tests |
+| BI / Demo | Power BI | Stable dashboard layer | Recruiter-friendly output |
+| Public Front-End | GitHub Pages static site | Landing page, status cards, screenshots, docs links | Lightweight public evidence |
+| IaC | Terraform | AWS + Snowflake placeholders | Reproducible cloud setup |
+| Containerization | Docker Compose | Local Airflow + Spark + dbt + Postgres metadata | Reproducible development |
+| CI/CD | GitHub Actions | lint, unit tests, dbt parse/compile, Docker build | Engineering workflow proof |
 | Quality | Source audit + schema hash + row count + geometry + CRS + dbt tests | Full-chain quality | Main DE differentiator |
 
-### 3.1 Display-Layer Decision
+### 3.1 Local vs Cloud Runtime
+
+Local development remains local-first:
+
+```text
+lakehouse/bronze
+lakehouse/silver
+lakehouse/audit
+Docker Compose
+Airflow local metadata Postgres
+Optional local PostGIS validation
+```
+
+Cloud target:
+
+```text
+AWS S3 Bronze
+AWS S3 Silver
+AWS S3 Audit/Profile outputs
+Snowflake BRONZE/SILVER/GOLD/AUDIT schemas
+dbt Snowflake models
+Power BI dashboard
+GitHub Pages public front-end
+```
+
+Postgres is **not** the primary analytical warehouse anymore. It remains useful only for:
+
+- Airflow metadata database;
+- optional local PostGIS/geospatial validation;
+- optional comparison layer if needed.
+
+### 3.2 Display-Layer Decision
 
 Final dashboard tool:
 
@@ -237,31 +269,44 @@ Final dashboard tool:
 Power BI
 ```
 
-Reason:
+Public front-end:
 
-- The project is a DE portfolio project, not a front-end portfolio project.
-- Power BI gives a stable public demo.
-- Recruiters can click and understand the result quickly.
-- Dashboard failure risk is lower than a custom WebGIS application.
-- The dashboard is downstream evidence, not the source of truth.
+```text
+GitHub Pages static site
+```
+
+The public front-end is not the data product. It is a presentation wrapper that shows:
+
+- project pitch;
+- architecture diagram;
+- pipeline status cards;
+- source coverage summary;
+- data-quality summary;
+- Power BI embed or screenshots;
+- demo video fallback;
+- links to docs and repo sections.
 
 Removed from final scope:
 
-- Next.js
-- React front-end
-- MapLibre GL JS application
-- deck.gl layer development
+- Next.js production app
+- React-heavy front-end
+- MapLibre/deck.gl custom dashboard
 - FastAPI tile server
-- pg_tileserv deployment
-- PMTiles as required delivery
-- Azure Container Apps for custom dashboard hosting
+- vector tile serving
+- real-time interactive WebGIS
 
-### 3.2 Source of Truth
+### 3.3 Source of Truth
 
 The source of truth is:
 
 ```text
-Curated marts + audit tables + data-quality outputs
+S3 raw/processed objects
++
+Snowflake curated marts
++
+audit/status outputs
++
+dbt tests
 ```
 
 Not:
@@ -270,7 +315,7 @@ Not:
 Dashboard visuals
 ```
 
-Power BI is only a consumer of the data product.
+Power BI and the public site are consumers of the data product.
 
 ---
 
@@ -282,11 +327,10 @@ Power BI is only a consumer of the data product.
 |---|---|---|---|---|
 | ECCC Historical Climate | Temperature, precipitation, historical weather baseline | Bulk CSV / Datamart-style extraction | Historical + periodic refresh | Weather extreme score |
 | ECCC Hydrometric Real-Time | Recent water level / discharge | REST / real-time extract | Daily or near-real-time | Current flood / water signal |
-| HYDAT | Historical water level / discharge baseline | SQLite bulk download | Quarterly or periodic | Seasonal hydrometric percentile baseline |
-| CWFIS / CNFDB Wildfire | Wildfire point history and proximity | GeoJSON / CSV / bulk download, points first | Seasonal / periodic | Wildfire exposure score |
-| StatCan Building Permits | Development exposure proxy | Bulk CSV first; API later only if needed | Monthly | Municipality/grid development exposure |
-| Census / CSD Boundaries | Administrative mapping | Boundary file download | Periodic | Municipality aggregation and validation |
-| Province Boundaries | BC/AB clipping | Boundary file download | Static / periodic | Grid generation and clipping |
+| HYDAT | Historical water level / discharge baseline | SQLite bulk download | Quarterly / periodic | Seasonal hydrometric percentile baseline |
+| CWFIS / CNFDB Wildfire | Wildfire point history and proximity | GeoJSON / CSV / bulk download | Seasonal / periodic | Wildfire exposure score |
+| StatCan Building Permits | Development exposure proxy | Bulk CSV first; API later if needed | Monthly | Municipality/grid development exposure |
+| Census / CSD / Province Boundaries | Administrative mapping | Boundary file download | Periodic | Municipality aggregation and validation |
 | Canadian Disaster Database | Historical disaster validation labels | Open Government spreadsheet download | Periodic | Backtesting, lift, validation |
 
 ### 4.2 Vancouver Municipal Sources
@@ -303,8 +347,7 @@ Power BI is only a consumer of the data product.
 
 | Source | Role | Processing Details | Final Mart Use |
 |---|---|---|---|
-| Calgary current year property assessments parcel | Current property assessment and property context | Normalize assessment year, value fields, property type, geometry/centroid | `mart_calgary_property_flood_exposure` |
-| Calgary historical property assessments parcel | Assessment baseline and schema drift testing | Normalize years and field changes | Historical/context quality |
+| Calgary property assessment | Property assessment and property context | Normalize assessment year, value fields, property type, geometry/centroid | `mart_calgary_property_flood_exposure` |
 | Calgary regulatory flood map / flood hazard layers | Floodway, flood fringe, overland flood zones | Overlay with property geometry or centroid; derive flood category flags | Flood exposure score |
 | Calgary development permits | Development activity | Normalize permit type, status, date, spatial fields | Development feature |
 | Calgary building permits | Building activity | Normalize date/type/status and spatial fields | Building activity feature |
@@ -316,32 +359,109 @@ A dataset enters the project only if it satisfies at least four of the following
 
 1. Publicly accessible or reproducibly downloadable.
 2. Relevant to climate, flood, wildfire, development exposure, property context, or validation.
-3. Contains time, geography, or stable join keys.
+3. Contains time, geography, stable join keys, or candidate contract fields.
 4. Can be ingested into Bronze without manual cleaning.
 5. Can be validated by schema, row count, coordinate, geometry, or domain checks.
 6. Can contribute to a downstream mart, score, validation, or data-quality metric.
 
-A dataset is excluded if:
+---
 
-1. It cannot be legally or publicly redistributed.
-2. It contains private or sensitive personal information.
-3. It requires manual point-and-click collection for every run.
-4. It creates false precision that cannot be explained.
-5. It cannot be mapped to a stable spatial unit.
-6. It adds visual appeal but no pipeline or data-model value.
+## 5. Config Contracts and Source Profiling
+
+### 5.1 Source Config Role
+
+`configs/source_config.yml` defines:
+
+- source provider;
+- source URL;
+- access method;
+- file format;
+- expected frequency;
+- target Bronze table;
+- target Silver table;
+- required raw fields;
+- downstream contracts;
+- validation checks.
+
+### 5.2 Contract Pattern
+
+Raw fields should not be guessed blindly. The project uses contracts such as:
+
+- `identity_contract`
+- `join_contract`
+- `coordinate_contract`
+- `measurement_contract`
+- `climate_measurement_contract`
+- `location_mapping_contract`
+- `municipality_mapping_contract`
+- `boundary_contract`
+
+Rules:
+
+```text
+required_fields
+|
+v
+Bronze/raw fields that should be directly checkable
+
+contract fields
+|
+v
+downstream requirements that may need Silver standardization
+
+post_silver_validation_checks
+|
+v
+checks that only make sense after standardization
+```
+
+### 5.3 Source Profiling
+
+Before Silver standardization, run raw source profiling:
+
+```text
+latest Bronze raw file
+|
+v
+detect file type
+|
+v
+extract columns / property keys
+|
+v
+sample rows
+|
+v
+detect candidate IDs / join keys / coordinates / measurement fields
+|
+v
+compare against source contracts
+|
+v
+write profile JSON and markdown summary
+```
+
+Output targets:
+
+```text
+lakehouse/profiles/source_schema_profiles.json
+docs/source_schema_profile_summary.md
+```
+
+This prevents writing Silver logic based on guessed field names.
 
 ---
 
-## 5. Spatial Engineering Design
+## 6. Spatial Engineering Design
 
-### 5.1 CRS Strategy
+### 6.1 CRS Strategy
 
 | Stage | CRS | Rule |
 |---|---|---|
 | Raw ingestion | Preserve source CRS | Record original CRS metadata |
 | Standard processing | EPSG:3347 Canada Lambert | Use for area and distance calculations |
 | City processing | EPSG:3347 by default | Use local projected CRS only if source requires it |
-| Serving / BI | EPSG:4326 centroids + WKT/geometry | BI compatibility |
+| Warehouse / BI | EPSG:4326 centroids + WKT/geometry where useful | BI compatibility |
 | Audit | Store source CRS, processed CRS, transform status | Prevent silent CRS errors |
 
 Hard rules:
@@ -349,21 +469,11 @@ Hard rules:
 - Never compute area or distance directly on latitude/longitude degrees.
 - All spatial joins must write an audit record.
 - All geometry repair operations must be counted and logged.
-- Store centroids for BI and geometry for PostGIS where useful.
+- Store centroids for BI and geometry/WKT where useful.
 
-### 5.2 Grid Generation
+### 6.2 Grid Generation
 
 #### 10km BC/AB Grid
-
-Purpose:
-
-- province-level exposure surface;
-- main grid risk mart;
-- Power BI map layer;
-- CDD validation aggregation;
-- stable spatial contract for multiple sources.
-
-Generation logic:
 
 ```text
 Load BC + Alberta boundaries
@@ -389,14 +499,6 @@ Write silver_grid_10km
 
 #### 1km Vancouver/Calgary City Grid
 
-Purpose:
-
-- city-level comparison;
-- fine-grained urban hazard/development features;
-- bridge between province grid and property deep dives.
-
-Generation logic:
-
 ```text
 Load Vancouver and Calgary boundaries
 |
@@ -416,7 +518,7 @@ v
 Write silver_grid_1km_city
 ```
 
-### 5.3 Spatial Join Types
+### 6.3 Spatial Join Types
 
 | Join Type | Example | DE Value |
 |---|---|---|
@@ -427,7 +529,7 @@ Write silver_grid_1km_city
 | Property-to-flood-zone | Calgary property to regulatory flood zone | property flood exposure feature |
 | Grid-to-municipality | aggregate grid results to CSD | validation and BI summary |
 
-### 5.4 Spatial Join Audit
+### 6.4 Spatial Join Audit
 
 Every spatial join writes to:
 
@@ -458,9 +560,9 @@ severity
 
 ---
 
-## 6. Lakehouse Layer Design
+## 7. Data Layer Design
 
-### 6.1 Bronze Layer
+### 7.1 Bronze Layer
 
 Purpose:
 
@@ -469,24 +571,19 @@ Purpose:
 - detect source drift;
 - provide auditability.
 
-Bronze tables:
+Storage:
 
 ```text
-bronze_climate
-bronze_hydrometric_realtime
-bronze_hydat
-bronze_wildfire
-bronze_statcan_building_permits
-bronze_boundaries
-bronze_disaster_events
-bronze_vancouver_property_parcels
-bronze_vancouver_property_tax
-bronze_vancouver_building_permits
-bronze_vancouver_floodplain
-bronze_calgary_property_assessment
-bronze_calgary_flood_hazard
-bronze_calgary_building_permits
-bronze_calgary_development_permits
+local: lakehouse/bronze/
+cloud target: s3://<bucket>/bronze/
+```
+
+Bronze outputs:
+
+```text
+raw file
+metadata.json
+bronze_runs.jsonl manifest
 ```
 
 Bronze metadata fields:
@@ -498,15 +595,17 @@ source_url
 extract_timestamp
 raw_file_path
 file_checksum
+checksum_algorithm
 schema_hash
 ingestion_method
 source_period_start
 source_period_end
 row_count
 load_status
+extra_metadata
 ```
 
-### 6.2 Silver Layer
+### 7.2 Silver Layer
 
 Purpose:
 
@@ -517,7 +616,15 @@ Purpose:
 - generate grids;
 - build reusable feature inputs.
 
-Silver tables:
+Storage:
+
+```text
+local: lakehouse/silver/
+cloud target: s3://<bucket>/silver/
+format target: Parquet / GeoParquet
+```
+
+Silver source-level tables:
 
 ```text
 silver_climate_daily
@@ -535,37 +642,60 @@ silver_grid_hazard_features
 silver_grid_development_features
 silver_vancouver_parcel
 silver_vancouver_property_tax
-silver_vancouver_parcel_flood_overlay
-silver_vancouver_permit_property_map
+silver_vancouver_building_permits
+silver_vancouver_floodplain
 silver_calgary_property
 silver_calgary_flood_hazard
-silver_calgary_property_flood_overlay
-silver_calgary_permit_property_map
+silver_calgary_building_permits
+silver_calgary_development_permits
 silver_spatial_coverage_confidence
 ```
 
-### 6.3 Gold / Serving Layer
-
-Purpose:
-
-- provide stable downstream contracts;
-- support Power BI and SQL consumers;
-- preserve geometry where useful;
-- serve validation and reliability outputs.
-
-Technology:
+Intermediate / overlay products:
 
 ```text
-Azure PostgreSQL Flexible Server + PostGIS
+int_vancouver_parcel_flood_overlay
+int_vancouver_permit_property_map
+int_calgary_property_flood_overlay
+int_calgary_permit_property_map
+int_municipality_grid_rollup
+int_cdd_event_month_labels
 ```
 
-Gold tables are built through dbt and exported/loaded into PostgreSQL/PostGIS.
+### 7.3 Gold / Warehouse Layer
+
+Primary warehouse:
+
+```text
+Snowflake
+```
+
+Schemas:
+
+```text
+BRONZE
+SILVER
+GOLD
+AUDIT
+```
+
+dbt builds:
+
+```text
+staging
+|
+v
+intermediate
+|
+v
+marts
+```
 
 ---
 
-## 7. Final Data Products / Marts
+## 8. Final Data Products / Marts
 
-### 7.1 Core Dimensions
+### 8.1 Core Dimensions
 
 | Model | Grain | Purpose |
 |---|---|---|
@@ -576,7 +706,7 @@ Gold tables are built through dbt and exported/loaded into PostgreSQL/PostGIS.
 | `dim_municipality` | one row per municipality/CSD | Administrative rollup |
 | `dim_station` | one row per climate/hydro station | Station metadata and coverage |
 
-### 7.2 Grid-Level Marts
+### 8.2 Grid-Level Marts
 
 #### `mart_grid_month_hazard_exposure`
 
@@ -637,7 +767,7 @@ coverage_confidence_score
 score_version
 ```
 
-### 7.3 Vancouver Parcel Mart
+### 8.3 Vancouver Parcel Mart
 
 #### `mart_vancouver_parcel_exposure`
 
@@ -647,31 +777,7 @@ Grain:
 one row per Vancouver parcel per assessment/reporting year
 ```
 
-Main columns:
-
-```text
-parcel_id
-property_tax_year
-centroid_lat
-centroid_lon
-geometry_wkt
-land_value
-improvement_value
-total_value
-permit_count_since_2017
-permit_count_last_3y
-latest_permit_date
-floodplain_flag
-floodplain_overlap_pct
-building_or_improvement_proxy
-vancouver_parcel_exposure_score
-exposure_tier
-join_quality_flag
-geometry_valid_flag
-source_freshness_flag
-```
-
-### 7.4 Calgary Property Flood Mart
+### 8.4 Calgary Property Flood Mart
 
 #### `mart_calgary_property_flood_exposure`
 
@@ -681,33 +787,7 @@ Grain:
 one row per Calgary property / parcel per assessment year
 ```
 
-Main columns:
-
-```text
-property_id
-assessment_year
-centroid_lat
-centroid_lon
-geometry_wkt_or_null
-property_type
-assessed_value
-land_value
-improvement_value
-regulatory_flood_zone_flag
-floodway_flag
-flood_fringe_flag
-overland_flood_flag
-flood_zone_category
-building_permit_count_last_3y
-development_permit_count_last_3y
-calgary_flood_exposure_score
-exposure_tier
-join_quality_flag
-geometry_valid_flag
-source_freshness_flag
-```
-
-### 7.5 Municipality Aggregation Mart
+### 8.5 Municipality Aggregation Mart
 
 #### `mart_municipality_month_priority`
 
@@ -717,63 +797,21 @@ Grain:
 one row per municipality per month
 ```
 
-Purpose:
-
-- recruiter-friendly summary;
-- CDD validation layer;
-- Power BI slicers and top-N views;
-- bridge between grid/property outputs and administrative boundaries.
-
-Main columns:
+### 8.6 Reliability and Validation Marts
 
 ```text
-municipality_key
-province
-month_key
-grid_cell_count
-avg_grid_priority_score
-p90_grid_priority_score
-high_priority_grid_count
-high_priority_grid_share
-permit_value_monthly
-CDD_event_count
-coverage_confidence_score
-municipality_priority_tier
+mart_data_reliability
+mart_score_validation
+mart_sensitivity_analysis
 ```
 
-### 7.6 Data Reliability Mart
-
-#### `mart_data_reliability`
-
-Grain:
-
-```text
-one row per source per pipeline run
-```
-
-Main columns:
-
-```text
-run_id
-source_name
-expected_frequency
-last_extract_at
-freshness_status
-row_count
-row_count_change_pct
-schema_changed_flag
-geometry_valid_rate
-spatial_join_success_rate
-dbt_tests_passed
-dbt_tests_failed
-severity
-```
+These show source freshness, row count anomalies, schema drift, geometry validity, spatial join success, dbt test results, and score validation.
 
 ---
 
-## 8. Score and Validation Design
+## 9. Score and Validation Design
 
-### 8.1 Score Naming
+### 9.1 Score Naming
 
 Do not use one generic “risk score.” Use named scores by grain and purpose.
 
@@ -784,76 +822,23 @@ Do not use one generic “risk score.” Use named scores by grain and purpose.
 | Calgary Property Flood Exposure Screening Score | property-year | Screen property flood exposure based on regulatory flood layers and property context |
 | Municipality Climate-Exposure Priority Tier | municipality-month | Aggregated BI and validation summary |
 
-### 8.2 Grid-Level Score
+### 9.2 Coverage Confidence
 
-Sub-scores:
-
-1. Flood / hydrometric signal score
-2. Wildfire exposure score
-3. Extreme weather score
-4. Development exposure score
-5. Coverage confidence, reported separately
-
-Candidate methods:
-
-| Method | Purpose |
-|---|---|
-| Equal-weight baseline | Honest baseline |
-| Hazard-only baseline | Tests whether development exposure adds signal |
-| Validation-calibrated score | Uses CDD labels to calibrate or select weights |
-
-Important rule:
+Coverage confidence is reported beside the score instead of hidden inside it.
 
 ```text
-Coverage confidence is not hidden inside the risk score.
-It is reported beside the score so users can judge reliability.
+priority_score
++
+coverage_confidence_score
++
+data_quality_flag
 ```
 
-### 8.3 Vancouver Parcel Exposure Score
-
-Conceptual formula:
-
-```text
-vancouver_parcel_exposure_score =
-  floodplain_overlap_component
-+ property_value_exposure_component
-+ permit_activity_component
-+ data_quality_adjustment
-```
-
-Interpretation:
-
-- Higher overlap with floodplain increases exposure.
-- Higher property-value proxy increases asset exposure context.
-- Recent permit activity increases development/activity exposure context.
-- Data quality issues lower confidence or flag the row.
-
-### 8.4 Calgary Property Flood Exposure Score
-
-Conceptual formula:
-
-```text
-calgary_flood_exposure_score =
-  regulatory_flood_zone_component
-+ assessed_value_exposure_component
-+ building_or_development_activity_component
-+ data_quality_adjustment
-```
-
-Interpretation:
-
-- Flood zone presence is the dominant factor.
-- Assessed value is used as public asset-context proxy, not market valuation.
-- Building/development activity indicates recent property activity.
-- Data quality flags are mandatory.
-
-### 8.5 CDD Validation
+### 9.3 CDD Validation
 
 CDD is used to validate grid-level and municipality-level prioritization.
 
-It is not used as property-level truth.
-
-Validation workflow:
+Workflow:
 
 ```text
 Build CDD event-month labels
@@ -877,21 +862,8 @@ v
 Publish validation marts
 |
 v
-Show validation page in Power BI
+Show validation page in Power BI and public site
 ```
-
-Validation metrics:
-
-| Metric | Purpose |
-|---|---|
-| Event Capture @ Top 10% | Whether high-priority areas capture disaster events |
-| Lift @ Top 10% | Improvement over random ranking |
-| Precision @ Top K | Share of selected areas with event labels |
-| Recall @ Top K | Share of all events captured |
-| PR-AUC | Rare-event ranking quality |
-| Spearman rank stability | Stability of rankings over time |
-| Jaccard Top-K stability | Stability of high-priority shortlist |
-| Weight sensitivity | Robustness to weighting assumptions |
 
 Honest gate:
 
@@ -899,19 +871,21 @@ Honest gate:
 
 ---
 
-## 9. Data Quality and Observability
+## 10. Data Quality and Observability
 
-Quality is a first-class product output, not background code.
+Quality is a first-class product output.
 
-### 9.1 Source / Ingestion Quality
+### 10.1 Source / Ingestion Quality
 
-Tables:
+Tables / outputs:
 
 ```text
 audit_extract_run
 audit_source_freshness
 audit_row_count_anomaly
 audit_schema_hash
+bronze_runs.jsonl
+extract_audit.json
 ```
 
 Checks:
@@ -923,11 +897,12 @@ Checks:
 - file checksum;
 - extract status;
 - retry count;
-- failure reason.
+- failure reason;
+- Socrata row count reconciliation where available.
 
-### 9.2 Geospatial Quality
+### 10.2 Geospatial Quality
 
-Tables:
+Tables / outputs:
 
 ```text
 audit_coordinate_validation
@@ -937,36 +912,7 @@ audit_spatial_join
 mart_spatial_coverage_confidence
 ```
 
-Checks:
-
-- valid latitude/longitude range;
-- coordinates within expected province/city bounding box;
-- geometry validity;
-- geometry repair count;
-- CRS detected vs expected;
-- CRS transform success rate;
-- spatial join success rate;
-- failed join count by source and join type;
-- median/p95 station distance by grid or municipality;
-- parcel-to-floodplain overlay success rate.
-
-### 9.3 Silver Transformation Quality
-
-Checks:
-
-- natural key uniqueness;
-- date range validity;
-- non-negative precipitation;
-- non-negative permit value;
-- non-negative assessed value;
-- numeric hydrometric values;
-- valid wildfire geometry;
-- valid floodplain geometry;
-- valid parcel geometry;
-- partition completeness;
-- duplicate rate threshold.
-
-### 9.4 Gold / dbt Quality
+### 10.3 dbt / Warehouse Quality
 
 Generic dbt tests:
 
@@ -987,44 +933,17 @@ Custom dbt tests:
 - no negative assessment values;
 - no property exposure row without source lineage.
 
-### 9.5 Pipeline Status JSON
+### 10.4 Pipeline Status JSON
 
-After each successful pipeline run, write:
+Write:
 
 ```text
 public_site/pipeline_status.json
 ```
 
-Example schema:
-
-```json
-{
-  "last_successful_run": "2026-05-10T08:00:00Z",
-  "environment": "azure-vm-prod-lite",
-  "sources": {
-    "climate": {
-      "status": "fresh",
-      "rows_loaded": 123456,
-      "last_extract_time": "2026-05-10T08:00:00Z"
-    },
-    "hydrometric_realtime": {
-      "status": "fresh",
-      "rows_loaded": 8432,
-      "last_extract_time": "2026-05-10T08:02:00Z"
-    }
-  },
-  "quality": {
-    "dbt_tests_passed": 57,
-    "dbt_tests_failed": 0,
-    "spatial_join_success_rate": 0.964,
-    "geometry_valid_rate": 0.991
-  }
-}
-```
-
 ---
 
-## 10. Architecture
+## 11. Architecture
 
 ```text
 External Sources
@@ -1042,9 +961,9 @@ External Sources
         ↓ source snapshot metadata
         ↓ schema hash / row-count checks
 
-ADLS Gen2 Bronze Delta
+AWS S3 Bronze
   ├── raw source snapshots
-  ├── raw schemas
+  ├── source-preserving formats
   ├── file checksums
   └── extract audit metadata
 
@@ -1053,9 +972,9 @@ ADLS Gen2 Bronze Delta
         ↓ geometry validation
         ↓ grid generation
         ↓ spatial joins
-        ↓ silver quality checks
+        ↓ source profiling and silver quality checks
 
-ADLS Gen2 Silver Delta
+AWS S3 Silver
   ├── standardized tabular sources
   ├── standardized geospatial sources
   ├── generated grids
@@ -1064,11 +983,12 @@ ADLS Gen2 Silver Delta
   ├── property-flood overlays
   └── spatial coverage confidence
 
+        ↓ Snowflake load / external staging
         ↓ dbt Core
         ↓ dbt tests
         ↓ score calibration and validation jobs
 
-Azure PostgreSQL + PostGIS Gold / Serving Layer
+Snowflake Gold / Audit
   ├── dimensions
   ├── grid marts
   ├── Vancouver parcel mart
@@ -1078,7 +998,8 @@ Azure PostgreSQL + PostGIS Gold / Serving Layer
   ├── sensitivity marts
   └── data reliability mart
 
-        ↓ Power BI import / scheduled refresh / curated extracts
+        ↓ Power BI import / curated extracts
+        ↓ public static front-end
 
 Public Portfolio Evidence
   ├── Power BI dashboard
@@ -1087,150 +1008,32 @@ Public Portfolio Evidence
   ├── architecture diagram
   ├── data dictionary
   ├── validation metrics
+  ├── screenshots
   └── demo video fallback
 ```
 
 ---
 
-## 11. Airflow DAGs
+## 12. Airflow DAGs
 
-### DAG 1: `historical_backfill_pipeline`
-
-Purpose:
-
-Build full historical baseline.
+The target DAG set:
 
 ```text
 historical_backfill_pipeline
-  ├── extract_eccc_climate_history
-  ├── extract_hydat_sqlite
-  ├── extract_wildfire_history
-  ├── extract_statcan_building_permits_history
-  ├── extract_cdd_disaster_events
-  ├── extract_boundary_files
-  ├── write_bronze_delta
-  ├── run_schema_hash_checks
-  ├── run_row_count_checks
-  ├── spark_standardize_crs
-  ├── spark_build_silver_core_tables
-  ├── spark_generate_10km_grid
-  ├── spark_build_station_grid_map
-  ├── spark_build_grid_hazard_features
-  ├── dbt_run_core_models
-  ├── dbt_test
-  └── write_pipeline_audit
-```
-
-### DAG 2: `daily_hazard_pipeline`
-
-Purpose:
-
-Load recent hazard signals.
-
-```text
 daily_hazard_pipeline
-  ├── extract_latest_hydrometric_realtime
-  ├── extract_latest_climate_if_available
-  ├── extract_latest_wildfire_if_available
-  ├── source_freshness_check
-  ├── spark_daily_hazard_features
-  ├── update_grid_hazard_mart
-  ├── dbt_test_selected
-  └── update_public_status_json
-```
-
-### DAG 3: `monthly_exposure_pipeline`
-
-Purpose:
-
-Update development and exposure proxies.
-
-```text
 monthly_exposure_pipeline
-  ├── extract_statcan_building_permits
-  ├── extract_vancouver_permits
-  ├── extract_calgary_permits
-  ├── row_count_anomaly_check
-  ├── spark_permit_normalization
-  ├── spark_grid_development_features
-  ├── update_exposure_marts
-  ├── dbt_test_selected
-  └── update_public_status_json
-```
-
-### DAG 4: `municipal_property_deep_dive_pipeline`
-
-Purpose:
-
-Build Vancouver and Calgary property-context exposure marts.
-
-```text
 municipal_property_deep_dive_pipeline
-  ├── extract_vancouver_property_parcels
-  ├── extract_vancouver_property_tax
-  ├── extract_vancouver_floodplain
-  ├── extract_calgary_property_assessment
-  ├── extract_calgary_flood_hazard
-  ├── validate_property_source_schemas
-  ├── validate_property_geometries
-  ├── standardize_property_crs
-  ├── build_vancouver_parcel_flood_overlay
-  ├── build_vancouver_permit_property_map
-  ├── build_calgary_property_flood_overlay
-  ├── build_calgary_permit_property_map
-  ├── update_property_exposure_marts
-  ├── dbt_test_property_models
-  └── write_property_join_audit
-```
-
-### DAG 5: `score_validation_pipeline`
-
-Purpose:
-
-Validate scoring method.
-
-```text
 score_validation_pipeline
-  ├── build_cdd_event_month_labels
-  ├── calculate_candidate_grid_scores
-  ├── aggregate_grid_to_municipality
-  ├── run_out_of_time_backtests
-  ├── calculate_lift_at_k
-  ├── calculate_event_capture_at_k
-  ├── run_weight_sensitivity
-  ├── run_radius_sensitivity
-  ├── publish_validation_marts
-  └── update_validation_page_assets
-```
-
-### DAG 6: `data_quality_monitoring`
-
-Purpose:
-
-Monitor pipeline health.
-
-```text
 data_quality_monitoring
-  ├── source_freshness
-  ├── schema_hash_check
-  ├── row_count_anomaly
-  ├── coordinate_validity
-  ├── geometry_validity
-  ├── crs_transform_audit
-  ├── station_mapping_success
-  ├── parcel_overlay_success
-  ├── failed_spatial_join_count
-  ├── coverage_confidence_summary
-  ├── dbt_tests
-  ├── publish_dq_results
-  └── update_pipeline_status_json
 ```
+
+Each DAG should produce audit outputs and update `pipeline_status.json` when relevant.
 
 ---
 
-## 12. dbt Modeling Design
+## 13. dbt Modeling Design
 
-### 12.1 dbt Model Layers
+### 13.1 dbt Model Layers
 
 ```text
 staging
@@ -1242,60 +1045,31 @@ v
 marts
 ```
 
-### 12.2 Staging Models
+### 13.2 Example Models
 
-Purpose:
-
-- rename fields;
-- cast types;
-- standardize dates;
-- expose clean source tables to downstream models.
-
-Examples:
+Staging:
 
 ```text
 stg_climate_daily
 stg_hydro_daily
-stg_hydat_baseline
 stg_wildfire_event
-stg_statcan_permits
 stg_vancouver_parcel
-stg_vancouver_property_tax
-stg_vancouver_permits
 stg_calgary_property
-stg_calgary_flood_hazard
-stg_calgary_permits
 stg_cdd_events
 ```
 
-### 12.3 Intermediate Models
-
-Purpose:
-
-- join standardized inputs;
-- create reusable feature tables;
-- aggregate by grid/city/property/month.
-
-Examples:
+Intermediate:
 
 ```text
 int_grid_climate_monthly
 int_grid_hydro_monthly
 int_grid_wildfire_monthly
-int_grid_development_monthly
 int_vancouver_parcel_overlay
 int_calgary_property_flood_overlay
-int_municipality_grid_rollup
 int_cdd_event_month_labels
 ```
 
-### 12.4 Mart Models
-
-Purpose:
-
-- stable final output tables.
-
-Examples:
+Marts:
 
 ```text
 mart_grid_month_hazard_exposure
@@ -1310,103 +1084,115 @@ mart_data_reliability
 
 ---
 
-## 13. Power BI Dashboard Plan
+## 14. Public Front-End and Power BI Display
 
-### 13.1 Dashboard Role
+### 14.1 Public Front-End Role
 
-The dashboard proves the data product is consumable.
+The front-end is a static project evidence layer, not the main engineering product.
 
-It does not define the project.
+Target:
 
-### 13.2 Final Pages
+```text
+GitHub Pages / static public_site
+```
+
+### 14.2 Front-End Sections
+
+| Section | Purpose |
+|---|---|
+| Hero / Project Pitch | Explain the project in one screen |
+| Architecture | Show AWS S3 + Snowflake ELT architecture |
+| Pipeline Status | Read `pipeline_status.json` and show freshness/quality cards |
+| Data Sources | Summarize sources and ingestion status |
+| Data Quality | Show row count, schema, CRS, spatial join quality |
+| Dashboard Preview | Embed Power BI if available; otherwise show screenshots |
+| Validation | Show CDD lift/top-K/sensitivity summary |
+| Limitations | Explain exposure-screening limits honestly |
+| Links | GitHub repo, docs, PBIX/demo video, screenshots |
+
+### 14.3 Public Site Files
+
+```text
+public_site/
+  index.html
+  pipeline_status.json
+  assets/
+    architecture.png
+    dashboard_overview.png
+    grid_hazard_page.png
+    vancouver_parcel_page.png
+    calgary_property_page.png
+    validation_page.png
+    data_reliability_page.png
+```
+
+### 14.4 Power BI Dashboard Pages
 
 | Page | Purpose |
 |---|---|
-| 1. Executive Overview | BC + Alberta grid priority map, top areas, score distribution |
-| 2. Grid Hazard Explorer | 10km / 1km grid hazard components and coverage confidence |
-| 3. Flood & Hydrometric Monitoring | Water level percentiles, station coverage, hydro anomalies |
-| 4. Wildfire Exposure | Wildfire proximity, counts, seasonal patterns |
-| 5. Development Exposure | Building-permit trends and development exposure proxy |
-| 6. Vancouver Parcel Deep Dive | Parcel exposure summary, floodplain overlap, permit activity |
-| 7. Calgary Flood-Property Deep Dive | Property flood zone exposure, assessment value proxy, permit activity |
-| 8. Score Validation | CDD backtesting, lift, top-K capture, sensitivity analysis |
-| 9. Data Reliability | Freshness, schema drift, row count anomalies, dbt tests, spatial join success |
+| Executive Overview | BC + Alberta grid priority map, top areas, score distribution |
+| Grid Hazard Explorer | 10km / 1km grid hazard components and coverage confidence |
+| Flood & Hydrometric Monitoring | Water level percentiles, station coverage, hydro anomalies |
+| Wildfire Exposure | Wildfire proximity, counts, seasonal patterns |
+| Development Exposure | Building-permit trends and development exposure proxy |
+| Vancouver Parcel Deep Dive | Parcel exposure summary, floodplain overlap, permit activity |
+| Calgary Flood-Property Deep Dive | Property flood zone exposure, assessment value proxy, permit activity |
+| Score Validation | CDD backtesting, lift, top-K capture, sensitivity analysis |
+| Data Reliability | Freshness, schema drift, row count anomalies, dbt tests, spatial join success |
 
-### 13.3 Map Strategy
+### 14.5 Front-End Acceptance Rule
 
-Power BI maps should not try to become a heavy WebGIS product.
+The public front-end must make the DE value visible quickly:
 
-Rules:
-
-- Use centroid lat/lon for grid display.
-- Use aggregated or filtered property records for Vancouver/Calgary pages.
-- Keep full geometry in PostGIS, not in visual-heavy Power BI layers.
-- Use Data Reliability and Score Validation pages as proof of DE quality.
-- Use screenshots and demo video as fallback if public embedding fails.
-
-### 13.4 Required Dashboard Filters
-
-- Province
-- Municipality
-- Month / year
-- Spatial unit type
-- Score method
-- Priority tier
-- Hazard type
-- Coverage confidence tier
-- Source freshness status
+```text
+title
+|
+v
+one-sentence pitch
+|
+v
+architecture
+|
+v
+pipeline status
+|
+v
+dashboard screenshots/embed
+|
+v
+data-quality evidence
+|
+v
+limitations
+```
 
 ---
 
-## 14. Deployment and Cost Control
-
-### 14.1 Deployment Components
+## 15. Deployment and Cost Control
 
 | Component | Choice | Reason |
 |---|---|---|
-| Storage | ADLS Gen2 | Low-cost lakehouse storage |
-| Compute | Azure VM running Dockerized Airflow + Spark | Cheaper than always-on Databricks |
-| Serving | Azure PostgreSQL Flexible Server + PostGIS | BI marts and spatial serving |
+| Storage | AWS S3 | Low-cost data lake storage |
+| Warehouse | Snowflake | Modern analytical warehouse |
+| Compute | Local Docker / optional EC2 batch compute | Cheaper than always-on managed compute |
+| Processing | PySpark / Apache Sedona | Scalable processing story |
 | BI | Power BI Desktop + Service / Publish to Web | Stable public demo |
-| Public Site | GitHub Pages or Azure Static Web Apps | Free/low-cost project wrapper |
+| Public Site | GitHub Pages | Free/low-cost project wrapper |
 | CI/CD | GitHub Actions | Public repo automation |
-| IaC | Terraform | Reproducible cloud setup |
+| IaC | Terraform | Reproducible AWS/Snowflake setup |
 
-### 14.2 Estimated Monthly Cost
+Cost-control decisions:
 
-| Component | Estimated Cost |
-|---|---:|
-| ADLS Gen2 | $1-5/month |
-| Azure PostgreSQL Flexible Server B1ms + storage | $16-25/month |
-| Azure VM for Airflow + Spark | $70-90/month |
-| GitHub Pages | $0 |
-| GitHub Actions | $0 for normal public repo usage |
-| Power BI Desktop | $0 |
-| Other | $0-10/month |
-| **Total** | **~$90-130/month** |
-
-### 14.3 Cost Decisions
-
-Avoid:
-
-- always-on Databricks clusters;
-- Microsoft Fabric capacity;
-- real-time streaming infrastructure;
-- custom tile servers;
-- Azure Container Apps for dashboard hosting;
-- heavy DirectQuery production setup.
-
-Use:
-
-- scheduled batch pipelines;
-- curated marts;
-- Power BI import or refreshable extracts;
-- public status JSON;
-- screenshots and video fallback.
+- use local-first development;
+- use small Snowflake warehouse;
+- avoid always-on managed clusters;
+- use S3 lifecycle rules for temp files;
+- use curated marts and dashboard extracts;
+- provide screenshots/video fallback.
 
 ---
 
-## 15. Repository Structure
+## 16. Repository Structure
 
 ```text
 canadian-climate-risk-platform/
@@ -1422,549 +1208,174 @@ canadian-climate-risk-platform/
 │   ├── source_config.yml
 │   ├── spatial_config.yml
 │   ├── risk_score_config.yml
-│   └── dq_thresholds.yml
+│   ├── dq_thresholds.yml
+│   └── platform_config.yml
 │
 ├── airflow/
-│   └── dags/
-│       ├── historical_backfill_pipeline.py
-│       ├── daily_hazard_pipeline.py
-│       ├── monthly_exposure_pipeline.py
-│       ├── municipal_property_deep_dive_pipeline.py
-│       ├── score_validation_pipeline.py
-│       └── data_quality_monitoring.py
-│
 ├── spark_jobs/
-│   ├── climate_to_silver.py
-│   ├── hydrometric_to_silver.py
-│   ├── hydat_to_baseline.py
-│   ├── wildfire_to_silver.py
-│   ├── statcan_permits_to_silver.py
-│   ├── disaster_events_to_labels.py
-│   ├── boundaries_to_silver.py
-│   ├── generate_metric_grids.py
-│   ├── build_station_grid_map.py
-│   ├── build_grid_hazard_features.py
-│   ├── build_grid_development_features.py
-│   ├── vancouver_property_to_silver.py
-│   ├── vancouver_parcel_flood_overlay.py
-│   ├── calgary_property_to_silver.py
-│   ├── calgary_property_flood_overlay.py
-│   ├── build_spatial_coverage_confidence.py
-│   ├── calibrate_priority_score.py
-│   └── export_gold_to_postgres.py
-│
 ├── src/
 │   ├── ingestion/
-│   │   ├── downloaders/
-│   │   ├── api_clients/
-│   │   └── source_registry.py
-│   ├── validation/
-│   │   ├── schema_checks.py
-│   │   ├── row_count_checks.py
-│   │   ├── geometry_checks.py
-│   │   └── dq_writer.py
-│   ├── geospatial/
-│   │   ├── crs.py
-│   │   ├── grid.py
-│   │   ├── joins.py
-│   │   ├── overlays.py
-│   │   └── spatial_audit.py
-│   ├── scoring/
-│   │   ├── grid_score.py
-│   │   ├── property_score.py
-│   │   ├── validation.py
-│   │   └── sensitivity.py
 │   ├── audit/
-│   │   ├── freshness.py
-│   │   ├── schema_hash.py
-│   │   ├── row_count.py
-│   │   └── pipeline_status.py
+│   ├── profiling/
+│   ├── validation/
+│   ├── geospatial/
+│   ├── scoring/
 │   └── utils/
-│       ├── logging.py
-│       ├── config.py
-│       └── io.py
 │
 ├── dbt/
 │   ├── models/
-│   │   ├── staging/
-│   │   ├── intermediate/
-│   │   └── marts/
-│   │       ├── core/
-│   │       ├── grid/
-│   │       ├── property/
-│   │       ├── validation/
-│   │       └── reliability/
+│   ├── profiles/
 │   ├── tests/
 │   ├── macros/
 │   └── dbt_project.yml
 │
 ├── infra/
 │   └── terraform/
-│       ├── main.tf
-│       ├── variables.tf
-│       ├── outputs.tf
-│       └── modules/
+│       ├── aws/
+│       └── snowflake/
 │
 ├── dashboard/
-│   ├── powerbi/
-│   │   ├── README.md
-│   │   ├── measures.md
-│   │   └── screenshots/
-│   └── data_exports/
-│
 ├── public_site/
-│   ├── index.html
-│   ├── pipeline_status.json
-│   └── assets/
-│
 ├── docs/
-│   ├── architecture.md
-│   ├── data_sources.md
-│   ├── geospatial_design.md
-│   ├── crs_strategy.md
-│   ├── risk_score_validation.md
-│   ├── sensitivity_analysis.md
-│   ├── data_quality.md
-│   ├── dbt_lineage.md
-│   ├── deployment.md
-│   ├── cost_control.md
-│   ├── limitations.md
-│   └── interview_story.md
-│
 ├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── fixtures/
-│
-└── .github/
-    └── workflows/
-        ├── ci.yml
-        ├── dbt.yml
-        ├── docker.yml
-        └── deploy_public_status.yml
+└── .github/workflows/
 ```
 
 ---
 
-## 16. Implementation Sequence and Branch Plan
+## 17. Implementation Sequence and Branch Plan
 
-This is the final execution path. These are not optional extensions.
-
-### `feature/00-project-scaffold`
+### Completed / Current Foundation
 
 ```text
-Create repository
+feature/00-project-realignment
 |
 v
-Create folder structure
+feature/01-local-dev-env
 |
 v
-Add README placeholder
+feature/02-config-source-registry
 |
 v
-Add PLAN_FINAL.md
+feature/03-bronze-national-ingestion
 |
 v
-Add .env.example
+feature/04-bronze-municipal-ingestion
 |
 v
-Add Makefile
+feature/05-audit-framework
 |
 v
-Add docker-compose.yml placeholder
-|
-v
-PR to develop
+feature/06-aws-snowflake-realignment
 ```
 
-### `feature/01-config-source-registry`
+### Next Branches
+
+#### `feature/07-source-profiling`
 
 ```text
-Create project_scope.yml
+Read latest Bronze manifest
 |
 v
-Create source_config.yml
+Profile CSV / XLSX / JSON / GeoJSON files
 |
 v
-Create spatial_config.yml
+Detect raw columns and sample values
 |
 v
-Create risk_score_config.yml
+Check config contracts against real raw schema
 |
 v
-Create dq_thresholds.yml
+Write profile JSON and markdown summary
 |
 v
-Implement src/ingestion/source_registry.py
-|
-v
-Add source metadata validation tests
-|
-v
-PR to develop
+Use results to finalize source_config.yml
 ```
 
-### `feature/02-local-runtime-and-infra`
+#### `feature/08-s3-storage-backend`
 
 ```text
-Build Docker Compose environment
+Introduce storage backend abstraction
 |
 v
-Add Airflow service
+LocalStorageBackend
 |
 v
-Add Spark service
+S3StorageBackend
 |
 v
-Add PostgreSQL/PostGIS local service
+Write Bronze metadata and manifests to local or S3
 |
 v
-Add dbt service/config
-|
-v
-Add Terraform skeleton
-|
-v
-Add GitHub Actions CI skeleton
-|
-v
-PR to develop
+Keep local mode fully runnable
 ```
 
-### `feature/03-bronze-national-ingestion`
+#### `feature/09-silver-core-sources`
 
 ```text
-Implement climate downloader
-|
-v
-Implement hydrometric realtime client
-|
-v
-Implement HYDAT bulk ingestion
-|
-v
-Implement wildfire ingestion
-|
-v
-Implement StatCan permit ingestion
-|
-v
-Implement CDD ingestion
-|
-v
-Implement boundary ingestion
-|
-v
-Write Bronze Delta outputs
-|
-v
-PR to develop
+Standardize climate, hydro, wildfire, permit, CDD, and boundary sources
 ```
 
-### `feature/04-bronze-municipal-ingestion`
+#### `feature/10-silver-geospatial-grids`
 
 ```text
-Implement Vancouver parcel ingestion
-|
-v
-Implement Vancouver property tax ingestion
-|
-v
-Implement Vancouver permit ingestion
-|
-v
-Implement Vancouver floodplain ingestion
-|
-v
-Implement Calgary property assessment ingestion
-|
-v
-Implement Calgary flood hazard ingestion
-|
-v
-Implement Calgary permit ingestion
-|
-v
-Write Bronze Delta outputs
-|
-v
-PR to develop
+Generate 10km BC/AB grid and 1km Vancouver/Calgary grids
 ```
 
-### `feature/05-audit-framework`
+#### `feature/11-grid-feature-engineering`
 
 ```text
-Implement extract run audit
-|
-v
-Implement source freshness checks
-|
-v
-Implement schema hash checks
-|
-v
-Implement row count anomaly checks
-|
-v
-Write audit tables
-|
-v
-Write unit tests
-|
-v
-PR to develop
+Build grid climate, hydro, wildfire, development, disaster, and confidence features
 ```
 
-### `feature/06-silver-core-sources`
+#### `feature/12-property-overlays`
 
 ```text
-Standardize climate source
-|
-v
-Standardize hydrometric source
-|
-v
-Build HYDAT baseline table
-|
-v
-Standardize wildfire source
-|
-v
-Standardize building permits
-|
-v
-Standardize CDD event-month table
-|
-v
-Standardize boundary tables
-|
-v
-PR to develop
+Build Vancouver parcel-floodplain overlay and Calgary property-flood overlay
 ```
 
-### `feature/07-silver-geospatial-grids`
+#### `feature/13-snowflake-load-dbt-marts`
 
 ```text
-Implement CRS helper module
-|
-v
-Implement geometry validation module
-|
-v
-Generate 10km BC/AB grid
-|
-v
-Generate 1km Vancouver/Calgary grid
-|
-v
-Build station-to-grid map
-|
-v
-Build grid-to-municipality map
-|
-v
-Write spatial join audit
-|
-v
-PR to develop
+Load curated outputs to Snowflake and build dbt marts
 ```
 
-### `feature/08-grid-feature-engineering`
+#### `feature/14-validation-scoring`
 
 ```text
-Build grid climate monthly features
-|
-v
-Build grid hydro monthly features
-|
-v
-Build grid wildfire proximity/count features
-|
-v
-Build grid development features
-|
-v
-Build historical disaster features
-|
-v
-Build coverage confidence table
-|
-v
-PR to develop
+Backtest scores against CDD events and publish validation marts
 ```
 
-### `feature/09-property-overlays`
+#### `feature/15-airflow-dags`
 
 ```text
-Standardize Vancouver parcel/property tables
-|
-v
-Build Vancouver parcel-floodplain overlay
-|
-v
-Build Vancouver permit-property mapping
-|
-v
-Standardize Calgary property/flood tables
-|
-v
-Build Calgary property-flood overlay
-|
-v
-Build Calgary permit-property mapping
-|
-v
-Write property join audit
-|
-v
-PR to develop
+Build production-style DAG orchestration
 ```
 
-### `feature/10-dbt-marts`
+#### `feature/16-dashboard-public-site`
 
 ```text
-Create dbt staging models
-|
-v
-Create dbt intermediate models
-|
-v
-Create grid marts
-|
-v
-Create Vancouver parcel mart
-|
-v
-Create Calgary property mart
-|
-v
-Create municipality aggregation mart
-|
-v
-Create data reliability mart
-|
-v
-Add dbt tests
-|
-v
-PR to develop
+Build Power BI report and static public project page
 ```
 
-### `feature/11-validation-scoring`
+#### `feature/17-docs-polish`
 
 ```text
-Implement grid score methods
-|
-v
-Implement Vancouver parcel score
-|
-v
-Implement Calgary flood exposure score
-|
-v
-Map CDD labels to municipality/grid
-|
-v
-Run out-of-time backtesting
-|
-v
-Calculate lift/top-K/sensitivity metrics
-|
-v
-Publish validation marts
-|
-v
-PR to develop
-```
-
-### `feature/12-serving-postgis`
-
-```text
-Enable PostGIS extension
-|
-v
-Export/load marts to PostgreSQL/PostGIS
-|
-v
-Create geometry columns where useful
-|
-v
-Create GIST indexes
-|
-v
-Validate row counts between Delta and Postgres
-|
-v
-PR to develop
-```
-
-### `feature/13-dashboard-public-site`
-
-```text
-Build Power BI report
-|
-v
-Create dashboard screenshots
-|
-v
-Create demo video fallback
-|
-v
-Create public_site/index.html
-|
-v
-Publish pipeline_status.json
-|
-v
-Add architecture diagram
-|
-v
-Add public README links
-|
-v
-PR to develop
-```
-
-### `feature/14-docs-polish`
-
-```text
-Finalize README
-|
-v
-Finalize docs/data_sources.md
-|
-v
-Finalize docs/architecture.md
-|
-v
-Finalize docs/geospatial_design.md
-|
-v
-Finalize docs/data_quality.md
-|
-v
-Finalize docs/risk_score_validation.md
-|
-v
-Finalize docs/limitations.md
-|
-v
-Finalize docs/interview_story.md
-|
-v
-PR to main
+Finalize docs, limitations, screenshots, and interview story
 ```
 
 ---
 
-## 17. Testing Strategy
+## 18. Testing Strategy
 
-### 17.1 Unit Tests
+### 18.1 Unit Tests
 
 Test:
 
 - config loading;
 - source registry validation;
+- source contract validation;
+- source profiling;
 - schema hash generation;
 - row count anomaly logic;
 - CRS conversion helper;
@@ -1972,33 +1383,20 @@ Test:
 - scoring functions;
 - validation metrics.
 
-### 17.2 Integration Tests
+### 18.2 Integration Tests
 
 Test:
 
 - Bronze write/read;
+- local vs S3 storage backend behavior;
 - Silver transformation on fixtures;
 - geometry validation on sample polygons;
 - spatial join on small known geometries;
-- dbt model build on sample data;
-- Postgres/PostGIS export;
+- Snowflake load on sample data or mocked interface;
+- dbt model build on sample profile;
 - pipeline status JSON generation.
 
-### 17.3 dbt Tests
-
-Test:
-
-- primary keys;
-- foreign keys;
-- accepted values;
-- score ranges;
-- non-negative values;
-- no missing lineage;
-- no high-priority row without coverage confidence.
-
-### 17.4 CI/CD Checks
-
-GitHub Actions should run:
+### 18.3 CI/CD Checks
 
 ```text
 Python lint
@@ -2010,9 +1408,6 @@ v
 dbt parse / compile
 |
 v
-dbt tests on sample profile
-|
-v
 Docker build check
 |
 v
@@ -2021,44 +1416,45 @@ Docs link / markdown check
 
 ---
 
-## 18. Final Deliverables
+## 19. Final Deliverables
 
 The project is complete only when all items below exist.
 
 1. GitHub repository with final structure.
 2. `PLAN_FINAL.md` in repo root.
 3. Docker Compose local environment.
-4. Terraform infrastructure code.
-5. Airflow DAGs for all six pipelines.
-6. ADLS Bronze/Silver/Gold Delta layout.
+4. Terraform AWS and Snowflake placeholders.
+5. Airflow DAGs for main pipelines.
+6. AWS S3 Bronze/Silver/Audit target design.
 7. PySpark/Sedona jobs for grid, hazard, and property overlays.
 8. Source registry and config-driven ingestion.
-9. Source audit tables.
-10. Geospatial audit tables.
-11. dbt staging, intermediate, and mart models.
-12. dbt tests and custom tests.
-13. PostgreSQL/PostGIS serving marts.
-14. Data reliability mart.
-15. Score validation and sensitivity marts.
-16. Power BI dashboard with reliability and validation pages.
-17. GitHub Pages / Azure Static Web Apps public site.
-18. `pipeline_status.json`.
-19. Architecture diagram.
-20. Data dictionary.
-21. Data source documentation.
-22. CRS strategy document.
-23. Data quality document.
-24. Score validation document.
-25. Limitations document.
-26. Demo video fallback.
-27. Final README.
-28. Resume bullets and interview story.
+9. Source profiling outputs.
+10. Source audit outputs.
+11. Geospatial audit outputs.
+12. Snowflake schemas and dbt models.
+13. dbt staging, intermediate, and mart models.
+14. dbt tests and custom tests.
+15. Data reliability mart.
+16. Score validation and sensitivity marts.
+17. Power BI dashboard with reliability and validation pages.
+18. GitHub Pages static public site.
+19. `pipeline_status.json`.
+20. Architecture diagram.
+21. Data dictionary.
+22. Data source documentation.
+23. CRS strategy document.
+24. Data quality document.
+25. Score validation document.
+26. Limitations document.
+27. Demo video fallback.
+28. Final README.
+29. Resume bullets and interview story.
 
 ---
 
-## 19. Acceptance Criteria
+## 20. Acceptance Criteria
 
-### 19.1 DE Acceptance Criteria
+### 20.1 DE Acceptance Criteria
 
 The DE platform is acceptable only if:
 
@@ -2070,11 +1466,11 @@ The DE platform is acceptable only if:
 - schema drift is detectable;
 - row count anomalies are detectable;
 - dbt tests run successfully;
-- PostgreSQL/PostGIS marts are loadable;
+- Snowflake marts are buildable;
 - Power BI uses curated marts or curated extracts;
 - `pipeline_status.json` reflects latest run health.
 
-### 19.2 Geospatial Acceptance Criteria
+### 20.2 Geospatial Acceptance Criteria
 
 The geospatial layer is acceptable only if:
 
@@ -2087,52 +1483,38 @@ The geospatial layer is acceptable only if:
 - Calgary property-flood overlay exists;
 - spatial join success rates are reported.
 
-### 19.3 Dashboard Acceptance Criteria
+### 20.3 Public Demo Acceptance Criteria
 
-The dashboard is acceptable only if it contains:
+The demo is acceptable only if it contains:
 
-- executive overview;
-- grid hazard explorer;
-- flood/hydrometric page;
-- wildfire page;
-- development exposure page;
-- Vancouver parcel page;
-- Calgary property flood page;
-- score validation page;
-- data reliability page.
-
-### 19.4 Portfolio Acceptance Criteria
-
-The project is portfolio-ready only if:
-
-- README shows the live demo or demo video immediately;
-- architecture is visible in the first screen or early README;
-- data quality is obvious;
-- validation is documented;
-- limitations are honest;
-- screenshots prove pipeline execution;
-- resume bullets are concise and DE-focused.
+- Power BI dashboard or screenshots/video fallback;
+- static public front-end landing page;
+- architecture section;
+- source status section;
+- data-quality section;
+- validation section;
+- limitations section;
+- repo/docs links.
 
 ---
 
-## 20. Risk Register
+## 21. Risk Register
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Municipal schema changes | Pipeline failure | schema hash, source configs, bronze preservation |
+| Municipal schema changes | Pipeline failure | schema hash, source configs, Bronze preservation, source profiling |
+| Source fields are unknown | Wrong Silver logic | profile real raw files before Silver implementation |
 | Property data joins are incomplete | Weak parcel/property mart | join quality flags, unmatched audit, honest limitations |
 | Power BI public embed unavailable | No live public dashboard | screenshots + demo video fallback + PBIX in repo |
-| Geospatial joins are slow | Long pipeline runtime | Sedona for large joins, GeoPandas only for small city layers, spatial indexes in PostGIS |
+| Geospatial joins are slow | Long runtime | Sedona for large joins, GeoPandas only for small city layers |
 | Station coverage is sparse in northern regions | Weak signal | coverage confidence score surfaced in dashboard |
 | Score has weak validation lift | Methodology questioned | honest gate: report as exploratory heuristic |
-| Project scope becomes too front-end heavy | DE story diluted | no custom WebGIS app in final scope |
-| Cloud cost grows | Budget issue | VM-based batch compute, no always-on tile server, no Databricks always-on |
+| Project scope becomes too front-end heavy | DE story diluted | static front-end only, no full WebGIS app |
+| Cloud cost grows | Budget issue | local-first dev, S3 low-cost storage, small Snowflake warehouse |
 
 ---
 
-## 21. README First Screen Requirements
-
-The README must show the DE value immediately.
+## 22. README First Screen Requirements
 
 Required first screen:
 
@@ -2143,10 +1525,10 @@ v
 One-sentence DE pitch
 |
 v
-Live demo / demo video / screenshots
+Current status
 |
 v
-Architecture badge: Azure + Spark + Delta + Airflow + dbt + PostGIS + Power BI
+Architecture badges: AWS S3 + Snowflake + PySpark + Airflow + dbt + Power BI
 |
 v
 Scope: BC + Alberta, 10km grid, Vancouver/Calgary property deep dives
@@ -2158,41 +1540,43 @@ v
 Validation: CDD backtesting, lift/top-K/sensitivity
 |
 v
+Demo: Power BI / screenshots / public front-end
+|
+v
 Limitations: exposure screening, not insurance/legal/engineering risk model
 ```
 
 ---
 
-## 22. Resume Bullets
-
-Use 2-3 bullets only.
+## 23. Resume Bullets
 
 ### Bullet 1 — Core DE Platform
 
-> Built an Azure/Spark lakehouse platform integrating 10 years of Canadian climate, hydrometric, wildfire, building-permit, disaster-event, and municipal property data into ADLS Gen2 Delta Bronze/Silver/Gold layers with Airflow-orchestrated backfill and incremental pipelines.
+> Built an AWS S3 + Snowflake ELT data platform integrating Canadian climate, hydrometric, wildfire, building-permit, disaster-event, and municipal property data into Bronze/Silver/Gold layers with Airflow-orchestrated ingestion and dbt-modeled analytical marts.
 
 ### Bullet 2 — Geospatial DE + Quality
 
-> Engineered PySpark/Sedona geospatial transformations to generate 10km BC/Alberta risk grids, 1km city grids, and Vancouver/Calgary property-flood overlays, with CRS standardization, geometry validation, schema-drift detection, row-count anomaly checks, and spatial join audit marts.
+> Engineered PySpark/Sedona geospatial transformations to generate 10km BC/Alberta risk grids, 1km city grids, and Vancouver/Calgary property-flood overlays, with CRS standardization, geometry validation, schema-drift detection, row-count checks, source profiling, and spatial join audit outputs.
 
 ### Bullet 3 — Serving + Validation
 
-> Modeled trusted dbt/PostgreSQL/PostGIS marts for grid-level hazard exposure, property-level flood screening, data reliability, and score validation; backtested prioritization scores against Canadian Disaster Database events and surfaced results in a public Power BI dashboard.
+> Modeled trusted Snowflake/dbt marts for grid-level hazard exposure, property-level flood screening, data reliability, and score validation; backtested prioritization scores against Canadian Disaster Database events and surfaced results through Power BI and a static public project page.
 
 ---
 
-## 23. Interview Positioning
+## 24. Interview Positioning
 
-### 23.1 One-Sentence Pitch
+### 24.1 One-Sentence Pitch
 
-> I built a DE-focused Azure/Spark geospatial lakehouse that ingests public Canadian climate, hydrometric, wildfire, permit, disaster, and municipal property datasets, validates them across Bronze/Silver/Gold layers, and serves trusted grid-level and property-context exposure marts to Power BI and PostgreSQL/PostGIS.
+> I built a DE-focused AWS S3 + Snowflake geospatial ELT platform that ingests public Canadian climate, hydrometric, wildfire, permit, disaster, and municipal property datasets, validates them across Bronze/Silver/Gold layers, and serves trusted grid-level and property-context exposure marts to Power BI and a public project page.
 
-### 23.2 Why This Is Data Engineering
+### 24.2 Why This Is Data Engineering
 
 This is DE because the project focuses on:
 
 - reliable ingestion from heterogeneous sources;
 - raw data preservation;
+- source profiling;
 - schema drift detection;
 - row-count anomaly detection;
 - PySpark/Sedona spatial transformations;
@@ -2201,30 +1585,30 @@ This is DE because the project focuses on:
 - repeatable grid generation;
 - spatial join auditability;
 - dbt modeling and testing;
-- PostgreSQL/PostGIS serving;
+- Snowflake warehouse modeling;
 - Airflow orchestration;
 - pipeline observability;
 - public data freshness reporting.
 
-### 23.3 Answer: “Why Not Just Power BI?”
+### 24.3 Answer: “Why Not Just Power BI?”
 
-> Power BI is only the presentation layer. The hard part is making heterogeneous public data reliable enough to feed the dashboard: ingestion, schema drift detection, CRS standardization, spatial joins, coverage confidence, dbt tests, and validation against external disaster events. The dashboard proves the data product is consumable; it is not the core engineering work.
+> Power BI is only the presentation layer. The hard part is making heterogeneous public data reliable enough to feed the dashboard: ingestion, schema drift detection, source profiling, CRS standardization, spatial joins, coverage confidence, dbt tests, and validation against external disaster events. The dashboard proves the data product is consumable; it is not the core engineering work.
 
-### 23.4 Answer: “Is This a Risk Model?”
+### 24.4 Answer: “Is This a Risk Model?”
 
 > No. I call it an exposure screening and prioritization heuristic. I do not have claims data, insured asset values, engineering flood-depth models, or legal parcel assessment authority. The platform prioritizes areas based on public hazard, exposure, and validation signals, and it clearly reports coverage confidence and limitations.
 
-### 23.5 Answer: “Why Vancouver and Calgary?”
+### 24.5 Answer: “Why Vancouver and Calgary?”
 
 > Vancouver and Calgary are not random add-ons. Vancouver supports a parcel-centric deep dive with parcel, tax, permit, and floodplain data. Calgary supports a flood-centric property deep dive with property assessment, flood hazard, and permit data. They let the platform show city-level property-context engineering without pretending to build full-Canada property risk modeling.
 
 ---
 
-## 24. Explicit Non-Goals
+## 25. Explicit Non-Goals
 
 The final project does not build:
 
-- Next.js / React front end;
+- Next.js / React production front end;
 - MapLibre dashboard;
 - deck.gl visualization app;
 - FastAPI geospatial API;
@@ -2241,28 +1625,11 @@ These are excluded because they either dilute the DE story, increase completion 
 
 ---
 
-## 25. Source Reference Notes
-
-These should be documented in `docs/data_sources.md` during implementation.
-
-- ECCC Historical Climate Data: https://climate.weather.gc.ca/
-- Environment and Climate Change Canada climate data: https://www.canada.ca/en/environment-climate-change/services/climate-change/canadian-centre-climate-services/display-download/climate-data.html
-- Water Survey of Canada data products and services: https://www.canada.ca/en/environment-climate-change/services/water-overview/quantity/monitoring/survey/data-products-services.html
-- HYDAT archive: https://www.canada.ca/en/environment-climate-change/services/water-overview/quantity/monitoring/survey/data-products-services/national-archive-hydat.html
-- Canadian Disaster Database: https://www.publicsafety.gc.ca/cnt/rsrcs/cndn-dsstr-dtbs/index-en.aspx
-- Vancouver Property Parcel Polygons: https://opendata.vancouver.ca/explore/dataset/property-parcel-polygons/
-- Vancouver Property Tax Report: https://vancouver.opendatasoft.com/explore/dataset/property-tax-report/
-- Vancouver Issued Building Permits: https://vancouver.aws-ec2-ca-central-1.opendatasoft.com/explore/dataset/issued-building-permits/
-- Calgary Open Data Portal: https://data.calgary.ca/
-- Calgary Regulatory Flood Hazard Map / Steplines: https://data.calgary.ca/Environment/Regulatory-Flood-Hazard-Map-Steplines/3q69-wm6a/about
-
----
-
 ## 26. Final Definition
 
 This final plan defines the project as:
 
-> A DE-focused Azure/Spark geospatial lakehouse platform for British Columbia and Alberta that produces reliable grid-level and city property-context exposure marts, validates prioritization scores against historical disaster events, tracks data quality across the full pipeline, and delivers a stable Power BI public dashboard backed by PostgreSQL/PostGIS serving marts.
+> A DE-focused AWS S3 + Snowflake geospatial ELT platform for British Columbia and Alberta that produces reliable grid-level and city property-context exposure marts, validates prioritization scores against historical disaster events, tracks data quality across the full pipeline, and delivers stable Power BI and public-site evidence backed by Snowflake/dbt analytical marts.
 
 The project’s value is not that it has the flashiest map.
 
@@ -2273,6 +1640,9 @@ ingested
 |
 v
 preserved
+|
+v
+profiled
 |
 v
 validated

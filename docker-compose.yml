@@ -1,4 +1,4 @@
-﻿services:
+services:
   postgres:
     image: postgis/postgis:16-3.4
     container_name: climate-risk-postgres
@@ -7,16 +7,17 @@
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
       POSTGRES_DB: ${POSTGRES_DB:-climate_risk}
     ports:
-      - "5432:5432"
+    - 5432:5432
     volumes:
-      - climate_postgres_data:/var/lib/postgresql/data
-      - ./warehouse:/opt/project/warehouse
+    - climate_postgres_data:/var/lib/postgresql/data
+    - ./warehouse:/opt/project/warehouse
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-climate_user} -d ${POSTGRES_DB:-climate_risk}"]
+      test:
+      - CMD-SHELL
+      - pg_isready -U ${POSTGRES_USER:-climate_user} -d ${POSTGRES_DB:-climate_risk}
       interval: 10s
       timeout: 5s
       retries: 5
-
   airflow-postgres:
     image: postgres:16
     container_name: climate-risk-airflow-postgres
@@ -25,13 +26,14 @@
       POSTGRES_PASSWORD: ${AIRFLOW_POSTGRES_PASSWORD:-airflow}
       POSTGRES_DB: ${AIRFLOW_POSTGRES_DB:-airflow}
     volumes:
-      - airflow_postgres_data:/var/lib/postgresql/data
+    - airflow_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${AIRFLOW_POSTGRES_USER:-airflow} -d ${AIRFLOW_POSTGRES_DB:-airflow}"]
+      test:
+      - CMD-SHELL
+      - pg_isready -U ${AIRFLOW_POSTGRES_USER:-airflow} -d ${AIRFLOW_POSTGRES_DB:-airflow}
       interval: 10s
       timeout: 5s
       retries: 5
-
   airflow-init:
     image: apache/airflow:2.10.5-python3.11
     container_name: climate-risk-airflow-init
@@ -41,29 +43,21 @@
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_POSTGRES_USER:-airflow}:${AIRFLOW_POSTGRES_PASSWORD:-airflow}@airflow-postgres:5432/${AIRFLOW_POSTGRES_DB:-airflow}
-      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__WEBSERVER__SECRET_KEY: local_dev_secret_key
       AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
     volumes:
-      - ./airflow/dags:/opt/airflow/dags
-      - ./airflow/logs:/opt/airflow/logs
-      - ./src:/opt/project/src
-      - ./spark_jobs:/opt/project/spark_jobs
-      - ./configs:/opt/project/configs
-      - ./lakehouse:/opt/project/lakehouse
-    command: >
-      bash -c "
-      airflow db migrate &&
-      airflow users create
-      --username ${AIRFLOW_ADMIN_USER:-admin}
-      --firstname Local
-      --lastname Admin
-      --role Admin
-      --email ${AIRFLOW_ADMIN_EMAIL:-admin@example.com}
-      --password ${AIRFLOW_ADMIN_PASSWORD:-admin}
-      || true
-      "
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./src:/opt/project/src
+    - ./spark_jobs:/opt/project/spark_jobs
+    - ./configs:/opt/project/configs
+    - ./lakehouse:/opt/project/lakehouse
+    command: 'bash -c " airflow db migrate && airflow users create --username ${AIRFLOW_ADMIN_USER:-admin}
+      --firstname Local --lastname Admin --role Admin --email ${AIRFLOW_ADMIN_EMAIL:-admin@example.com}
+      --password ${AIRFLOW_ADMIN_PASSWORD:-admin} || true "
 
+      '
   airflow-webserver:
     image: apache/airflow:2.10.5-python3.11
     container_name: climate-risk-airflow-webserver
@@ -73,20 +67,19 @@
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_POSTGRES_USER:-airflow}:${AIRFLOW_POSTGRES_PASSWORD:-airflow}@airflow-postgres:5432/${AIRFLOW_POSTGRES_DB:-airflow}
-      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__WEBSERVER__SECRET_KEY: local_dev_secret_key
       PYTHONPATH: /opt/project
     volumes:
-      - ./airflow/dags:/opt/airflow/dags
-      - ./airflow/logs:/opt/airflow/logs
-      - ./src:/opt/project/src
-      - ./spark_jobs:/opt/project/spark_jobs
-      - ./configs:/opt/project/configs
-      - ./lakehouse:/opt/project/lakehouse
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./src:/opt/project/src
+    - ./spark_jobs:/opt/project/spark_jobs
+    - ./configs:/opt/project/configs
+    - ./lakehouse:/opt/project/lakehouse
     ports:
-      - "8081:8080"
+    - 8081:8080
     command: webserver
-
   airflow-scheduler:
     image: apache/airflow:2.10.5-python3.11
     container_name: climate-risk-airflow-scheduler
@@ -96,67 +89,77 @@
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_POSTGRES_USER:-airflow}:${AIRFLOW_POSTGRES_PASSWORD:-airflow}@airflow-postgres:5432/${AIRFLOW_POSTGRES_DB:-airflow}
-      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
       AIRFLOW__WEBSERVER__SECRET_KEY: local_dev_secret_key
       PYTHONPATH: /opt/project
     volumes:
-      - ./airflow/dags:/opt/airflow/dags
-      - ./airflow/logs:/opt/airflow/logs
-      - ./src:/opt/project/src
-      - ./spark_jobs:/opt/project/spark_jobs
-      - ./configs:/opt/project/configs
-      - ./lakehouse:/opt/project/lakehouse
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./src:/opt/project/src
+    - ./spark_jobs:/opt/project/spark_jobs
+    - ./configs:/opt/project/configs
+    - ./lakehouse:/opt/project/lakehouse
     command: scheduler
-
   spark-master:
     image: apache/spark:3.5.5
     container_name: climate-risk-spark-master
-    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
+    command:
+    - /opt/spark/bin/spark-class
+    - org.apache.spark.deploy.master.Master
     environment:
       SPARK_MASTER_HOST: spark-master
     ports:
-      - "7077:7077"
-      - "8080:8080"
+    - 7077:7077
+    - 8080:8080
     volumes:
-      - ./src:/opt/project/src
-      - ./spark_jobs:/opt/project/spark_jobs
-      - ./configs:/opt/project/configs
-      - ./lakehouse:/opt/project/lakehouse
-
+    - ./src:/opt/project/src
+    - ./spark_jobs:/opt/project/spark_jobs
+    - ./configs:/opt/project/configs
+    - ./lakehouse:/opt/project/lakehouse
   spark-worker:
     image: apache/spark:3.5.5
     container_name: climate-risk-spark-worker
     depends_on:
-      - spark-master
-    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
+    - spark-master
+    command:
+    - /opt/spark/bin/spark-class
+    - org.apache.spark.deploy.worker.Worker
+    - spark://spark-master:7077
     environment:
       SPARK_WORKER_MEMORY: ${SPARK_WORKER_MEMORY:-2G}
       SPARK_WORKER_CORES: ${SPARK_WORKER_CORES:-2}
     volumes:
-      - ./src:/opt/project/src
-      - ./spark_jobs:/opt/project/spark_jobs
-      - ./configs:/opt/project/configs
-      - ./lakehouse:/opt/project/lakehouse
-
+    - ./src:/opt/project/src
+    - ./spark_jobs:/opt/project/spark_jobs
+    - ./configs:/opt/project/configs
+    - ./lakehouse:/opt/project/lakehouse
   dbt:
-    image: ghcr.io/dbt-labs/dbt-postgres:1.9.latest
     container_name: climate-risk-dbt
     depends_on:
       postgres:
         condition: service_healthy
     working_dir: /usr/app
     volumes:
-      - ./dbt:/usr/app
-      - ./dbt/profiles:/root/.dbt
+    - ./dbt:/usr/app
+    - ./dbt/profiles:/root/.dbt
     environment:
       DBT_PROFILES_DIR: /root/.dbt
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: ${POSTGRES_DB:-climate_risk}
-      POSTGRES_USER: ${POSTGRES_USER:-climate_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
-    entrypoint: ["tail", "-f", "/dev/null"]
-
+      DBT_TARGET: ${DBT_TARGET:-dev}
+      SNOWFLAKE_ACCOUNT: ${SNOWFLAKE_ACCOUNT}
+      SNOWFLAKE_USER: ${SNOWFLAKE_USER}
+      SNOWFLAKE_PASSWORD: ${SNOWFLAKE_PASSWORD}
+      SNOWFLAKE_ROLE: ${SNOWFLAKE_ROLE:-TRANSFORM_ROLE}
+      SNOWFLAKE_WAREHOUSE: ${SNOWFLAKE_WAREHOUSE:-CLIMATE_RISK_WH}
+      SNOWFLAKE_DATABASE: ${SNOWFLAKE_DATABASE:-CLIMATE_RISK}
+      SNOWFLAKE_SCHEMA: ${SNOWFLAKE_SCHEMA:-DEV}
+      SNOWFLAKE_THREADS: ${SNOWFLAKE_THREADS:-4}
+    entrypoint:
+    - tail
+    - -f
+    - /dev/null
+    build:
+      context: .
+      dockerfile: docker/dbt/Dockerfile
 volumes:
-  climate_postgres_data:
-  airflow_postgres_data:
+  climate_postgres_data: null
+  airflow_postgres_data: null

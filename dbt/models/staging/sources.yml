@@ -1,0 +1,11 @@
+﻿version: 2
+
+sources:
+  - name: bronze
+    database: "{{ env_var('SNOWFLAKE_DATABASE', 'CLIMATE_RISK') }}"
+    schema: BRONZE
+    tables:
+      - name: bronze_disaster_events
+      - name: bronze_calgary_property_assessment
+      - name: bronze_calgary_building_permits
+      - name: bronze_calgary_development_permits

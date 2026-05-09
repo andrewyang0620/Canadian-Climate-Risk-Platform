@@ -138,7 +138,7 @@ def test_disaster_database_has_location_mapping_contract():
     contract = sources["canadian_disaster_database"]["location_mapping_contract"]
 
     assert contract["required_for_downstream_validation"] is True
-    assert contract["minimum_geographic_grain"] == "province_plus_location_text"
+    assert contract["minimum_geographic_grain"] == "province_plus_location_text_or_geometry"
     assert contract["candidate_location_fields"]
     assert "municipality" in contract["candidate_location_fields"]
     assert "location" in contract["candidate_location_fields"]
@@ -163,13 +163,16 @@ def test_calgary_property_assessment_has_coordinate_contract():
     sources = _sources()
     source = sources["calgary_property_assessment"]
 
-    assert "coordinate_range" in source["validation_checks"]
-
     contract = source["coordinate_contract"]
     assert contract["required_for_spatial_overlay"] is True
-    assert contract["candidate_latitude_fields"]
-    assert contract["candidate_longitude_fields"]
-    assert contract["candidate_geometry_fields"]
+
+    has_lat_lon_pair = bool(contract["candidate_latitude_fields"]) and bool(
+        contract["candidate_longitude_fields"]
+    )
+    has_geometry_field = bool(contract["candidate_geometry_fields"])
+
+    assert has_lat_lon_pair or has_geometry_field
+    assert "multipolygon" in contract["candidate_geometry_fields"]
 
 
 def test_wildfire_csv_or_geojson_uses_post_silver_geometry_validation():

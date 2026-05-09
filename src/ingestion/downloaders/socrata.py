@@ -5,7 +5,10 @@ import io
 import json
 from dataclasses import dataclass
 
-from src.ingestion.downloaders.http_downloader import HttpDownloader, HttpDownloadResult
+from src.ingestion.downloaders.http_downloader import (
+    HttpDownloader,
+    HttpDownloadResult,
+)
 from src.utils.checksum import compute_bytes_checksum
 from src.utils.time import utc_now_iso
 
@@ -53,9 +56,9 @@ class SocrataPageDownloadResult:
 class SocrataDownloader:
     """Downloader for Socrata dataset exports.
 
-    CSV exports are downloaded with pagination to avoid Socrata's default
-    row-limit behavior. If count(*) is available, downloaded CSV row count is
-    reconciled against the expected count.
+    CSV, JSON, and GeoJSON exports are downloaded with pagination to avoid
+    Socrata's default row-limit behavior. If count(*) is available, downloaded
+    row count is reconciled against the expected count.
     """
 
     SUPPORTED_FORMATS = {"csv", "json", "geojson"}
@@ -92,18 +95,9 @@ class SocrataDownloader:
         if not dataset_id:
             raise SocrataDownloaderError("dataset_id must be non-empty.")
 
-        if normalized_format == "geojson":
-            download_url = f"https://{domain}/resource/{dataset_id}.geojson"
-            extension = "geojson"
-            final_paginated = False
-        elif normalized_format == "json":
-            download_url = f"https://{domain}/resource/{dataset_id}.json"
-            extension = "json"
-            final_paginated = False
-        else:
-            download_url = f"https://{domain}/resource/{dataset_id}.csv"
-            extension = "csv"
-            final_paginated = True if paginated is None else paginated
+        extension = normalized_format
+        download_url = f"https://{domain}/resource/{dataset_id}.{extension}"
+        final_paginated = True if paginated is None else paginated
 
         return SocrataDownloadPlan(
             domain=domain,
@@ -129,11 +123,23 @@ class SocrataDownloader:
             export_format=export_format,
         )
 
-        if plan.export_format == "csv" and plan.paginated:
+        if plan.paginated:
             expected_row_count, count_error = self._try_fetch_row_count(plan)
-            download, actual_row_count, pages_downloaded, page_limits_used = (
-                self._download_csv_paginated(plan)
-            )
+
+            if plan.export_format == "csv":
+                download, actual_row_count, pages_downloaded, page_limits_used = (
+                    self._download_csv_paginated(plan)
+                )
+            elif plan.export_format == "json":
+                download, actual_row_count, pages_downloaded, page_limits_used = (
+                    self._download_json_paginated(plan)
+                )
+            elif plan.export_format == "geojson":
+                download, actual_row_count, pages_downloaded, page_limits_used = (
+                    self._download_geojson_paginated(plan)
+                )
+            else:
+                raise SocrataDownloaderError(f"Unsupported paginated format: {plan.export_format}")
 
             validation_supported = expected_row_count is not None
             validation_passed: bool | None = None
@@ -170,11 +176,14 @@ class SocrataDownloader:
             pages_downloaded=None,
             row_count_validation_supported=False,
             row_count_validation_passed=None,
-            row_count_validation_error="row_count_validation_not_supported_for_non_csv_export",
+            row_count_validation_error="row_count_validation_disabled",
             page_limits_used=None,
         )
 
-    def _try_fetch_row_count(self, plan: SocrataDownloadPlan) -> tuple[int | None, str | None]:
+    def _try_fetch_row_count(
+        self,
+        plan: SocrataDownloadPlan,
+    ) -> tuple[int | None, str | None]:
         """Try to fetch expected row count using Socrata count(*)."""
         errors: list[str] = []
 
@@ -193,7 +202,6 @@ class SocrataDownloader:
     def _fetch_row_count_json(self, plan: SocrataDownloadPlan) -> int:
         """Fetch expected row count using JSON count(*)."""
         count_url = f"https://{plan.domain}/resource/{plan.dataset_id}.json"
-
         result = self.http_downloader.get(
             count_url,
             params={"$select": "count(*)"},
@@ -203,18 +211,22 @@ class SocrataDownloader:
             payload = json.loads(result.content.decode("utf-8"))
         except json.JSONDecodeError as exc:
             raise SocrataDownloaderError(
-                f"Socrata JSON count response is not valid JSON for dataset_id={plan.dataset_id}"
+                f"Socrata JSON count response is not valid JSON for "
+                f"dataset_id={plan.dataset_id}"
             ) from exc
 
         if not isinstance(payload, list) or not payload:
             raise SocrataDownloaderError(
-                f"Socrata JSON count response has unexpected shape for dataset_id={plan.dataset_id}"
+                f"Socrata JSON count response has unexpected shape for "
+                f"dataset_id={plan.dataset_id}"
             )
 
         first_row = payload[0]
+
         if not isinstance(first_row, dict):
             raise SocrataDownloaderError(
-                f"Socrata JSON count response row is not an object for dataset_id={plan.dataset_id}"
+                f"Socrata JSON count response row is not an object for "
+                f"dataset_id={plan.dataset_id}"
             )
 
         count_value = _extract_count_value(first_row)
@@ -223,14 +235,13 @@ class SocrataDownloader:
             return int(count_value)
         except (TypeError, ValueError) as exc:
             raise SocrataDownloaderError(
-                f"Socrata JSON count value is not an integer for dataset_id={plan.dataset_id}: "
-                f"{count_value}"
+                f"Socrata JSON count value is not an integer for "
+                f"dataset_id={plan.dataset_id}: {count_value}"
             ) from exc
 
     def _fetch_row_count_csv(self, plan: SocrataDownloadPlan) -> int:
         """Fetch expected row count using CSV count(*)."""
         count_url = f"https://{plan.domain}/resource/{plan.dataset_id}.csv"
-
         result = self.http_downloader.get(
             count_url,
             params={"$select": "count(*)"},
@@ -241,15 +252,16 @@ class SocrataDownloader:
 
         if len(rows) < 2 or not rows[1]:
             raise SocrataDownloaderError(
-                f"Socrata CSV count response has unexpected shape for dataset_id={plan.dataset_id}"
+                f"Socrata CSV count response has unexpected shape for "
+                f"dataset_id={plan.dataset_id}"
             )
 
         try:
             return int(rows[1][0])
         except (TypeError, ValueError) as exc:
             raise SocrataDownloaderError(
-                f"Socrata CSV count value is not an integer for dataset_id={plan.dataset_id}: "
-                f"{rows[1][0]}"
+                f"Socrata CSV count value is not an integer for "
+                f"dataset_id={plan.dataset_id}: {rows[1][0]}"
             ) from exc
 
     def _download_csv_paginated(
@@ -268,17 +280,15 @@ class SocrataDownloader:
         header: list[str] | None = None
         last_result: HttpDownloadResult | None = None
         page_limits_used: list[int] = []
-
         offset = 0
         current_limit = plan.page_limit
 
         while pages_downloaded < self.max_pages:
-            page_result = self._download_csv_page_with_adaptive_limit(
+            page_result = self._download_page_with_adaptive_limit(
                 plan=plan,
                 offset=offset,
                 starting_limit=current_limit,
             )
-
             result = page_result.download
             used_limit = page_result.page_limit_used
 
@@ -313,7 +323,6 @@ class SocrataDownloader:
                 break
 
             offset += len(page_rows)
-
         else:
             raise SocrataDownloaderError(
                 f"Socrata pagination exceeded max_pages={self.max_pages} "
@@ -342,14 +351,157 @@ class SocrataDownloader:
             page_limits_used,
         )
 
-    def _download_csv_page_with_adaptive_limit(
+    def _download_json_paginated(
+        self,
+        plan: SocrataDownloadPlan,
+    ) -> tuple[HttpDownloadResult, int, int, list[int]]:
+        """Download a full JSON records export using $limit / $offset pagination."""
+        records: list[object] = []
+        pages_downloaded = 0
+        page_limits_used: list[int] = []
+        offset = 0
+        current_limit = _require_page_limit(plan)
+        last_result: HttpDownloadResult | None = None
+
+        while pages_downloaded < self.max_pages:
+            page_result = self._download_page_with_adaptive_limit(
+                plan=plan,
+                offset=offset,
+                starting_limit=current_limit,
+            )
+            result = page_result.download
+            used_limit = page_result.page_limit_used
+
+            payload = json.loads(result.content.decode("utf-8"))
+
+            if not isinstance(payload, list):
+                raise SocrataDownloaderError(
+                    f"Socrata JSON page is not a list for dataset_id={plan.dataset_id}"
+                )
+
+            records.extend(payload)
+            pages_downloaded += 1
+            page_limits_used.append(used_limit)
+            last_result = result
+
+            if len(payload) < used_limit:
+                break
+
+            offset += len(payload)
+            current_limit = used_limit
+        else:
+            raise SocrataDownloaderError(
+                f"Socrata JSON pagination exceeded max_pages={self.max_pages} "
+                f"for dataset_id={plan.dataset_id}"
+            )
+
+        combined_content = json.dumps(records).encode("utf-8")
+
+        return (
+            HttpDownloadResult(
+                url=plan.download_url,
+                final_url=plan.download_url,
+                status_code=200,
+                content_type=last_result.content_type if last_result else "application/json",
+                content=combined_content,
+                size_bytes=len(combined_content),
+                checksum=compute_bytes_checksum(combined_content),
+                downloaded_at=utc_now_iso(),
+            ),
+            len(records),
+            pages_downloaded,
+            page_limits_used,
+        )
+
+    def _download_geojson_paginated(
+        self,
+        plan: SocrataDownloadPlan,
+    ) -> tuple[HttpDownloadResult, int, int, list[int]]:
+        """Download and merge paginated GeoJSON FeatureCollections."""
+        features: list[dict[str, object]] = []
+        pages_downloaded = 0
+        page_limits_used: list[int] = []
+        offset = 0
+        current_limit = _require_page_limit(plan)
+        last_result: HttpDownloadResult | None = None
+
+        while pages_downloaded < self.max_pages:
+            page_result = self._download_page_with_adaptive_limit(
+                plan=plan,
+                offset=offset,
+                starting_limit=current_limit,
+            )
+            result = page_result.download
+            used_limit = page_result.page_limit_used
+
+            payload = json.loads(result.content.decode("utf-8"))
+
+            if not isinstance(payload, dict):
+                raise SocrataDownloaderError(
+                    f"Socrata GeoJSON page is not an object for dataset_id={plan.dataset_id}"
+                )
+
+            page_features = payload.get("features")
+
+            if not isinstance(page_features, list):
+                raise SocrataDownloaderError(
+                    f"Socrata GeoJSON page missing features list for "
+                    f"dataset_id={plan.dataset_id}"
+                )
+
+            for feature in page_features:
+                if not isinstance(feature, dict):
+                    raise SocrataDownloaderError(
+                        f"Socrata GeoJSON feature is not an object for "
+                        f"dataset_id={plan.dataset_id}"
+                    )
+                features.append(feature)
+
+            pages_downloaded += 1
+            page_limits_used.append(used_limit)
+            last_result = result
+
+            if len(page_features) < used_limit:
+                break
+
+            offset += len(page_features)
+            current_limit = used_limit
+        else:
+            raise SocrataDownloaderError(
+                f"Socrata GeoJSON pagination exceeded max_pages={self.max_pages} "
+                f"for dataset_id={plan.dataset_id}"
+            )
+
+        combined_payload = {
+            "type": "FeatureCollection",
+            "features": features,
+        }
+        combined_content = json.dumps(combined_payload).encode("utf-8")
+
+        return (
+            HttpDownloadResult(
+                url=plan.download_url,
+                final_url=plan.download_url,
+                status_code=200,
+                content_type=last_result.content_type if last_result else "application/geo+json",
+                content=combined_content,
+                size_bytes=len(combined_content),
+                checksum=compute_bytes_checksum(combined_content),
+                downloaded_at=utc_now_iso(),
+            ),
+            len(features),
+            pages_downloaded,
+            page_limits_used,
+        )
+
+    def _download_page_with_adaptive_limit(
         self,
         *,
         plan: SocrataDownloadPlan,
         offset: int,
         starting_limit: int,
     ) -> SocrataPageDownloadResult:
-        """Download one CSV page, reducing limit if Socrata returns server errors."""
+        """Download one page, reducing limit if Socrata returns server errors."""
         if starting_limit <= 0:
             raise SocrataDownloaderError(f"starting_limit must be positive: {starting_limit}")
 
@@ -371,7 +523,6 @@ class SocrataDownloader:
                     download=result,
                     page_limit_used=current_limit,
                 )
-
             except Exception as exc:
                 errors.append(
                     f"limit={current_limit}, offset={offset}, "
@@ -384,9 +535,15 @@ class SocrataDownloader:
                 current_limit = max(effective_min_limit, current_limit // 2)
 
         raise SocrataDownloaderError(
-            "Socrata CSV page download failed after adaptive limit reduction. "
+            "Socrata page download failed after adaptive limit reduction. "
             f"dataset_id={plan.dataset_id}, offset={offset}, errors={errors}"
         )
+
+
+def _require_page_limit(plan: SocrataDownloadPlan) -> int:
+    if plan.page_limit is None:
+        raise SocrataDownloaderError("Paginated plan must define page_limit.")
+    return plan.page_limit
 
 
 def _extract_count_value(row: dict[str, object]) -> object:

@@ -605,14 +605,14 @@ sources:
       note: Calgary property assessment raw source provides roll_number, cpid, and
         unique_key rather than a generic property_id field.
   calgary_flood_hazard:
-    display_name: Calgary Regulatory Flood Hazard Map
+    display_name: Calgary Regulatory Flood Map Bylaw Flood Hazard
     source_group: municipal
     provider: City of Calgary
-    source_url: https://data.calgary.ca/Environment/Regulatory-Flood-Hazard-Map-Steplines/3q69-wm6a/about
+    source_url: https://data.calgary.ca/Environment/Regulatory-Flood-Map-Bylaw-Flood-Hazard-/tp6q-x2v7
     access_method: open_data_api_or_download
     expected_frequency: periodic
     file_format: geojson
-    spatial_grain: polygon
+    spatial_grain: flood_hazard_polygon
     temporal_grain: current_snapshot
     time_window:
       start_year: null
@@ -622,7 +622,10 @@ sources:
     downstream_use:
     - calgary_property_flood_overlay
     - flood_zone_category
+    - calgary_property_flood_exposure
     required_fields:
+    - description
+    - flood_cd
     - geometry
     validation_checks:
     - schema_hash
@@ -632,13 +635,25 @@ sources:
     redistribution: public
     portal_type: socrata
     socrata_domain: data.calgary.ca
-    dataset_id: 3q69-wm6a
+    dataset_id: tp6q-x2v7
     preferred_export_format: geojson
     post_silver_validation_checks:
     - flood_hazard_geometry_presence
     - flood_hazard_geometry_validity
+    - flood_hazard_category_presence
     - flood_hazard_feature_count_validation
     - crs_check
+    hazard_category_contract:
+      required_for_downstream_overlay: true
+      candidate_category_fields:
+      - description
+      - flood_cd
+      expected_geometry_type: MultiPolygon
+      validation_rule: multipolygon_geometry_and_flood_category_required
+      note: Calgary flood hazard source uses the Regulatory Flood Map Bylaw dataset
+        tp6q-x2v7. It provides MultiPolygon geometries and flood category attributes
+        such as description and flood_cd, making it suitable for property-level flood
+        exposure overlay.
   calgary_building_permits:
     display_name: Calgary Building Permits
     source_group: municipal

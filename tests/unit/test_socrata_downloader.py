@@ -52,7 +52,7 @@ def test_socrata_build_export_plan_csv_is_paginated():
     assert plan.page_limit == 50000
 
 
-def test_socrata_build_export_plan_geojson_is_not_paginated():
+def test_socrata_build_export_plan_geojson_is_paginated():
     downloader = SocrataDownloader()
 
     plan = downloader.build_export_plan(
@@ -63,8 +63,8 @@ def test_socrata_build_export_plan_geojson_is_not_paginated():
 
     assert plan.download_url == "https://data.calgary.ca/resource/3q69-wm6a.geojson"
     assert plan.suggested_filename == "3q69-wm6a_raw.geojson"
-    assert plan.paginated is False
-    assert plan.page_limit is None
+    assert plan.paginated is True
+    assert plan.page_limit == downloader.default_page_limit
 
 
 def test_socrata_download_dataset_uses_csv_pagination_and_row_count_validation():

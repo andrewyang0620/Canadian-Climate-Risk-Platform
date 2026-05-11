@@ -175,14 +175,20 @@ def test_calgary_property_assessment_has_coordinate_contract():
     assert "multipolygon" in contract["candidate_geometry_fields"]
 
 
-def test_wildfire_csv_or_geojson_uses_post_silver_geometry_validation():
+def test_wildfire_zip_shapefile_uses_bronze_geometry_package_validation():
     sources = _sources()
     wildfire = sources["wildfire_history"]
 
-    assert wildfire["file_format"] == "geojson_or_csv"
-    assert "geometry_validity" not in wildfire["validation_checks"]
-    assert "geometry_constructed_from_coordinates" in wildfire["post_silver_validation_checks"]
-    assert "geometry_validity" in wildfire["post_silver_validation_checks"]
+    assert wildfire["file_format"] == "zip_shapefile"
+    assert wildfire["access_method"] == "direct_zip_download"
+
+    required = set(wildfire["required_fields"])
+    assert "geometry" in required
+
+    assert "geometry_validity" in wildfire["validation_checks"]
+    assert "wildfire_geometry_presence" in wildfire["post_silver_validation_checks"]
+    assert "wildfire_event_geometry_validity" in wildfire["post_silver_validation_checks"]
+    assert "crs_check" in wildfire["post_silver_validation_checks"]
 
 
 def test_contract_sources_have_post_silver_validation_checks_where_needed():
@@ -228,3 +234,25 @@ def test_census_boundaries_has_direct_downloads_for_province_and_csd():
 
     assert downloads["province_cartographic_2021"]["filename"].endswith(".zip")
     assert downloads["csd_cartographic_2021"]["filename"].endswith(".zip")
+
+
+def test_wildfire_history_has_nfdb_point_download_config():
+    sources = _sources()
+    source = sources["wildfire_history"]
+
+    assert source["access_method"] == "direct_zip_download"
+    assert source["file_format"] == "zip_shapefile"
+    assert source["target_silver_table"] == "silver_wildfire_event"
+
+    download = source["wildfire_download"]
+    assert download["dataset_name"] == "NFDB_point"
+    assert download["filename"] == "NFDB_point.zip"
+    assert download["url"].endswith("/NFDB_point.zip")
+
+    required = set(source["required_fields"])
+    assert "geometry" in required
+
+    contract = source["wildfire_event_contract"]
+    assert contract["required_for_downstream_features"] is True
+    assert contract["candidate_year_fields"]
+    assert contract["candidate_size_fields"]

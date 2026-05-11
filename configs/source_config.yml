@@ -153,14 +153,14 @@ sources:
     - station_date_uniqueness
     redistribution: public
   wildfire_history:
-    display_name: CWFIS / CNFDB Wildfire History
+    display_name: Canadian National Fire Database Fire Point Data
     source_group: national
-    provider: Natural Resources Canada
-    source_url: https://cwfis.cfs.nrcan.gc.ca/
-    access_method: bulk_geojson_or_csv
-    expected_frequency: seasonal
-    file_format: geojson_or_csv
-    spatial_grain: point
+    provider: Natural Resources Canada / Canadian Forest Service
+    source_url: https://cwfis.cfs.nrcan.gc.ca/downloads/nfdb/fire_pnt/current_version/
+    access_method: direct_zip_download
+    expected_frequency: periodic
+    file_format: zip_shapefile
+    spatial_grain: wildfire_point
     temporal_grain: event
     time_window:
       start_year: 2016
@@ -170,21 +170,53 @@ sources:
     downstream_use:
     - wildfire_exposure_score
     - wildfire_proximity_features
+    - grid_month_hazard_exposure
     required_fields:
-    - event_id
-    - latitude
-    - longitude
-    - event_date
+    - geometry
     validation_checks:
     - schema_hash
     - row_count
-    - coordinate_range
+    - geometry_validity
     - event_date_range
     post_silver_validation_checks:
-    - geometry_constructed_from_coordinates
-    - geometry_validity
+    - wildfire_geometry_presence
+    - wildfire_event_year_presence
+    - wildfire_event_geometry_validity
+    - wildfire_event_bc_ab_filter_coverage
     - crs_check
     redistribution: public
+    wildfire_download:
+      dataset_name: NFDB_point
+      url: https://cwfis.cfs.nrcan.gc.ca/downloads/nfdb/fire_pnt/current_version/NFDB_point.zip
+      filename: NFDB_point.zip
+      format: zip_shapefile
+      source_version: current_version
+      note: Canadian National Fire Database fire point shapefile. Used for wildfire
+        event proximity/count features. Polygon fire perimeter data is larger and
+        can be added later as a burned-area extension.
+    wildfire_event_contract:
+      required_for_downstream_features: true
+      candidate_event_id_fields:
+      - NFDBFIREID
+      - FIRE_ID
+      - fire_id
+      candidate_year_fields:
+      - YEAR
+      - REP_YEAR
+      - year
+      candidate_date_fields:
+      - REP_DATE
+      - START_DATE
+      - DATE
+      - fire_date
+      candidate_size_fields:
+      - SIZE_HA
+      - AREA_HA
+      - area_ha
+      validation_rule: geometry_required_at_bronze_event_fields_validated_after_silver_extraction
+      note: Bronze profiling verifies the shapefile package contains geometry. DBF
+        attribute fields are validated during Silver extraction when the shapefile
+        is read into a geospatial dataframe.
   statcan_building_permits:
     display_name: Statistics Canada Building Permits
     source_group: national

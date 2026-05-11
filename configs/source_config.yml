@@ -240,14 +240,14 @@ sources:
     - municipality_month_uniqueness
     redistribution: public
   census_boundaries:
-    display_name: Census Province and Municipality Boundaries
+    display_name: Statistics Canada 2021 Census Province and CSD Boundaries
     source_group: national
     provider: Statistics Canada
-    source_url: https://www12.statcan.gc.ca/census-recensement/index-eng.cfm
-    access_method: boundary_file_download
+    source_url: https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/index2021-eng.cfm?year=21
+    access_method: direct_boundary_file_download
     expected_frequency: periodic
-    file_format: shapefile_or_geojson
-    spatial_grain: province_and_municipality_polygon
+    file_format: zip_shapefile_package
+    spatial_grain: province_and_census_subdivision_polygon
     temporal_grain: static_or_periodic
     time_window:
       start_year: null
@@ -279,12 +279,9 @@ sources:
         - province
         - geometry
       validation_rule: both_province_and_municipality_boundaries_required_after_silver_standardization
-      note: 'The raw boundary download may contain multiple boundary layers or files.
-        Bronze validation only requires geometry. Silver standardization must produce
-        both province-level and municipality/CSD-level boundary tables with stable
-        standard fields for grid clipping and municipality rollups.
-
-        '
+      note: Bronze stores the raw 2021 Statistics Canada province and census subdivision
+        boundary zip files as a combined raw package. Silver standardization must
+        extract both province and CSD/municipality boundary outputs.
     validation_checks:
     - schema_hash
     - row_count
@@ -296,6 +293,19 @@ sources:
     - boundary_geometry_validity
     - boundary_crs_check
     redistribution: public
+    boundary_downloads:
+      province_cartographic_2021:
+        url: https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lpr_000b21a_e.zip
+        filename: lpr_000b21a_e.zip
+        boundary_level: province
+        boundary_type: cartographic
+        census_year: 2021
+      csd_cartographic_2021:
+        url: https://www12.statcan.gc.ca/census-recensement/2021/geo/sip-pis/boundary-limites/files-fichiers/lcsd000b21a_e.zip
+        filename: lcsd000b21a_e.zip
+        boundary_level: census_subdivision
+        boundary_type: cartographic
+        census_year: 2021
   canadian_disaster_database:
     display_name: Canadian Disaster Database
     source_group: national

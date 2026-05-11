@@ -2,7 +2,9 @@
 
 import argparse
 import csv
+import io
 import json
+import zipfile
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -227,6 +229,9 @@ def profile_raw_file(
             count_rows=count_rows,
         )
 
+    if suffix == ".zip":
+        return profile_zip_file(file_path)
+
     return {
         "file_path": file_path.as_posix(),
         "file_type": "unknown",
@@ -238,6 +243,143 @@ def profile_raw_file(
         "sample_rows": [],
         "warning": f"Unsupported file extension for profiling: {suffix}",
     }
+
+
+def profile_zip_file(path: Path) -> dict[str, Any]:
+    """Profile a zip archive, including nested shapefile zip packages."""
+    members: list[str] = []
+    extension_counts: dict[str, int] = {}
+    shapefile_members: list[str] = []
+    projection_members: list[str] = []
+    shapefile_stems: set[str] = set()
+    nested_archive_count = 0
+    nested_member_count = 0
+
+    with zipfile.ZipFile(path, "r") as archive:
+        members = archive.namelist()
+
+        for member in members:
+            suffix = Path(member).suffix.lower()
+            _increment_extension_count(extension_counts, suffix)
+
+            if suffix in {".shp", ".dbf", ".shx", ".prj", ".cpg"}:
+                _record_shapefile_member(
+                    member_path=member,
+                    suffix=suffix,
+                    shapefile_members=shapefile_members,
+                    projection_members=projection_members,
+                    shapefile_stems=shapefile_stems,
+                )
+
+            if suffix == ".zip":
+                nested_archive_count += 1
+                nested_bytes = archive.read(member)
+
+                nested_result = _inspect_nested_zip(
+                    parent_member=member,
+                    content=nested_bytes,
+                )
+
+                nested_member_count += nested_result["member_count"]
+
+                for nested_suffix, count in nested_result["extension_counts"].items():
+                    extension_counts[nested_suffix] = extension_counts.get(nested_suffix, 0) + count
+
+                shapefile_members.extend(nested_result["shapefile_members"])
+                projection_members.extend(nested_result["projection_members"])
+                shapefile_stems.update(nested_result["shapefile_stems"])
+
+    columns = ["geometry"] if shapefile_members else []
+
+    return {
+        "file_path": path.as_posix(),
+        "file_type": "zip_archive",
+        "file_size_bytes": path.stat().st_size,
+        "columns": columns,
+        "normalized_columns": [_normalize_name(column) for column in columns],
+        "column_count": len(columns),
+        "row_count_exact": None,
+        "archive_member_count": len(members),
+        "nested_archive_count": nested_archive_count,
+        "nested_member_count": nested_member_count,
+        "extension_counts": extension_counts,
+        "shapefile_count": len(shapefile_members),
+        "shapefile_members": shapefile_members,
+        "projection_members": projection_members,
+        "shapefile_stems": sorted(shapefile_stems),
+        "sample_rows": [
+            {
+                "archive_member_count": len(members),
+                "nested_archive_count": nested_archive_count,
+                "nested_member_count": nested_member_count,
+                "shapefile_count": len(shapefile_members),
+                "sample_members": members[:10],
+                "sample_shapefiles": shapefile_members[:10],
+            }
+        ],
+    }
+
+
+def _inspect_nested_zip(
+    *,
+    parent_member: str,
+    content: bytes,
+) -> dict[str, Any]:
+    extension_counts: dict[str, int] = {}
+    shapefile_members: list[str] = []
+    projection_members: list[str] = []
+    shapefile_stems: set[str] = set()
+
+    with zipfile.ZipFile(io.BytesIO(content), "r") as nested_archive:
+        nested_members = nested_archive.namelist()
+
+        for nested_member in nested_members:
+            suffix = Path(nested_member).suffix.lower()
+            _increment_extension_count(extension_counts, suffix)
+
+            nested_path = f"{parent_member}::{nested_member}"
+
+            if suffix in {".shp", ".dbf", ".shx", ".prj", ".cpg"}:
+                _record_shapefile_member(
+                    member_path=nested_path,
+                    suffix=suffix,
+                    shapefile_members=shapefile_members,
+                    projection_members=projection_members,
+                    shapefile_stems=shapefile_stems,
+                )
+
+    return {
+        "member_count": len(nested_members),
+        "extension_counts": extension_counts,
+        "shapefile_members": shapefile_members,
+        "projection_members": projection_members,
+        "shapefile_stems": shapefile_stems,
+    }
+
+
+def _record_shapefile_member(
+    *,
+    member_path: str,
+    suffix: str,
+    shapefile_members: list[str],
+    projection_members: list[str],
+    shapefile_stems: set[str],
+) -> None:
+    if suffix == ".shp":
+        shapefile_members.append(member_path)
+
+    if suffix == ".prj":
+        projection_members.append(member_path)
+
+    shapefile_stems.add(str(Path(member_path).with_suffix("")))
+
+
+def _increment_extension_count(
+    extension_counts: dict[str, int],
+    suffix: str,
+) -> None:
+    if suffix:
+        extension_counts[suffix] = extension_counts.get(suffix, 0) + 1
 
 
 def profile_csv_file(

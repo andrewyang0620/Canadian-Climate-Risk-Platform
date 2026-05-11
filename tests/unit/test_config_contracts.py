@@ -210,3 +210,21 @@ def test_contract_sources_have_post_silver_validation_checks_where_needed():
             "post_silver_validation_checks."
         )
         assert sources[source_name]["post_silver_validation_checks"]
+
+
+def test_census_boundaries_has_direct_downloads_for_province_and_csd():
+    sources = _sources()
+    source = sources["census_boundaries"]
+
+    assert source["access_method"] == "direct_boundary_file_download"
+    assert source["file_format"] == "zip_shapefile_package"
+
+    downloads = source["boundary_downloads"]
+    assert "province_cartographic_2021" in downloads
+    assert "csd_cartographic_2021" in downloads
+
+    assert downloads["province_cartographic_2021"]["boundary_level"] == "province"
+    assert downloads["csd_cartographic_2021"]["boundary_level"] == "census_subdivision"
+
+    assert downloads["province_cartographic_2021"]["filename"].endswith(".zip")
+    assert downloads["csd_cartographic_2021"]["filename"].endswith(".zip")

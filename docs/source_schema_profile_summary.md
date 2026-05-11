@@ -1,6 +1,6 @@
 # Source Schema Profile Summary
 
-Generated at: `2026-05-11T20:26:41+00:00`
+Generated at: `2026-05-11T23:35:19+00:00`
 
 This summary is generated from local Bronze raw files. It verifies raw schema, candidate join keys, coordinate fields, measurement fields, and downstream source contracts before Silver standardization.
 
@@ -15,7 +15,7 @@ This summary is generated from local Bronze raw files. It verifies raw schema, c
 
 | Source | Status | File Type | Rows / Features | Columns | Contract Notes |
 |---|---:|---:|---:|---:|---|
-| `hydat_archive` | `profiled` | `zip_archive` | `` | `1` | `required_fields:True` `measurement_contract:None` |
+| `eccc_historical_climate` | `profiled` | `jsonl_gzip` | `171108` | `40` | `required_fields:True` `coordinate_contract:True` `climate_measurement_contract:True` |
 
 ## Notes
 

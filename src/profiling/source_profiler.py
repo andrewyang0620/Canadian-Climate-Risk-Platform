@@ -2,6 +2,7 @@
 
 import argparse
 import csv
+import gzip
 import io
 import json
 import zipfile
@@ -232,6 +233,13 @@ def profile_raw_file(
     if suffix == ".zip":
         return profile_zip_file(file_path)
 
+    if file_path.name.endswith(".jsonl.gz") or suffix == ".jsonl":
+        return profile_jsonl_file(
+            file_path,
+            max_sample_rows=max_sample_rows,
+            count_rows=count_rows,
+        )
+
     return {
         "file_path": file_path.as_posix(),
         "file_type": "unknown",
@@ -242,6 +250,77 @@ def profile_raw_file(
         "row_count_exact": None,
         "sample_rows": [],
         "warning": f"Unsupported file extension for profiling: {suffix}",
+    }
+
+
+def profile_jsonl_file(
+    path: Path,
+    *,
+    max_sample_rows: int,
+    count_rows: bool,
+) -> dict[str, Any]:
+    """Profile newline-delimited JSON files, including .jsonl.gz."""
+    opener = gzip.open if path.name.endswith(".gz") else open
+
+    sample_rows: list[dict[str, Any]] = []
+    property_keys: set[str] = set()
+    top_level_keys: set[str] = set()
+    geometry_types: Counter[str] = Counter()
+    row_count = 0
+
+    with opener(path, "rt", encoding="utf-8") as file:
+        for line in file:
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            row_count += 1
+            payload = json.loads(stripped)
+
+            if isinstance(payload, dict):
+                top_level_keys.update(payload.keys())
+
+                properties = payload.get("properties")
+                if isinstance(properties, dict):
+                    property_keys.update(properties.keys())
+
+                geometry = payload.get("geometry")
+                if isinstance(geometry, dict):
+                    geometry_type = geometry.get("type")
+                    if geometry_type:
+                        geometry_types[str(geometry_type)] += 1
+
+                if len(sample_rows) < max_sample_rows:
+                    sample = {}
+                    if isinstance(properties, dict):
+                        sample.update(_truncate_row(properties))
+                    sample["geometry_type"] = (
+                        geometry.get("type") if isinstance(geometry, dict) else None
+                    )
+                    sample_rows.append(sample)
+
+            if not count_rows and len(sample_rows) >= max_sample_rows:
+                break
+
+    columns = sorted(top_level_keys)
+    if "properties" in top_level_keys:
+        columns.append("properties.*")
+    columns.extend(sorted(f"properties.{key}" for key in property_keys))
+
+    normalized_columns = [_normalize_name(column) for column in columns]
+
+    return {
+        "file_path": path.as_posix(),
+        "file_type": "jsonl_gzip" if path.name.endswith(".gz") else "jsonl",
+        "file_size_bytes": path.stat().st_size,
+        "columns": columns,
+        "property_columns": sorted(property_keys),
+        "normalized_columns": normalized_columns,
+        "column_count": len(columns),
+        "row_count_exact": row_count if count_rows else None,
+        "row_count_counted": count_rows,
+        "geometry_types": dict(geometry_types),
+        "sample_rows": sample_rows,
     }
 
 
@@ -731,7 +810,9 @@ def _check_candidate_list(
 
     for field in candidate_fields:
         normalized = _normalize_name(field)
-        if normalized in normalized_columns:
+        property_normalized = _normalize_name(f"properties.{field}")
+
+        if normalized in normalized_columns or property_normalized in normalized_columns:
             found.append(field)
         else:
             missing.append(field)

@@ -1,67 +1,114 @@
 sources:
   eccc_historical_climate:
-    display_name: ECCC Historical Climate Data
+    display_name: ECCC Historical Climate Daily Observations - BC and Alberta
     source_group: national
     provider: Environment and Climate Change Canada
-    source_url: https://climate.weather.gc.ca/
-    access_method: bulk_csv
+    source_url: https://api.weather.gc.ca/collections/climate-daily
+    access_method: geomet_ogc_api_pagination
     expected_frequency: periodic
-    file_format: csv
-    spatial_grain: station
+    file_format: jsonl_gzip
+    spatial_grain: climate_station
     temporal_grain: daily
     time_window:
       start_year: 2016
       end_year: 2025
-    target_bronze_table: bronze_climate
+    target_bronze_table: bronze_climate_daily
     target_silver_table: silver_climate_daily
     downstream_use:
     - weather_extreme_score
+    - precip_percentile
+    - heat_anomaly_score
     - grid_month_hazard_exposure
     required_fields:
-    - station_id
-    - date
-    - latitude
-    - longitude
+    - geometry
+    - properties
     climate_measurement_contract:
-      required_measurements:
-      - temperature
-      - precipitation
-      validation_rule: at_least_one_weather_measurement_present_after_silver_standardization
+      required_for_downstream_features: true
+      candidate_raw_fields:
+        station_id:
+        - STATION_ID
+        - station_id
+        - CLIMATE_IDENTIFIER
+        - climate_identifier
+        - LOCAL_ID
+        - local_id
+        observation_date:
+        - LOCAL_DATE
+        - local_date
+        - DATE
+        - date
+        temperature:
+        - MAX_TEMPERATURE
+        - MIN_TEMPERATURE
+        - MEAN_TEMPERATURE
+        - MAX_TEMP
+        - MIN_TEMP
+        - MEAN_TEMP
+        - max_temperature
+        - min_temperature
+        - mean_temperature
+        precipitation:
+        - TOTAL_PRECIPITATION
+        - TOTAL_RAIN
+        - TOTAL_SNOW
+        - TOTAL_PRECIP
+        - total_precipitation
+        - total_rain
+        - total_snow
+      validation_rule: station_date_and_at_least_one_measurement_required_after_silver_standardization
       downstream_standard_names:
         max_temperature: max_temp_c
         min_temperature: min_temp_c
         mean_temperature: mean_temp_c
         total_precipitation: total_precip_mm
-      candidate_raw_fields:
-        temperature:
-        - MAX_TEMP
-        - MIN_TEMP
-        - MEAN_TEMP
-        - max_temp
-        - min_temp
-        - mean_temp
-        precipitation:
-        - TOTAL_PRECIP
-        - TOTAL_RAIN
-        - TOTAL_SNOW
-        - precip
-        - precipitation
-      note: 'ECCC climate downloads may expose weather fields with different names
-        across formats. Silver standardization must produce temperature and/or precipitation
-        measurements required by weather extreme features.
-
-        '
+      note: Bronze stores GeoJSON features as JSONL.GZ. Exact raw property names are
+        confirmed through profiling; Silver standardization maps available ECCC fields
+        into stable climate measurement columns.
+      required_measurements:
+      - temperature
+      - precipitation
     validation_checks:
     - schema_hash
     - row_count
     - coordinate_range
     - date_range
     post_silver_validation_checks:
+    - station_id_presence
+    - climate_date_validity
     - climate_measurement_presence
     - temperature_reasonable_range
     - precipitation_non_negative
-    - station_date_uniqueness
+    - station_geometry_presence
+    - bc_ab_spatial_filter_coverage
     redistribution: public
+    climate_daily_api:
+      collection: climate-daily
+      items_url: https://api.weather.gc.ca/collections/climate-daily/items
+      format: geojson
+      datetime_start: '2016-01-01'
+      datetime_end: '2025-12-31'
+      bbox_name: bc_ab_combined
+      bbox:
+      - -139.2
+      - 48.0
+      - -110.0
+      - 60.1
+      target_provinces:
+      - BC
+      - AB
+      page_limit: 5000
+      partition_by: year
+      note: Bronze downloads all ECCC climate-daily GeoJSON items in the BC/Alberta
+        bounding box for 2016-2025 using OGC API pagination. If province fields are
+        available in item properties, records are filtered to BC/AB; otherwise the
+        bounding box is used as the spatial scope.
+    coordinate_contract:
+      required_for_spatial_overlay: true
+      candidate_latitude_fields: []
+      candidate_longitude_fields: []
+      candidate_geometry_fields:
+      - geometry
+      validation_rule: geojson_point_geometry_required
   eccc_hydrometric_realtime:
     display_name: ECCC Hydrometric Real-Time Data
     source_group: national

@@ -279,3 +279,28 @@ def test_hydat_archive_has_sqlite_download_config():
     assert "water_level" in contract["required_measurements"]
     assert "DLY_FLOWS" in contract["candidate_tables"]
     assert "DLY_LEVELS" in contract["candidate_tables"]
+
+
+def test_eccc_historical_climate_has_bc_ab_ogc_api_config():
+    sources = _sources()
+    source = sources["eccc_historical_climate"]
+
+    assert source["access_method"] == "geomet_ogc_api_pagination"
+    assert source["file_format"] == "jsonl_gzip"
+    assert source["target_silver_table"] == "silver_climate_daily"
+
+    api = source["climate_daily_api"]
+    assert api["collection"] == "climate-daily"
+    assert api["target_provinces"] == ["BC", "AB"]
+    assert api["datetime_start"] == "2016-01-01"
+    assert api["datetime_end"] == "2025-12-31"
+    assert len(api["bbox"]) == 4
+
+    required = set(source["required_fields"])
+    assert "geometry" in required
+    assert "properties" in required
+
+    contract = source["climate_measurement_contract"]
+    assert contract["required_for_downstream_features"] is True
+    assert "temperature" in contract["candidate_raw_fields"]
+    assert "precipitation" in contract["candidate_raw_fields"]

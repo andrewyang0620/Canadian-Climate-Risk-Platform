@@ -262,7 +262,7 @@ def profile_zip_file(path: Path) -> dict[str, Any]:
             suffix = Path(member).suffix.lower()
             _increment_extension_count(extension_counts, suffix)
 
-            if suffix in {".shp", ".dbf", ".shx", ".prj", ".cpg"}:
+            if suffix in {".shp", ".dbf", ".shx", ".prj", ".cpg", ".sqlite", ".sqlite3", ".db"}:
                 _record_shapefile_member(
                     member_path=member,
                     suffix=suffix,
@@ -289,7 +289,13 @@ def profile_zip_file(path: Path) -> dict[str, Any]:
                 projection_members.extend(nested_result["projection_members"])
                 shapefile_stems.update(nested_result["shapefile_stems"])
 
-    columns = ["geometry"] if shapefile_members else []
+    has_sqlite = any(suffix in extension_counts for suffix in [".sqlite", ".sqlite3", ".db"])
+
+    columns = []
+    if shapefile_members:
+        columns.append("geometry")
+    if has_sqlite:
+        columns.append("sqlite_database")
 
     return {
         "file_path": path.as_posix(),
@@ -339,7 +345,7 @@ def _inspect_nested_zip(
 
             nested_path = f"{parent_member}::{nested_member}"
 
-            if suffix in {".shp", ".dbf", ".shx", ".prj", ".cpg"}:
+            if suffix in {".shp", ".dbf", ".shx", ".prj", ".cpg", ".sqlite", ".sqlite3", ".db"}:
                 _record_shapefile_member(
                     member_path=nested_path,
                     suffix=suffix,
@@ -371,7 +377,8 @@ def _record_shapefile_member(
     if suffix == ".prj":
         projection_members.append(member_path)
 
-    shapefile_stems.add(str(Path(member_path).with_suffix("")))
+    if suffix in {".shp", ".dbf", ".shx", ".prj", ".cpg"}:
+        shapefile_stems.add(str(Path(member_path).with_suffix("")))
 
 
 def _increment_extension_count(

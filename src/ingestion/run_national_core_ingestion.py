@@ -240,6 +240,94 @@ def download_wildfire_history(
     return manifest_record
 
 
+def download_hydat_archive(
+    *,
+    output_root: str | Path = "lakehouse/bronze",
+    manifest_path: str | Path = "lakehouse/bronze/_manifests/bronze_runs.jsonl",
+) -> dict[str, Any]:
+    config = load_project_config("source_config.yml")
+    source = config["sources"]["hydat_archive"]
+
+    download_cfg = source.get("hydat_download")
+    if not download_cfg:
+        raise NationalCoreIngestionError(
+            "hydat_archive.hydat_download is missing from source_config.yml"
+        )
+
+    run_id = str(uuid.uuid4())
+    extract_timestamp = utc_now_iso()
+    extract_date = utc_today()
+
+    source_name = "hydat_archive"
+    base_dir = Path(output_root) / source_name / f"extract_date={extract_date}" / f"run_id={run_id}"
+    raw_dir = base_dir / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+
+    raw_path = raw_dir / "Hydat_sqlite3_raw.zip"
+
+    http = HttpDownloader()
+    result = http.get(download_cfg["url"])
+    raw_path.write_bytes(result.content)
+
+    raw_content = raw_path.read_bytes()
+    raw_checksum = compute_bytes_sha256(raw_content)
+    raw_size = raw_path.stat().st_size
+
+    metadata = {
+        "run_id": run_id,
+        "source_name": source_name,
+        "display_name": source["display_name"],
+        "source_group": source["source_group"],
+        "provider": source["provider"],
+        "source_url": source["source_url"],
+        "extract_timestamp": extract_timestamp,
+        "extract_date": extract_date,
+        "raw_file_path": raw_path.as_posix(),
+        "file_name": raw_path.name,
+        "file_size_bytes": raw_size,
+        "file_checksum": raw_checksum,
+        "checksum_algorithm": "sha256",
+        "ingestion_method": "direct_zip_download",
+        "row_count": None,
+        "schema_hash": None,
+        "source_period_start": None,
+        "source_period_end": None,
+        "target_bronze_table": source["target_bronze_table"],
+        "target_silver_table": source["target_silver_table"],
+        "load_status": "success",
+        "extra_metadata": {
+            "dataset_name": download_cfg.get("dataset_name"),
+            "release_date": download_cfg.get("release_date"),
+            "download_url": download_cfg["url"],
+            "download_filename": download_cfg["filename"],
+            "download_format": download_cfg.get("format"),
+            "download_status_code": result.status_code,
+            "download_content_type": result.content_type,
+            "download_size_bytes": result.size_bytes,
+            "download_checksum": result.checksum,
+            "download_final_url": result.final_url,
+            "note": download_cfg.get("note"),
+        },
+    }
+
+    metadata_path = base_dir / "metadata.json"
+    write_json(metadata_path, metadata)
+
+    manifest_record = {
+        **metadata,
+        "metadata_path": metadata_path.as_posix(),
+        "manifest_record_created_at": utc_now_iso(),
+    }
+
+    append_jsonl(Path(manifest_path), manifest_record)
+
+    print(
+        f"[OK] downloaded hydat_archive -> {raw_path} | " f"size_bytes={raw_size} | run_id={run_id}"
+    )
+
+    return manifest_record
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run national core Bronze ingestion.")
 
@@ -253,6 +341,12 @@ def parse_args() -> argparse.Namespace:
         "--download-wildfire-history",
         action="store_true",
         help="Download Canadian National Fire Database fire point data into Bronze.",
+    )
+
+    parser.add_argument(
+        "--download-hydat-archive",
+        action="store_true",
+        help="Download HYDAT SQLite archive into Bronze.",
     )
 
     return parser.parse_args()
@@ -269,8 +363,13 @@ def main() -> None:
         download_wildfire_history()
         return
 
+    if args.download_hydat_archive:
+        download_hydat_archive()
+        return
+
     raise SystemExit(
-        "No action selected. Use --download-census-boundaries or " "--download-wildfire-history."
+        "No action selected. Use --download-census-boundaries, "
+        "--download-wildfire-history, or --download-hydat-archive."
     )
 
 

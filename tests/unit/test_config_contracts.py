@@ -256,3 +256,26 @@ def test_wildfire_history_has_nfdb_point_download_config():
     assert contract["required_for_downstream_features"] is True
     assert contract["candidate_year_fields"]
     assert contract["candidate_size_fields"]
+
+
+def test_hydat_archive_has_sqlite_download_config():
+    sources = _sources()
+    source = sources["hydat_archive"]
+
+    assert source["access_method"] == "direct_zip_download"
+    assert source["file_format"] == "zip_sqlite"
+    assert source["target_silver_table"] == "silver_hydro_baseline"
+
+    download = source["hydat_download"]
+    assert download["dataset_name"] == "Hydat_sqlite3"
+    assert download["filename"].startswith("Hydat_sqlite3_")
+    assert download["filename"].endswith(".zip")
+
+    required = set(source["required_fields"])
+    assert "sqlite_database" in required
+
+    contract = source["measurement_contract"]
+    assert "discharge" in contract["required_measurements"]
+    assert "water_level" in contract["required_measurements"]
+    assert "DLY_FLOWS" in contract["candidate_tables"]
+    assert "DLY_LEVELS" in contract["candidate_tables"]

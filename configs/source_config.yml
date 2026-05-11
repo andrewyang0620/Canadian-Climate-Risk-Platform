@@ -113,11 +113,11 @@ sources:
     source_group: national
     provider: Water Survey of Canada
     source_url: https://www.canada.ca/en/environment-climate-change/services/water-overview/quantity/monitoring/survey/data-products-services/national-archive-hydat.html
-    access_method: bulk_sqlite
+    access_method: direct_zip_download
     expected_frequency: quarterly
-    file_format: sqlite
-    spatial_grain: station
-    temporal_grain: daily
+    file_format: zip_sqlite
+    spatial_grain: hydrometric_station
+    temporal_grain: daily_monthly_historical
     time_window:
       start_year: 2016
       end_year: 2025
@@ -127,9 +127,9 @@ sources:
     - hydrometric_baseline
     - water_level_percentile
     - discharge_percentile
+    - grid_month_hazard_exposure
     required_fields:
-    - station_id
-    - date
+    - sqlite_database
     measurement_contract:
       required_measurements:
       - discharge
@@ -138,11 +138,14 @@ sources:
       downstream_standard_names:
         discharge: discharge_cms
         water_level: water_level_m
-      note: 'HYDAT is a structured archive rather than a single flat file. Raw field
-        names may differ by table, so discharge and water-level requirements are enforced
-        after Silver standardization rather than as direct Bronze field names.
-
-        '
+      candidate_tables:
+      - DLY_FLOWS
+      - DLY_LEVELS
+      - MONTHLY_FLOWS
+      - MONTHLY_LEVELS
+      - STATIONS
+      note: HYDAT Bronze stores the raw SQLite archive. Table-level checks are done
+        during archive profiling; measurement presence is enforced after Silver standardization.
     validation_checks:
     - schema_hash
     - row_count
@@ -151,7 +154,17 @@ sources:
     - hydrometric_measurement_presence
     - non_negative_discharge
     - station_date_uniqueness
+    - hydat_station_bc_ab_filter_coverage
     redistribution: public
+    hydat_download:
+      dataset_name: Hydat_sqlite3
+      release_date: '2026-04-17'
+      url: http://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/Hydat_sqlite3_20260417.zip
+      filename: Hydat_sqlite3_20260417.zip
+      format: zip_sqlite
+      note: HYDAT SQLite archive containing historical Water Survey of Canada daily/monthly
+        flow and water-level observations. Used for hydrometric baseline and flood
+        signal features.
   wildfire_history:
     display_name: Canadian National Fire Database Fire Point Data
     source_group: national

@@ -1,0 +1,85 @@
+﻿crs:
+  raw:
+    rule: preserve_source_crs
+  processing:
+    epsg: 3347
+    name: Canada Lambert Conformal Conic
+    reason: metric_area_distance_calculation
+  serving:
+    epsg: 4326
+    name: WGS84
+    reason: BI_centroid_lat_lon_compatibility
+
+hard_rules:
+  - never_compute_area_or_distance_in_lat_lon_degrees
+  - all_spatial_joins_write_audit_record
+  - geometry_repairs_must_be_counted
+  - store_centroids_for_bi
+  - store_geometry_or_wkt_for_postgis_where_useful
+
+grids:
+  province_grid_10km:
+    resolution_m: 10000
+    provinces:
+      - BC
+      - AB
+    grid_id_prefix: grid10
+    output_table: silver_grid_10km
+
+  city_grid_1km:
+    resolution_m: 1000
+    cities:
+      - Vancouver
+      - Calgary
+    grid_id_prefix: grid1
+    output_table: silver_grid_1km_city
+
+distance_thresholds_km:
+  hydro_station_nearby: 75
+  wildfire_near: 25
+  wildfire_context: 50
+  disaster_context: 50
+
+spatial_join_audit:
+  required_fields:
+    - run_id
+    - join_name
+    - left_table
+    - right_table
+    - left_count
+    - matched_count
+    - unmatched_count
+    - match_rate
+    - median_distance_km
+    - p95_distance_km
+    - geometry_invalid_count
+    - geometry_repaired_count
+    - crs_source
+    - crs_target
+    - created_at
+    - severity
+
+bounding_boxes:
+  BC:
+    min_lon: -139.2
+    max_lon: -114.0
+    min_lat: 48.0
+    max_lat: 60.1
+
+  AB:
+    min_lon: -120.1
+    max_lon: -109.9
+    min_lat: 48.9
+    max_lat: 60.1
+
+  Vancouver:
+    min_lon: -123.3
+    max_lon: -123.0
+    min_lat: 49.1
+    max_lat: 49.4
+
+  Calgary:
+    min_lon: -114.4
+    max_lon: -113.8
+    min_lat: 50.8
+    max_lat: 51.3

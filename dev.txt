@@ -1,0 +1,217 @@
+@'
+# DEV COMMANDS - Canadian Climate Risk Platform
+
+Project path:
+D:\NA_Work\projects\canadian-climate-risk-platform
+
+==================================================
+0. 每次开始开发前
+==================================================
+
+cd D:\NA_Work\projects\canadian-climate-risk-platform
+conda activate climate-risk
+
+检查当前分支：
+git branch
+git status
+
+==================================================
+1. 最常用：启动本地开发服务
+==================================================
+
+推荐启动命令：
+
+docker compose up -d postgres spark-master spark-worker airflow-webserver airflow-scheduler
+
+说明：
+- postgres: 项目主数据库，端口 5432
+- spark-master: Spark UI，端口 8080
+- spark-worker: Spark worker
+- airflow-webserver: Airflow UI，端口 8081
+- airflow-scheduler: Airflow 调度器
+
+不要每次都运行 airflow-init。
+airflow-init 只在第一次初始化，或数据库 volume 被删除后才需要。
+
+==================================================
+2. 第一次启动 Airflow / 重置后启动 Airflow
+==================================================
+
+如果是第一次跑 Airflow，先运行：
+
+docker compose up airflow-init
+
+然后再启动：
+
+docker compose up -d airflow-webserver airflow-scheduler
+
+Airflow 登录：
+URL: http://localhost:8081
+username: admin
+password: admin
+
+==================================================
+3. 查看服务是否正常运行
+==================================================
+
+docker compose ps
+
+成功状态应该包括：
+- climate-risk-postgres: healthy
+- climate-risk-spark-master: running
+- climate-risk-spark-worker: running
+- climate-risk-airflow-webserver: running
+- climate-risk-airflow-scheduler: running
+
+==================================================
+4. 常用网页地址
+==================================================
+
+Spark UI:
+http://localhost:8080
+
+Airflow UI:
+http://localhost:8081
+
+PostgreSQL 没有网页界面。
+Postgres 需要用 DBeaver / pgAdmin / psql 连接。
+
+==================================================
+5. PostgreSQL 连接信息
+==================================================
+
+Host: localhost
+Port: 5432
+Database: climate_risk
+Username: climate_user
+Password: change_me
+
+测试数据库连接：
+
+docker exec climate-risk-postgres psql -U climate_user -d climate_risk -c "SELECT current_database(), current_user;"
+
+==================================================
+6. Spark 测试
+==================================================
+
+docker compose exec spark-master /opt/spark/bin/spark-submit --version
+
+==================================================
+7. 停止服务
+==================================================
+
+停止并保留数据库数据：
+
+docker compose down
+
+危险：停止并删除数据库 volume：
+
+docker compose down -v
+
+注意：
+docker compose down -v 会删除本地 Postgres 和 Airflow 数据库。
+只有在你想完全重置环境时才用。
+
+==================================================
+8. Python 测试与代码检查
+==================================================
+
+运行测试：
+
+pytest
+
+运行 lint：
+
+ruff check .
+
+检查格式：
+
+black --check .
+
+自动格式化：
+
+black .
+
+完整检查流程：
+
+pytest
+ruff check .
+black --check .
+
+==================================================
+9. Git 常用流程
+==================================================
+
+查看状态：
+
+git status
+
+创建新 feature branch：
+
+git checkout develop
+git pull origin develop
+git checkout -b feature/branch-name
+
+提交：
+
+git add .
+git commit -m "message"
+git push -u origin feature/branch-name
+
+合并回 develop：
+
+git checkout develop
+git pull origin develop
+git merge feature/branch-name
+git push origin develop
+
+==================================================
+10. 当前阶段推荐启动顺序
+==================================================
+
+每天开始：
+
+cd D:\NA_Work\projects\canadian-climate-risk-platform
+conda activate climate-risk
+docker compose up -d postgres spark-master spark-worker airflow-webserver airflow-scheduler
+docker compose ps
+
+每天结束：
+
+docker compose down
+
+==================================================
+11. 常见问题
+==================================================
+
+问题：localhost:5432 打不开
+原因：5432 是数据库端口，不是网页。
+解决：用 DBeaver 或 psql 连接。
+
+问题：Airflow打不开
+检查：
+docker compose ps
+docker compose logs airflow-webserver
+
+问题：Spark打不开
+检查：
+docker compose ps
+docker compose logs spark-master
+
+问题：Docker daemon error
+解决：
+打开 Docker Desktop，等 Engine running 后再运行命令。
+
+问题：airflow-init exited with code 0
+这不是错误。
+它表示 Airflow 初始化完成并正常退出。
+
+==================================================
+12. 当前项目服务端口
+==================================================
+
+Postgres: localhost:5432
+Spark UI: localhost:8080
+Airflow UI: localhost:8081
+
+'@ | Set-Content -Encoding utf8 dev.txt

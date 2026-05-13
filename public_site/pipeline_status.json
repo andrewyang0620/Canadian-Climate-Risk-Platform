@@ -1,0 +1,12 @@
+{
+  "last_successful_run": null,
+  "environment": "local-dev",
+  "status": "not_started",
+  "sources": {},
+  "quality": {
+    "dbt_tests_passed": 0,
+    "dbt_tests_failed": 0,
+    "spatial_join_success_rate": null,
+    "geometry_valid_rate": null
+  }
+}

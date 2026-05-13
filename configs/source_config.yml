@@ -186,13 +186,17 @@ sources:
         discharge: discharge_cms
         water_level: water_level_m
       candidate_tables:
+      - STATIONS
       - DLY_FLOWS
       - DLY_LEVELS
-      - MONTHLY_FLOWS
-      - MONTHLY_LEVELS
-      - STATIONS
-      note: HYDAT Bronze stores the raw SQLite archive. Table-level checks are done
-        during archive profiling; measurement presence is enforced after Silver standardization.
+      note: HYDAT Bronze stores the raw SQLite archive. Internal profiling confirms
+        STATIONS, DLY_FLOWS, and DLY_LEVELS. DLY_FLOWS and DLY_LEVELS store daily
+        values in monthly rows using FLOW1..FLOW31 and LEVEL1..LEVEL31 columns; Silver
+        processing will unpivot these into daily hydrometric observations.
+      optional_tables:
+      - ANNUAL_STATISTICS
+      - ANNUAL_INSTANT_PEAKS
+      - STN_DATA_RANGE
     validation_checks:
     - schema_hash
     - row_count

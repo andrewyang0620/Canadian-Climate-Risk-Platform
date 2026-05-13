@@ -2,7 +2,10 @@
 
 import argparse
 import csv
+import gzip
+import io
 import json
+import zipfile
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -227,6 +230,16 @@ def profile_raw_file(
             count_rows=count_rows,
         )
 
+    if suffix == ".zip":
+        return profile_zip_file(file_path)
+
+    if file_path.name.endswith(".jsonl.gz") or suffix == ".jsonl":
+        return profile_jsonl_file(
+            file_path,
+            max_sample_rows=max_sample_rows,
+            count_rows=count_rows,
+        )
+
     return {
         "file_path": file_path.as_posix(),
         "file_type": "unknown",
@@ -238,6 +251,221 @@ def profile_raw_file(
         "sample_rows": [],
         "warning": f"Unsupported file extension for profiling: {suffix}",
     }
+
+
+def profile_jsonl_file(
+    path: Path,
+    *,
+    max_sample_rows: int,
+    count_rows: bool,
+) -> dict[str, Any]:
+    """Profile newline-delimited JSON files, including .jsonl.gz."""
+    opener = gzip.open if path.name.endswith(".gz") else open
+
+    sample_rows: list[dict[str, Any]] = []
+    property_keys: set[str] = set()
+    top_level_keys: set[str] = set()
+    geometry_types: Counter[str] = Counter()
+    row_count = 0
+
+    with opener(path, "rt", encoding="utf-8") as file:
+        for line in file:
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            row_count += 1
+            payload = json.loads(stripped)
+
+            if isinstance(payload, dict):
+                top_level_keys.update(payload.keys())
+
+                properties = payload.get("properties")
+                if isinstance(properties, dict):
+                    property_keys.update(properties.keys())
+
+                geometry = payload.get("geometry")
+                if isinstance(geometry, dict):
+                    geometry_type = geometry.get("type")
+                    if geometry_type:
+                        geometry_types[str(geometry_type)] += 1
+
+                if len(sample_rows) < max_sample_rows:
+                    sample = {}
+                    if isinstance(properties, dict):
+                        sample.update(_truncate_row(properties))
+                    sample["geometry_type"] = (
+                        geometry.get("type") if isinstance(geometry, dict) else None
+                    )
+                    sample_rows.append(sample)
+
+            if not count_rows and len(sample_rows) >= max_sample_rows:
+                break
+
+    columns = sorted(top_level_keys)
+    if "properties" in top_level_keys:
+        columns.append("properties.*")
+    columns.extend(sorted(f"properties.{key}" for key in property_keys))
+
+    normalized_columns = [_normalize_name(column) for column in columns]
+
+    return {
+        "file_path": path.as_posix(),
+        "file_type": "jsonl_gzip" if path.name.endswith(".gz") else "jsonl",
+        "file_size_bytes": path.stat().st_size,
+        "columns": columns,
+        "property_columns": sorted(property_keys),
+        "normalized_columns": normalized_columns,
+        "column_count": len(columns),
+        "row_count_exact": row_count if count_rows else None,
+        "row_count_counted": count_rows,
+        "geometry_types": dict(geometry_types),
+        "sample_rows": sample_rows,
+    }
+
+
+def profile_zip_file(path: Path) -> dict[str, Any]:
+    """Profile a zip archive, including nested shapefile zip packages."""
+    members: list[str] = []
+    extension_counts: dict[str, int] = {}
+    shapefile_members: list[str] = []
+    projection_members: list[str] = []
+    shapefile_stems: set[str] = set()
+    nested_archive_count = 0
+    nested_member_count = 0
+
+    with zipfile.ZipFile(path, "r") as archive:
+        members = archive.namelist()
+
+        for member in members:
+            suffix = Path(member).suffix.lower()
+            _increment_extension_count(extension_counts, suffix)
+
+            if suffix in {".shp", ".dbf", ".shx", ".prj", ".cpg", ".sqlite", ".sqlite3", ".db"}:
+                _record_shapefile_member(
+                    member_path=member,
+                    suffix=suffix,
+                    shapefile_members=shapefile_members,
+                    projection_members=projection_members,
+                    shapefile_stems=shapefile_stems,
+                )
+
+            if suffix == ".zip":
+                nested_archive_count += 1
+                nested_bytes = archive.read(member)
+
+                nested_result = _inspect_nested_zip(
+                    parent_member=member,
+                    content=nested_bytes,
+                )
+
+                nested_member_count += nested_result["member_count"]
+
+                for nested_suffix, count in nested_result["extension_counts"].items():
+                    extension_counts[nested_suffix] = extension_counts.get(nested_suffix, 0) + count
+
+                shapefile_members.extend(nested_result["shapefile_members"])
+                projection_members.extend(nested_result["projection_members"])
+                shapefile_stems.update(nested_result["shapefile_stems"])
+
+    has_sqlite = any(suffix in extension_counts for suffix in [".sqlite", ".sqlite3", ".db"])
+
+    columns = []
+    if shapefile_members:
+        columns.append("geometry")
+    if has_sqlite:
+        columns.append("sqlite_database")
+
+    return {
+        "file_path": path.as_posix(),
+        "file_type": "zip_archive",
+        "file_size_bytes": path.stat().st_size,
+        "columns": columns,
+        "normalized_columns": [_normalize_name(column) for column in columns],
+        "column_count": len(columns),
+        "row_count_exact": None,
+        "archive_member_count": len(members),
+        "nested_archive_count": nested_archive_count,
+        "nested_member_count": nested_member_count,
+        "extension_counts": extension_counts,
+        "shapefile_count": len(shapefile_members),
+        "shapefile_members": shapefile_members,
+        "projection_members": projection_members,
+        "shapefile_stems": sorted(shapefile_stems),
+        "sample_rows": [
+            {
+                "archive_member_count": len(members),
+                "nested_archive_count": nested_archive_count,
+                "nested_member_count": nested_member_count,
+                "shapefile_count": len(shapefile_members),
+                "sample_members": members[:10],
+                "sample_shapefiles": shapefile_members[:10],
+            }
+        ],
+    }
+
+
+def _inspect_nested_zip(
+    *,
+    parent_member: str,
+    content: bytes,
+) -> dict[str, Any]:
+    extension_counts: dict[str, int] = {}
+    shapefile_members: list[str] = []
+    projection_members: list[str] = []
+    shapefile_stems: set[str] = set()
+
+    with zipfile.ZipFile(io.BytesIO(content), "r") as nested_archive:
+        nested_members = nested_archive.namelist()
+
+        for nested_member in nested_members:
+            suffix = Path(nested_member).suffix.lower()
+            _increment_extension_count(extension_counts, suffix)
+
+            nested_path = f"{parent_member}::{nested_member}"
+
+            if suffix in {".shp", ".dbf", ".shx", ".prj", ".cpg", ".sqlite", ".sqlite3", ".db"}:
+                _record_shapefile_member(
+                    member_path=nested_path,
+                    suffix=suffix,
+                    shapefile_members=shapefile_members,
+                    projection_members=projection_members,
+                    shapefile_stems=shapefile_stems,
+                )
+
+    return {
+        "member_count": len(nested_members),
+        "extension_counts": extension_counts,
+        "shapefile_members": shapefile_members,
+        "projection_members": projection_members,
+        "shapefile_stems": shapefile_stems,
+    }
+
+
+def _record_shapefile_member(
+    *,
+    member_path: str,
+    suffix: str,
+    shapefile_members: list[str],
+    projection_members: list[str],
+    shapefile_stems: set[str],
+) -> None:
+    if suffix == ".shp":
+        shapefile_members.append(member_path)
+
+    if suffix == ".prj":
+        projection_members.append(member_path)
+
+    if suffix in {".shp", ".dbf", ".shx", ".prj", ".cpg"}:
+        shapefile_stems.add(str(Path(member_path).with_suffix("")))
+
+
+def _increment_extension_count(
+    extension_counts: dict[str, int],
+    suffix: str,
+) -> None:
+    if suffix:
+        extension_counts[suffix] = extension_counts.get(suffix, 0) + 1
 
 
 def profile_csv_file(
@@ -582,7 +810,9 @@ def _check_candidate_list(
 
     for field in candidate_fields:
         normalized = _normalize_name(field)
-        if normalized in normalized_columns:
+        property_normalized = _normalize_name(f"properties.{field}")
+
+        if normalized in normalized_columns or property_normalized in normalized_columns:
             found.append(field)
         else:
             missing.append(field)

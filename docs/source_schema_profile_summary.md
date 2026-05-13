@@ -1,12 +1,12 @@
 # Source Schema Profile Summary
 
-Generated at: `2026-05-09T01:21:23+00:00`
+Generated at: `2026-05-12T00:12:42+00:00`
 
 This summary is generated from local Bronze raw files. It verifies raw schema, candidate join keys, coordinate fields, measurement fields, and downstream source contracts before Silver standardization.
 
 ## Summary
 
-- Profiled sources: `9`
+- Profiled sources: `13`
 - Missing Bronze runs: `0`
 - Raw files missing: `0`
 - Profile failures: `0`
@@ -15,6 +15,10 @@ This summary is generated from local Bronze raw files. It verifies raw schema, c
 
 | Source | Status | File Type | Rows / Features | Columns | Contract Notes |
 |---|---:|---:|---:|---:|---|
+| `eccc_historical_climate` | `profiled` | `jsonl_gzip` | `171108` | `40` | `required_fields:True` `coordinate_contract:True` `climate_measurement_contract:True` |
+| `hydat_archive` | `profiled` | `zip_archive` | `` | `1` | `required_fields:True` `measurement_contract:None` |
+| `wildfire_history` | `profiled` | `zip_archive` | `` | `1` | `required_fields:True` |
+| `census_boundaries` | `profiled` | `zip_archive` | `` | `1` | `required_fields:True` |
 | `canadian_disaster_database` | `profiled` | `excel` | `1490` | `25` | `required_fields:True` `location_mapping_contract:True` |
 | `vancouver_property_parcels` | `profiled` | `geojson` | `99726` | `6` | `required_fields:True` `identity_contract:True` |
 | `vancouver_property_tax` | `profiled` | `csv` | `1552486` | `30` | `required_fields:True` `join_contract:True` |

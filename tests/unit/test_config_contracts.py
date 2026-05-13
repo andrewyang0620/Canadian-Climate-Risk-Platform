@@ -175,14 +175,20 @@ def test_calgary_property_assessment_has_coordinate_contract():
     assert "multipolygon" in contract["candidate_geometry_fields"]
 
 
-def test_wildfire_csv_or_geojson_uses_post_silver_geometry_validation():
+def test_wildfire_zip_shapefile_uses_bronze_geometry_package_validation():
     sources = _sources()
     wildfire = sources["wildfire_history"]
 
-    assert wildfire["file_format"] == "geojson_or_csv"
-    assert "geometry_validity" not in wildfire["validation_checks"]
-    assert "geometry_constructed_from_coordinates" in wildfire["post_silver_validation_checks"]
-    assert "geometry_validity" in wildfire["post_silver_validation_checks"]
+    assert wildfire["file_format"] == "zip_shapefile"
+    assert wildfire["access_method"] == "direct_zip_download"
+
+    required = set(wildfire["required_fields"])
+    assert "geometry" in required
+
+    assert "geometry_validity" in wildfire["validation_checks"]
+    assert "wildfire_geometry_presence" in wildfire["post_silver_validation_checks"]
+    assert "wildfire_event_geometry_validity" in wildfire["post_silver_validation_checks"]
+    assert "crs_check" in wildfire["post_silver_validation_checks"]
 
 
 def test_contract_sources_have_post_silver_validation_checks_where_needed():
@@ -210,3 +216,91 @@ def test_contract_sources_have_post_silver_validation_checks_where_needed():
             "post_silver_validation_checks."
         )
         assert sources[source_name]["post_silver_validation_checks"]
+
+
+def test_census_boundaries_has_direct_downloads_for_province_and_csd():
+    sources = _sources()
+    source = sources["census_boundaries"]
+
+    assert source["access_method"] == "direct_boundary_file_download"
+    assert source["file_format"] == "zip_shapefile_package"
+
+    downloads = source["boundary_downloads"]
+    assert "province_cartographic_2021" in downloads
+    assert "csd_cartographic_2021" in downloads
+
+    assert downloads["province_cartographic_2021"]["boundary_level"] == "province"
+    assert downloads["csd_cartographic_2021"]["boundary_level"] == "census_subdivision"
+
+    assert downloads["province_cartographic_2021"]["filename"].endswith(".zip")
+    assert downloads["csd_cartographic_2021"]["filename"].endswith(".zip")
+
+
+def test_wildfire_history_has_nfdb_point_download_config():
+    sources = _sources()
+    source = sources["wildfire_history"]
+
+    assert source["access_method"] == "direct_zip_download"
+    assert source["file_format"] == "zip_shapefile"
+    assert source["target_silver_table"] == "silver_wildfire_event"
+
+    download = source["wildfire_download"]
+    assert download["dataset_name"] == "NFDB_point"
+    assert download["filename"] == "NFDB_point.zip"
+    assert download["url"].endswith("/NFDB_point.zip")
+
+    required = set(source["required_fields"])
+    assert "geometry" in required
+
+    contract = source["wildfire_event_contract"]
+    assert contract["required_for_downstream_features"] is True
+    assert contract["candidate_year_fields"]
+    assert contract["candidate_size_fields"]
+
+
+def test_hydat_archive_has_sqlite_download_config():
+    sources = _sources()
+    source = sources["hydat_archive"]
+
+    assert source["access_method"] == "direct_zip_download"
+    assert source["file_format"] == "zip_sqlite"
+    assert source["target_silver_table"] == "silver_hydro_baseline"
+
+    download = source["hydat_download"]
+    assert download["dataset_name"] == "Hydat_sqlite3"
+    assert download["filename"].startswith("Hydat_sqlite3_")
+    assert download["filename"].endswith(".zip")
+
+    required = set(source["required_fields"])
+    assert "sqlite_database" in required
+
+    contract = source["measurement_contract"]
+    assert "discharge" in contract["required_measurements"]
+    assert "water_level" in contract["required_measurements"]
+    assert "DLY_FLOWS" in contract["candidate_tables"]
+    assert "DLY_LEVELS" in contract["candidate_tables"]
+
+
+def test_eccc_historical_climate_has_bc_ab_ogc_api_config():
+    sources = _sources()
+    source = sources["eccc_historical_climate"]
+
+    assert source["access_method"] == "geomet_ogc_api_pagination"
+    assert source["file_format"] == "jsonl_gzip"
+    assert source["target_silver_table"] == "silver_climate_daily"
+
+    api = source["climate_daily_api"]
+    assert api["collection"] == "climate-daily"
+    assert api["target_provinces"] == ["BC", "AB"]
+    assert api["datetime_start"] == "2016-01-01"
+    assert api["datetime_end"] == "2025-12-31"
+    assert len(api["bbox"]) == 4
+
+    required = set(source["required_fields"])
+    assert "geometry" in required
+    assert "properties" in required
+
+    contract = source["climate_measurement_contract"]
+    assert contract["required_for_downstream_features"] is True
+    assert "temperature" in contract["candidate_raw_fields"]
+    assert "precipitation" in contract["candidate_raw_fields"]

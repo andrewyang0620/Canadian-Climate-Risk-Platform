@@ -59,7 +59,7 @@ def test_bronze_and_silver_tables_are_registered():
     bronze_tables = registry.bronze_tables()
     silver_tables = registry.silver_tables()
 
-    assert "bronze_climate" in bronze_tables
+    assert "bronze_climate_daily" in bronze_tables
     assert "bronze_disaster_events" in bronze_tables
     assert "bronze_vancouver_property_parcels" in bronze_tables
     assert "bronze_calgary_flood_hazard" in bronze_tables

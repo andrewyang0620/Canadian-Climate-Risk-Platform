@@ -1,4 +1,4 @@
-﻿platform:
+platform:
   name: Canadian Climate Risk Data Platform
   architecture_version: aws_snowflake_elt_v1
   primary_cloud_provider: aws
@@ -9,7 +9,6 @@
   geospatial_processing:
     primary: apache_sedona
     local_fallback: geopandas
-
 deployment_modes:
   local_dev:
     description: Local developer mode using local lakehouse paths and Docker Compose.
@@ -17,42 +16,40 @@ deployment_modes:
     silver_storage: local_filesystem
     warehouse: optional_local_or_snowflake
     airflow_metadata_db: local_postgres
-
   cloud_target:
-    description: Target portfolio architecture using AWS S3 as the data lake and Snowflake as the warehouse.
+    description: Target portfolio architecture using AWS S3 as the data lake and Snowflake
+      as the warehouse.
     bronze_storage: aws_s3
     silver_storage: aws_s3
     warehouse: snowflake
     orchestration: airflow
     infrastructure_as_code: terraform
-
 storage:
+  default_backend: local
+  local:
+    lakehouse_root: lakehouse
+  s3:
+    region: ca-central-1
+    raw_bucket_env: AWS_S3_BUCKET_RAW
+    processed_bucket_env: AWS_S3_BUCKET_PROCESSED
+    bronze_prefix: bronze
+    silver_prefix: silver
+  zones:
+    bronze:
+      local_prefix: bronze
+      s3_prefix: bronze
+    silver:
+      local_prefix: silver
+      s3_prefix: silver
+    gold:
+      local_prefix: gold
+      s3_prefix: gold
   bronze:
-    purpose: Raw immutable source snapshots.
     local_path: lakehouse/bronze
     s3_uri_env: S3_BRONZE_URI
-    format_policy: source_preserving
-    examples:
-      - csv
-      - xlsx
-      - geojson
-      - json
-
   silver:
-    purpose: Cleaned, normalized, analytics-ready processed datasets.
     local_path: lakehouse/silver
     s3_uri_env: S3_SILVER_URI
-    format_policy: standardized_parquet_or_geoparquet
-    examples:
-      - parquet
-      - geoparquet
-
-  audit:
-    purpose: Pipeline audit reports, source availability reports, and quality metadata.
-    local_path: lakehouse/audit
-    s3_uri_env: S3_AUDIT_URI
-    format_policy: json
-
 warehouse:
   type: snowflake
   database_env: SNOWFLAKE_DATABASE
@@ -71,7 +68,6 @@ warehouse:
     audit:
       name: AUDIT
       purpose: Pipeline status and data quality outputs.
-
 dbt:
   profile_name: climate_risk_snowflake
   profiles_dir: dbt
@@ -81,33 +77,32 @@ dbt:
     intermediate: dbt/models/intermediate
     marts: dbt/models/marts
   test_strategy:
-    - not_null
-    - unique
-    - relationships
-    - accepted_values
-    - custom_data_quality_tests
-
+  - not_null
+  - unique
+  - relationships
+  - accepted_values
+  - custom_data_quality_tests
 pipeline_flow:
-  - step: extract
-    tool: Python ingestion layer
-    output: Bronze raw snapshots
-  - step: load
-    tool: AWS S3
-    output: Raw data lake objects
-  - step: process
-    tool: PySpark / Apache Sedona
-    output: Silver processed datasets
-  - step: warehouse_load
-    tool: Snowflake
-    output: Silver and Gold warehouse tables
-  - step: transform
-    tool: dbt Core
-    output: marts and risk metrics
-  - step: serve
-    tool: Power BI / public demo
-    output: dashboards and portfolio evidence
-
+- step: extract
+  tool: Python ingestion layer
+  output: Bronze raw snapshots
+- step: load
+  tool: AWS S3
+  output: Raw data lake objects
+- step: process
+  tool: PySpark / Apache Sedona
+  output: Silver processed datasets
+- step: warehouse_load
+  tool: Snowflake
+  output: Silver and Gold warehouse tables
+- step: transform
+  tool: dbt Core
+  output: marts and risk metrics
+- step: serve
+  tool: Power BI / public demo
+  output: dashboards and portfolio evidence
 notes:
-  - Existing local BronzeWriter remains valid for local development.
-  - S3 support should be added through a storage backend abstraction in a later feature.
-  - Postgres remains useful for Airflow metadata and optional local PostGIS validation, but Snowflake is the primary analytical warehouse.
+- Existing local BronzeWriter remains valid for local development.
+- S3 support should be added through a storage backend abstraction in a later feature.
+- Postgres remains useful for Airflow metadata and optional local PostGIS validation,
+  but Snowflake is the primary analytical warehouse.

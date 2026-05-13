@@ -6,7 +6,11 @@ def test_platform_config_uses_aws_and_snowflake():
 
     assert config["platform"]["primary_cloud_provider"] == "aws"
     assert config["platform"]["warehouse"] == "snowflake"
-    assert config["storage"]["bronze"]["s3_uri_env"] == "S3_BRONZE_URI"
+    assert config["storage"]["default_backend"] == "local"
+    assert config["storage"]["s3"]["raw_bucket_env"] == "AWS_S3_BUCKET_RAW"
+    assert config["storage"]["s3"]["processed_bucket_env"] == "AWS_S3_BUCKET_PROCESSED"
+    assert config["storage"]["s3"]["bronze_prefix"] == "bronze"
+    assert config["storage"]["s3"]["silver_prefix"] == "silver"
     assert config["storage"]["silver"]["s3_uri_env"] == "S3_SILVER_URI"
 
 

@@ -89,3 +89,17 @@ When STORAGE_BACKEND=s3, this becomes:
 s3://<raw-bucket>/bronze/eccc_historical_climate/extract_date=2026-05-11/run_id=<run_id>/raw/eccc_climate_daily_bc_ab_2016.jsonl.gz
 
 This allows the current local Bronze ingestion pipeline to remain reproducible while enabling cloud storage migration.
+
+### Recommended S3 Sync Mode
+
+For cloud upload, use manifest-aware filtering instead of syncing every local development run:
+
+```powershell
+python -m src.storage.sync_bronze `
+  --bronze-root lakehouse/bronze `
+  --source eccc_historical_climate `
+  --latest-successful-only `
+  --exclude-smoke-tests `
+  --dry-run
+
+This mode uses bronze_runs.jsonl to select the latest successful non-smoke-test run for each source. It avoids uploading old development runs and smoke-test artifacts.

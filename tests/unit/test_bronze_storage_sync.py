@@ -132,3 +132,86 @@ def test_bronze_syncer_dry_run_does_not_write(tmp_path):
         / "raw"
         / "data.csv"
     ).exists()
+
+
+def write_manifest_record(path, record):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as file:
+        import json
+
+        file.write(json.dumps(record) + "\n")
+
+
+def test_bronze_syncer_latest_successful_only_excludes_old_and_smoke_runs(tmp_path):
+    bronze_root = tmp_path / "lakehouse" / "bronze"
+    source_name = "eccc_historical_climate"
+
+    old_smoke_raw = (
+        bronze_root
+        / source_name
+        / "extract_date=2026-04-29"
+        / "run_id=smoke"
+        / "raw"
+        / "_SMOKE_TEST.txt"
+    )
+    old_smoke_raw.parent.mkdir(parents=True)
+    old_smoke_raw.write_text("smoke", encoding="utf-8")
+    old_smoke_metadata = old_smoke_raw.parent.parent / "metadata.json"
+    old_smoke_metadata.write_text("{}", encoding="utf-8")
+
+    latest_raw = (
+        bronze_root
+        / source_name
+        / "extract_date=2026-05-11"
+        / "run_id=real"
+        / "raw"
+        / "data.jsonl.gz"
+    )
+    latest_raw.parent.mkdir(parents=True)
+    latest_raw.write_bytes(b"real")
+    latest_metadata = latest_raw.parent.parent / "metadata.json"
+    latest_metadata.write_text("{}", encoding="utf-8")
+
+    manifest_path = bronze_root / "_manifests" / "bronze_runs.jsonl"
+
+    write_manifest_record(
+        manifest_path,
+        {
+            "source_name": source_name,
+            "run_id": "smoke",
+            "extract_timestamp": "2026-04-29T00:00:00+00:00",
+            "extract_date": "2026-04-29",
+            "load_status": "success",
+            "raw_file_path": old_smoke_raw.as_posix(),
+            "extra_metadata": {"smoke_test": True},
+        },
+    )
+
+    write_manifest_record(
+        manifest_path,
+        {
+            "source_name": source_name,
+            "run_id": "real",
+            "extract_timestamp": "2026-05-11T00:00:00+00:00",
+            "extract_date": "2026-05-11",
+            "load_status": "success",
+            "raw_file_path": latest_raw.as_posix(),
+            "extra_metadata": {},
+        },
+    )
+
+    backend = LocalStorageBackend(tmp_path / "target" / "bronze")
+    syncer = BronzeSyncer(bronze_root=bronze_root, storage_backend=backend)
+
+    plan = syncer.plan(
+        include_sources=[source_name],
+        include_manifests=False,
+        latest_successful_only=True,
+        exclude_smoke_tests=True,
+    )
+
+    relative_paths = {item.relative_path for item in plan}
+
+    assert f"{source_name}/extract_date=2026-05-11/run_id=real/metadata.json" in relative_paths
+    assert f"{source_name}/extract_date=2026-05-11/run_id=real/raw/data.jsonl.gz" in relative_paths
+    assert not any("run_id=smoke" in path for path in relative_paths)

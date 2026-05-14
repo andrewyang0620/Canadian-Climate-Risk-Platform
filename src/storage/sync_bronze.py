@@ -38,6 +38,18 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--latest-successful-only",
+        action="store_true",
+        help="Sync only the latest successful run per source based on Bronze manifest.",
+    )
+
+    parser.add_argument(
+        "--exclude-smoke-tests",
+        action="store_true",
+        help="Exclude manifest records marked as smoke tests.",
+    )
+
+    parser.add_argument(
         "--output-json",
         default=None,
         help="Optional path to write sync results as JSON.",
@@ -60,12 +72,16 @@ def main() -> None:
         include_sources=args.source,
         include_manifests=not args.no_manifests,
         dry_run=args.dry_run,
+        latest_successful_only=args.latest_successful_only,
+        exclude_smoke_tests=args.exclude_smoke_tests,
     )
 
     payload = {
         "dry_run": args.dry_run,
         "bronze_root": args.bronze_root,
         "source_filter": args.source,
+        "latest_successful_only": args.latest_successful_only,
+        "exclude_smoke_tests": args.exclude_smoke_tests,
         "object_count": len(results),
         "total_size_bytes": sum(item.size_bytes for item in results),
         "objects": [item.__dict__ for item in results],

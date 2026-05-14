@@ -63,3 +63,29 @@ This is enough for ingestion, audit metadata, manifest files, and later Silver o
 ## Current Scope
  
 This feature introduces the abstraction and tests. Existing ingestion flows still write locally by default. Later features will integrate the backend into Bronze writers and Silver outputs.
+## Bronze Sync Utility
+
+The project includes a Bronze sync utility that copies local Bronze files to the configured storage backend while preserving the Bronze relative layout.
+
+Dry run example:
+
+```powershell
+python -m src.storage.sync_bronze `
+  --bronze-root lakehouse/bronze `
+  --source eccc_historical_climate `
+  --dry-run
+
+Sync all implemented Bronze sources to the configured backend:
+
+python -m src.storage.sync_bronze `
+  --bronze-root lakehouse/bronze
+
+The sync utility preserves paths such as:
+
+eccc_historical_climate/extract_date=2026-05-11/run_id=<run_id>/raw/eccc_climate_daily_bc_ab_2016.jsonl.gz
+
+When STORAGE_BACKEND=s3, this becomes:
+
+s3://<raw-bucket>/bronze/eccc_historical_climate/extract_date=2026-05-11/run_id=<run_id>/raw/eccc_climate_daily_bc_ab_2016.jsonl.gz
+
+This allows the current local Bronze ingestion pipeline to remain reproducible while enabling cloud storage migration.

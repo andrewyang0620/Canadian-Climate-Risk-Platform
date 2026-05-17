@@ -1,0 +1,19 @@
+﻿project_name = "canadian-climate-risk-platform"
+environment  = "dev"
+aws_region   = "ca-central-1"
+
+# S3 bucket names must be globally unique.
+# Suggested format:
+# canadian-climate-risk-raw-dev-<your-unique-suffix>
+# canadian-climate-risk-processed-dev-<your-unique-suffix>
+raw_bucket_name       = "canadian-climate-risk-raw-dev-your-suffix"
+processed_bucket_name = "canadian-climate-risk-processed-dev-your-suffix"
+
+force_destroy_buckets = false
+
+# Lifecycle settings
+noncurrent_version_expiration_days       = 90
+incomplete_multipart_upload_days         = 7
+audit_noncurrent_version_expiration_days = 30
+audit_object_expiration_days             = 180
+

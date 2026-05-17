@@ -34,16 +34,29 @@ storage:
     processed_bucket_env: AWS_S3_BUCKET_PROCESSED
     bronze_prefix: bronze
     silver_prefix: silver
+    audit_prefix: audit
+    profiles_prefix: profiles
   zones:
     bronze:
       local_prefix: bronze
+      s3_bucket: raw
       s3_prefix: bronze
+      purpose: immutable raw source snapshots
     silver:
       local_prefix: silver
+      s3_bucket: processed
       s3_prefix: silver
-    gold:
-      local_prefix: gold
-      s3_prefix: gold
+      purpose: standardized processed datasets before Snowflake load
+    audit:
+      local_prefix: audit
+      s3_bucket: processed
+      s3_prefix: audit
+      purpose: pipeline audit logs, run manifests, and validation outputs
+    profiles:
+      local_prefix: profiles
+      s3_bucket: processed
+      s3_prefix: profiles
+      purpose: schema profiling and data-quality profiling outputs
   bronze:
     local_path: lakehouse/bronze
     s3_uri_env: S3_BRONZE_URI
@@ -51,23 +64,36 @@ storage:
     local_path: lakehouse/silver
     s3_uri_env: S3_SILVER_URI
 warehouse:
-  type: snowflake
-  database_env: SNOWFLAKE_DATABASE
-  warehouse_env: SNOWFLAKE_WAREHOUSE
-  role_env: SNOWFLAKE_ROLE
+  primary: snowflake
+  database: CLIMATE_RISK
+  gold_layer: snowflake
   schemas:
     bronze_external:
+      name: BRONZE_EXTERNAL
+      purpose: External access layer for raw Bronze objects stored in S3.
+    bronze:
       name: BRONZE
-      purpose: Optional external/staged access to raw or loaded bronze objects.
+      purpose: Optional loaded/raw landing tables in Snowflake.
     silver:
       name: SILVER
-      purpose: Standardized source-level tables.
+      purpose: Standardized processed tables loaded from S3 Silver outputs.
+    staging:
+      name: STAGING
+      purpose: dbt staging models.
+    intermediate:
+      name: INTERMEDIATE
+      purpose: dbt intermediate transformation models.
+    marts:
+      name: MARTS
+      purpose: Business-facing dbt mart tables.
     gold:
       name: GOLD
-      purpose: dbt mart and analytics-ready tables.
+      purpose: Final analytics-ready warehouse layer in Snowflake.
     audit:
       name: AUDIT
-      purpose: Pipeline status and data quality outputs.
+      purpose: Warehouse audit tables and pipeline validation outputs.
+  note: Gold marts are stored in Snowflake, not in S3. bronze_external is used for
+    Snowflake access to external Bronze objects.
 dbt:
   profile_name: climate_risk_snowflake
   profiles_dir: dbt

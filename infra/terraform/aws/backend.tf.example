@@ -1,0 +1,10 @@
+﻿# Optional remote Terraform state backend.
+# Do not enable this until a Terraform state bucket has been manually bootstrapped.
+
+terraform {
+  backend "s3" {
+    bucket = "your-terraform-state-bucket"
+    key    = "canadian-climate-risk-platform/dev/terraform.tfstate"
+    region = "ca-central-1"
+  }
+}

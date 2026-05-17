@@ -47,3 +47,14 @@ def test_snowflake_tfvars_example_documents_required_values():
     assert "schema_names" in tfvars_example
     assert "BRONZE_EXTERNAL" in tfvars_example
     assert "GOLD" in tfvars_example
+
+
+def test_snowflake_provider_uses_organization_and_account_name():
+    versions_tf = (TERRAFORM_DIR / "versions.tf").read_text(encoding="utf-8")
+    variables_tf = (TERRAFORM_DIR / "variables.tf").read_text(encoding="utf-8")
+    tfvars_example = (TERRAFORM_DIR / "terraform.tfvars.example").read_text(encoding="utf-8")
+
+    assert "organization_name" in versions_tf
+    assert "account_name" in versions_tf
+    assert 'variable "snowflake_organization_name"' in variables_tf
+    assert "snowflake_organization_name" in tfvars_example

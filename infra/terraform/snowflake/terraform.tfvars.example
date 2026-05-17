@@ -1,5 +1,6 @@
 ﻿# Snowflake connection
-snowflake_account = "your-org-your-account"
+snowflake_organization_name = "your-organization"
+snowflake_account = "your-account-name"
 snowflake_user    = "TERRAFORM_SERVICE_USER"
 
 # Use SYSADMIN or a dedicated Terraform role.

@@ -56,3 +56,7 @@ variable "schema_names" {
   }
 }
 
+variable "snowflake_organization_name" {
+  description = "Snowflake organization name. This is required by the snowflakedb/snowflake provider."
+  type        = string
+}

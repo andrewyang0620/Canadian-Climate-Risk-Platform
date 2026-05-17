@@ -1,0 +1,26 @@
+﻿# Snowflake connection
+snowflake_account = "your-org-your-account"
+snowflake_user    = "TERRAFORM_SERVICE_USER"
+
+# Use SYSADMIN or a dedicated Terraform role.
+# Avoid ACCOUNTADMIN as the default operational role.
+snowflake_role = "SYSADMIN"
+
+# Warehouse
+warehouse_name = "CLIMATE_RISK_WH"
+warehouse_size = "XSMALL"
+
+# Database
+database_name = "CLIMATE_RISK"
+
+# Schemas
+schema_names = {
+  bronze_external = "BRONZE_EXTERNAL"
+  bronze          = "BRONZE"
+  silver          = "SILVER"
+  staging         = "STAGING"
+  intermediate    = "INTERMEDIATE"
+  marts           = "MARTS"
+  gold            = "GOLD"
+  audit           = "AUDIT"
+}

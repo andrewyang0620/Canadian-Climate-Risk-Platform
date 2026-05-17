@@ -1,4 +1,4 @@
-﻿platform:
+platform:
   name: Canadian Climate Risk Data Platform
   architecture_version: aws_snowflake_elt_v1
   primary_cloud_provider: aws
@@ -9,7 +9,6 @@
   geospatial_processing:
     primary: apache_sedona
     local_fallback: geopandas
-
 deployment_modes:
   local_dev:
     description: Local developer mode using local lakehouse paths and Docker Compose.
@@ -17,61 +16,84 @@ deployment_modes:
     silver_storage: local_filesystem
     warehouse: optional_local_or_snowflake
     airflow_metadata_db: local_postgres
-
   cloud_target:
-    description: Target portfolio architecture using AWS S3 as the data lake and Snowflake as the warehouse.
+    description: Target portfolio architecture using AWS S3 as the data lake and Snowflake
+      as the warehouse.
     bronze_storage: aws_s3
     silver_storage: aws_s3
     warehouse: snowflake
     orchestration: airflow
     infrastructure_as_code: terraform
-
 storage:
+  default_backend: local
+  local:
+    lakehouse_root: lakehouse
+  s3:
+    region: ca-central-1
+    raw_bucket_env: AWS_S3_BUCKET_RAW
+    processed_bucket_env: AWS_S3_BUCKET_PROCESSED
+    bronze_prefix: bronze
+    silver_prefix: silver
+    audit_prefix: audit
+    profiles_prefix: profiles
+  zones:
+    bronze:
+      local_prefix: bronze
+      s3_bucket: raw
+      s3_prefix: bronze
+      purpose: immutable raw source snapshots
+    silver:
+      local_prefix: silver
+      s3_bucket: processed
+      s3_prefix: silver
+      purpose: standardized processed datasets before Snowflake load
+    audit:
+      local_prefix: audit
+      s3_bucket: processed
+      s3_prefix: audit
+      purpose: pipeline audit logs, run manifests, and validation outputs
+    profiles:
+      local_prefix: profiles
+      s3_bucket: processed
+      s3_prefix: profiles
+      purpose: schema profiling and data-quality profiling outputs
   bronze:
-    purpose: Raw immutable source snapshots.
     local_path: lakehouse/bronze
     s3_uri_env: S3_BRONZE_URI
-    format_policy: source_preserving
-    examples:
-      - csv
-      - xlsx
-      - geojson
-      - json
-
   silver:
-    purpose: Cleaned, normalized, analytics-ready processed datasets.
     local_path: lakehouse/silver
     s3_uri_env: S3_SILVER_URI
-    format_policy: standardized_parquet_or_geoparquet
-    examples:
-      - parquet
-      - geoparquet
-
-  audit:
-    purpose: Pipeline audit reports, source availability reports, and quality metadata.
-    local_path: lakehouse/audit
-    s3_uri_env: S3_AUDIT_URI
-    format_policy: json
-
 warehouse:
-  type: snowflake
-  database_env: SNOWFLAKE_DATABASE
-  warehouse_env: SNOWFLAKE_WAREHOUSE
-  role_env: SNOWFLAKE_ROLE
+  primary: snowflake
+  database: CLIMATE_RISK
+  gold_layer: snowflake
   schemas:
     bronze_external:
+      name: BRONZE_EXTERNAL
+      purpose: External access layer for raw Bronze objects stored in S3.
+    bronze:
       name: BRONZE
-      purpose: Optional external/staged access to raw or loaded bronze objects.
+      purpose: Optional loaded/raw landing tables in Snowflake.
     silver:
       name: SILVER
-      purpose: Standardized source-level tables.
+      purpose: Standardized processed tables loaded from S3 Silver outputs.
+    staging:
+      name: STAGING
+      purpose: dbt staging models.
+    intermediate:
+      name: INTERMEDIATE
+      purpose: dbt intermediate transformation models.
+    marts:
+      name: MARTS
+      purpose: Business-facing dbt mart tables.
     gold:
       name: GOLD
-      purpose: dbt mart and analytics-ready tables.
+      purpose: Final analytics-ready warehouse layer in Snowflake.
     audit:
       name: AUDIT
-      purpose: Pipeline status and data quality outputs.
-
+      purpose: Warehouse audit tables and pipeline validation outputs.
+  note: Gold marts are stored in Snowflake, not in S3. bronze_external is used for
+    Snowflake access to external Bronze objects.
 dbt:
   profile_name: climate_risk_snowflake
   profiles_dir: dbt
@@ -81,33 +103,32 @@ dbt:
     intermediate: dbt/models/intermediate
     marts: dbt/models/marts
   test_strategy:
-    - not_null
-    - unique
-    - relationships
-    - accepted_values
-    - custom_data_quality_tests
-
+  - not_null
+  - unique
+  - relationships
+  - accepted_values
+  - custom_data_quality_tests
 pipeline_flow:
-  - step: extract
-    tool: Python ingestion layer
-    output: Bronze raw snapshots
-  - step: load
-    tool: AWS S3
-    output: Raw data lake objects
-  - step: process
-    tool: PySpark / Apache Sedona
-    output: Silver processed datasets
-  - step: warehouse_load
-    tool: Snowflake
-    output: Silver and Gold warehouse tables
-  - step: transform
-    tool: dbt Core
-    output: marts and risk metrics
-  - step: serve
-    tool: Power BI / public demo
-    output: dashboards and portfolio evidence
-
+- step: extract
+  tool: Python ingestion layer
+  output: Bronze raw snapshots
+- step: load
+  tool: AWS S3
+  output: Raw data lake objects
+- step: process
+  tool: PySpark / Apache Sedona
+  output: Silver processed datasets
+- step: warehouse_load
+  tool: Snowflake
+  output: Silver and Gold warehouse tables
+- step: transform
+  tool: dbt Core
+  output: marts and risk metrics
+- step: serve
+  tool: Power BI / public demo
+  output: dashboards and portfolio evidence
 notes:
-  - Existing local BronzeWriter remains valid for local development.
-  - S3 support should be added through a storage backend abstraction in a later feature.
-  - Postgres remains useful for Airflow metadata and optional local PostGIS validation, but Snowflake is the primary analytical warehouse.
+- Existing local BronzeWriter remains valid for local development.
+- S3 support should be added through a storage backend abstraction in a later feature.
+- Postgres remains useful for Airflow metadata and optional local PostGIS validation,
+  but Snowflake is the primary analytical warehouse.

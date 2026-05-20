@@ -1,4 +1,4 @@
-﻿terraform {
+terraform {
   required_version = ">= 1.6.0"
 
   required_providers {
@@ -10,8 +10,9 @@
 }
 
 provider "snowflake" {
-  account_name = var.snowflake_account
-  user         = var.snowflake_user
-  password     = var.snowflake_password
-  role         = var.snowflake_role
+  organization_name = var.snowflake_organization_name
+  account_name      = var.snowflake_account
+  user              = var.snowflake_user
+  password          = var.snowflake_password
+  role              = var.snowflake_role
 }

@@ -116,3 +116,50 @@ def latest_successful_bronze_raw_path(
         raise FileNotFoundError(f"Latest Bronze raw file does not exist: {raw_path}")
 
     return raw_path
+
+
+def latest_successful_bronze_record(
+    *,
+    source_name: str,
+    manifest_path: str | Path = "lakehouse/bronze/_manifests/bronze_runs.jsonl",
+) -> dict[str, Any]:
+    """Return latest successful non-smoke Bronze manifest record for one source."""
+    manifest = Path(manifest_path)
+
+    if not manifest.exists():
+        raise FileNotFoundError(f"Bronze manifest does not exist: {manifest}")
+
+    records: list[dict[str, Any]] = []
+
+    with manifest.open("r", encoding="utf-8") as file:
+        for line in file:
+            stripped = line.strip()
+            if not stripped:
+                continue
+
+            record = json.loads(stripped)
+
+            if record.get("source_name") != source_name:
+                continue
+
+            if record.get("load_status") != "success":
+                continue
+
+            extra_metadata = record.get("extra_metadata") or {}
+            if extra_metadata.get("smoke_test"):
+                continue
+
+            records.append(record)
+
+    if not records:
+        raise FileNotFoundError(
+            f"No successful non-smoke Bronze run found for source={source_name}"
+        )
+
+    return max(
+        records,
+        key=lambda record: (
+            str(record.get("extract_timestamp") or ""),
+            str(record.get("run_id") or ""),
+        ),
+    )

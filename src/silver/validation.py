@@ -52,9 +52,9 @@ def validate_census_boundary_silver_outputs(
     municipality_df = pd.read_parquet(municipality_path)
 
     checks = [
-        check_exact_province_rows(province_df),
-        check_exact_province_keys(province_df),
-        check_geometry_not_null(
+        check_exact_province_rows(province_df),  # 2 rows
+        check_exact_province_keys(province_df),  # BC/AB
+        check_geometry_not_null(  # No Null Vals
             province_df,
             check_name="province_geometry_wkt_not_null",
         ),

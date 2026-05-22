@@ -229,3 +229,243 @@ def write_json(path: str | Path, payload: dict[str, Any]) -> None:
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+
+
+CLIMATE_MEASUREMENT_COLUMNS = [
+    "mean_temp_c",
+    "min_temp_c",
+    "max_temp_c",
+    "total_precip_mm",
+    "total_rain_mm",
+    "total_snow",
+    "snow_on_ground",
+    "speed_max_gust",
+    "direction_max_gust",
+    "cooling_degree_days",
+    "heating_degree_days",
+    "min_relative_humidity",
+    "max_relative_humidity",
+]
+
+
+def validate_eccc_climate_daily_silver_outputs(
+    *,
+    silver_root: str | Path = "lakehouse/silver",
+    expected_years: list[int] | None = None,
+    min_measurement_presence_rate: float = 0.95,
+    output_json_path: str | Path | None = None,
+) -> SilverValidationReport:
+    """Validate Silver ECCC daily climate outputs."""
+    silver_root = Path(silver_root)
+    expected_years = expected_years or list(range(2016, 2026))
+
+    files = latest_climate_daily_partition_files(silver_root=silver_root)
+
+    metrics = collect_climate_daily_metrics(files)
+
+    checks = [
+        SilverValidationCheck(
+            name="climate_partition_count_matches_expected_years",
+            passed=metrics["partition_count"] == len(expected_years),
+            details={
+                "partition_count": metrics["partition_count"],
+                "expected_partition_count": len(expected_years),
+            },
+        ),
+        SilverValidationCheck(
+            name="climate_years_match_expected_range",
+            passed=metrics["years"] == expected_years,
+            details={
+                "actual": metrics["years"],
+                "expected": expected_years,
+            },
+        ),
+        SilverValidationCheck(
+            name="climate_provinces_are_ab_bc",
+            passed=metrics["provinces"] == ["AB", "BC"],
+            details={
+                "actual": metrics["provinces"],
+                "expected": ["AB", "BC"],
+            },
+        ),
+        SilverValidationCheck(
+            name="climate_row_count_gt_zero",
+            passed=metrics["total_rows"] > 0,
+            details={"total_rows": metrics["total_rows"]},
+        ),
+        SilverValidationCheck(
+            name="climate_station_id_not_null",
+            passed=metrics["station_id_nulls"] == 0,
+            details={"null_count": metrics["station_id_nulls"]},
+        ),
+        SilverValidationCheck(
+            name="climate_observation_date_not_null",
+            passed=metrics["observation_date_nulls"] == 0,
+            details={"null_count": metrics["observation_date_nulls"]},
+        ),
+        SilverValidationCheck(
+            name="climate_daily_key_not_null_and_unique",
+            passed=metrics["climate_daily_key_nulls"] == 0
+            and metrics["climate_daily_key_duplicates"] == 0,
+            details={
+                "null_count": metrics["climate_daily_key_nulls"],
+                "duplicate_count": metrics["climate_daily_key_duplicates"],
+            },
+        ),
+        SilverValidationCheck(
+            name="climate_coordinates_not_null",
+            passed=metrics["latitude_nulls"] == 0 and metrics["longitude_nulls"] == 0,
+            details={
+                "latitude_nulls": metrics["latitude_nulls"],
+                "longitude_nulls": metrics["longitude_nulls"],
+            },
+        ),
+        SilverValidationCheck(
+            name="climate_coordinates_in_bc_ab_range",
+            passed=metrics["latitude_out_of_range"] == 0 and metrics["longitude_out_of_range"] == 0,
+            details={
+                "latitude_out_of_range": metrics["latitude_out_of_range"],
+                "longitude_out_of_range": metrics["longitude_out_of_range"],
+                "latitude_range": [48.0, 61.0],
+                "longitude_range": [-140.0, -109.0],
+            },
+        ),
+        SilverValidationCheck(
+            name="climate_measurement_presence_rate_above_threshold",
+            passed=metrics["measurement_presence_rate"] >= min_measurement_presence_rate,
+            details={
+                "measurement_presence_rate": metrics["measurement_presence_rate"],
+                "min_required": min_measurement_presence_rate,
+                "rows_with_any_measurement": metrics["rows_with_any_measurement"],
+                "total_rows": metrics["total_rows"],
+                "measurement_columns": CLIMATE_MEASUREMENT_COLUMNS,
+            },
+        ),
+    ]
+
+    report = SilverValidationReport(
+        validation_name="eccc_climate_daily_silver_validation",
+        passed=all(check.passed for check in checks),
+        checks=checks,
+        output_paths={
+            "silver_climate_daily_root": (silver_root / "silver_climate_daily").as_posix()
+        },
+    )
+
+    if output_json_path is not None:
+        write_json(output_json_path, report.to_dict())
+
+    return report
+
+
+def latest_climate_daily_partition_files(*, silver_root: Path) -> list[Path]:
+    files = sorted(silver_root.glob("silver_climate_daily/**/silver_climate_daily.parquet"))
+
+    if not files:
+        raise FileNotFoundError(
+            f"No Silver parquet output found for table=silver_climate_daily under {silver_root}"
+        )
+
+    latest_extract_date = max(
+        file.parts[-4].replace("extract_date=", "")
+        for file in files
+        if "extract_date=" in file.parts[-4]
+    )
+
+    latest_files = [file for file in files if f"extract_date={latest_extract_date}" in file.parts]
+
+    latest_run_id = max(
+        part.replace("run_id=", "")
+        for file in latest_files
+        for part in file.parts
+        if part.startswith("run_id=")
+    )
+
+    return [file for file in latest_files if f"run_id={latest_run_id}" in file.parts]
+
+
+def collect_climate_daily_metrics(files: list[Path]) -> dict[str, Any]:
+    total_rows = 0
+    years: set[int] = set()
+    provinces: set[str] = set()
+
+    station_id_nulls = 0
+    observation_date_nulls = 0
+    climate_daily_key_nulls = 0
+    climate_daily_key_duplicates = 0
+    latitude_nulls = 0
+    longitude_nulls = 0
+    latitude_out_of_range = 0
+    longitude_out_of_range = 0
+    rows_with_any_measurement = 0
+
+    seen_keys: set[str] = set()
+    date_min = None
+    date_max = None
+    station_ids: set[str] = set()
+
+    for file in files:
+        dataframe = pd.read_parquet(file)
+        total_rows += len(dataframe)
+
+        years.update(int(value) for value in dataframe["observation_year"].dropna().unique())
+        provinces.update(str(value) for value in dataframe["province"].dropna().unique())
+
+        station_id_nulls += int(dataframe["station_id"].isna().sum())
+        observation_date_nulls += int(dataframe["observation_date"].isna().sum())
+        climate_daily_key_nulls += int(dataframe["climate_daily_key"].isna().sum())
+        latitude_nulls += int(dataframe["latitude"].isna().sum())
+        longitude_nulls += int(dataframe["longitude"].isna().sum())
+
+        latitude_out_of_range += int(
+            ((dataframe["latitude"] < 48.0) | (dataframe["latitude"] > 61.0)).sum()
+        )
+        longitude_out_of_range += int(
+            ((dataframe["longitude"] < -140.0) | (dataframe["longitude"] > -109.0)).sum()
+        )
+
+        keys = dataframe["climate_daily_key"].dropna().astype(str)
+        for key in keys:
+            if key in seen_keys:
+                climate_daily_key_duplicates += 1
+            else:
+                seen_keys.add(key)
+
+        measurement_columns = [
+            column for column in CLIMATE_MEASUREMENT_COLUMNS if column in dataframe.columns
+        ]
+
+        if measurement_columns:
+            rows_with_any_measurement += int(
+                dataframe[measurement_columns].notna().any(axis=1).sum()
+            )
+
+        station_ids.update(str(value) for value in dataframe["station_id"].dropna().unique())
+
+        current_date_min = dataframe["observation_date"].min()
+        current_date_max = dataframe["observation_date"].max()
+
+        date_min = current_date_min if date_min is None else min(date_min, current_date_min)
+        date_max = current_date_max if date_max is None else max(date_max, current_date_max)
+
+    measurement_presence_rate = rows_with_any_measurement / total_rows if total_rows else 0.0
+
+    return {
+        "partition_count": len(files),
+        "total_rows": total_rows,
+        "years": sorted(years),
+        "provinces": sorted(provinces),
+        "station_id_nulls": station_id_nulls,
+        "observation_date_nulls": observation_date_nulls,
+        "climate_daily_key_nulls": climate_daily_key_nulls,
+        "climate_daily_key_duplicates": climate_daily_key_duplicates,
+        "latitude_nulls": latitude_nulls,
+        "longitude_nulls": longitude_nulls,
+        "latitude_out_of_range": latitude_out_of_range,
+        "longitude_out_of_range": longitude_out_of_range,
+        "rows_with_any_measurement": rows_with_any_measurement,
+        "measurement_presence_rate": round(measurement_presence_rate, 6),
+        "date_min": date_min,
+        "date_max": date_max,
+        "station_count": len(station_ids),
+    }

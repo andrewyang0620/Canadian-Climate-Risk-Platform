@@ -207,6 +207,8 @@ def standardize_eccc_climate_jsonl_gzip(path: str | Path) -> pd.DataFrame:
     if dataframe.empty:
         return dataframe
 
+    dataframe = deduplicate_climate_daily_dataframe(dataframe)
+
     dataframe = dataframe.sort_values(["province", "station_id", "observation_date"]).reset_index(
         drop=True
     )
@@ -342,3 +344,58 @@ def clean_str(value: Any) -> str | None:
         return None
 
     return text
+
+
+CLIMATE_DEDUP_MEASUREMENT_COLUMNS = [
+    "mean_temp_c",
+    "min_temp_c",
+    "max_temp_c",
+    "total_precip_mm",
+    "total_rain_mm",
+    "total_snow",
+    "snow_on_ground",
+    "speed_max_gust",
+    "direction_max_gust",
+    "cooling_degree_days",
+    "heating_degree_days",
+    "min_relative_humidity",
+    "max_relative_humidity",
+]
+
+
+def deduplicate_climate_daily_dataframe(dataframe: pd.DataFrame) -> pd.DataFrame:
+    """Deduplicate to one row per station-date climate_daily_key."""
+    if dataframe.empty:
+        return dataframe
+
+    measurement_columns = [
+        column for column in CLIMATE_DEDUP_MEASUREMENT_COLUMNS if column in dataframe.columns
+    ]
+
+    working = dataframe.copy()
+
+    if measurement_columns:
+        working["_measurement_non_null_count"] = working[measurement_columns].notna().sum(axis=1)
+    else:
+        working["_measurement_non_null_count"] = 0
+
+    working["_source_record_count"] = working.groupby("climate_daily_key")[
+        "climate_daily_key"
+    ].transform("size")
+
+    working = working.sort_values(
+        ["climate_daily_key", "_measurement_non_null_count", "source_feature_id"],
+        ascending=[True, False, True],
+        na_position="last",
+    )
+
+    deduped = working.drop_duplicates(
+        subset=["climate_daily_key"],
+        keep="first",
+    ).copy()
+
+    deduped["source_record_count"] = deduped["_source_record_count"].astype(int)
+
+    return deduped.drop(
+        columns=["_measurement_non_null_count", "_source_record_count"]
+    ).reset_index(drop=True)

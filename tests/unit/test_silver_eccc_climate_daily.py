@@ -126,3 +126,40 @@ def test_standardize_eccc_climate_jsonl_gzip(tmp_path):
     assert set(dataframe["observation_year"]) == {2024}
     assert "max_temp_c" in dataframe.columns
     assert "total_precip_mm" in dataframe.columns
+
+
+from src.silver.eccc_climate_daily import deduplicate_climate_daily_dataframe
+
+
+def test_deduplicate_climate_daily_dataframe_keeps_richest_record():
+    import pandas as pd
+
+    df = pd.DataFrame(
+        [
+            {
+                "climate_daily_key": "101_2024-01-01",
+                "station_id": "101",
+                "observation_date": "2024-01-01",
+                "province": "BC",
+                "source_feature_id": "b",
+                "max_temp_c": None,
+                "total_precip_mm": 2.0,
+            },
+            {
+                "climate_daily_key": "101_2024-01-01",
+                "station_id": "101",
+                "observation_date": "2024-01-01",
+                "province": "BC",
+                "source_feature_id": "a",
+                "max_temp_c": 10.0,
+                "total_precip_mm": 2.0,
+            },
+        ]
+    )
+
+    result = deduplicate_climate_daily_dataframe(df)
+
+    assert len(result) == 1
+    assert result.iloc[0]["source_feature_id"] == "a"
+    assert result.iloc[0]["source_record_count"] == 2
+    assert result.iloc[0]["max_temp_c"] == 10.0

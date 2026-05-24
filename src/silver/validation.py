@@ -469,3 +469,158 @@ def collect_climate_daily_metrics(files: list[Path]) -> dict[str, Any]:
         "date_max": date_max,
         "station_count": len(station_ids),
     }
+
+
+def validate_wildfire_history_silver_outputs(
+    *,
+    silver_root: str | Path = "lakehouse/silver",
+    output_json_path: str | Path | None = None,
+) -> SilverValidationReport:
+    """Validate Silver wildfire event outputs."""
+    silver_root = Path(silver_root)
+
+    wildfire_path = latest_table_parquet(
+        silver_root=silver_root,
+        table_name="silver_wildfire_event",
+    )
+
+    dataframe = pd.read_parquet(wildfire_path)
+    metrics = collect_wildfire_event_metrics(dataframe)
+
+    checks = [
+        SilverValidationCheck(
+            name="wildfire_row_count_gt_zero",
+            passed=metrics["row_count"] > 0,
+            details={"row_count": metrics["row_count"]},
+        ),
+        SilverValidationCheck(
+            name="wildfire_provinces_are_ab_bc",
+            passed=metrics["provinces"] == ["AB", "BC"],
+            details={"actual": metrics["provinces"], "expected": ["AB", "BC"]},
+        ),
+        SilverValidationCheck(
+            name="wildfire_event_key_not_null_and_unique",
+            passed=metrics["event_key_nulls"] == 0 and metrics["event_key_duplicates"] == 0,
+            details={
+                "null_count": metrics["event_key_nulls"],
+                "duplicate_count": metrics["event_key_duplicates"],
+            },
+        ),
+        SilverValidationCheck(
+            name="wildfire_coordinates_not_null",
+            passed=metrics["latitude_nulls"] == 0 and metrics["longitude_nulls"] == 0,
+            details={
+                "latitude_nulls": metrics["latitude_nulls"],
+                "longitude_nulls": metrics["longitude_nulls"],
+            },
+        ),
+        SilverValidationCheck(
+            name="wildfire_coordinates_in_bc_ab_range",
+            passed=metrics["latitude_out_of_range"] == 0 and metrics["longitude_out_of_range"] == 0,
+            details={
+                "latitude_out_of_range": metrics["latitude_out_of_range"],
+                "longitude_out_of_range": metrics["longitude_out_of_range"],
+                "latitude_range": [48.0, 61.0],
+                "longitude_range": [-140.0, -109.0],
+            },
+        ),
+        SilverValidationCheck(
+            name="wildfire_non_null_fire_years_in_expected_range",
+            passed=metrics["fire_year_out_of_range"] == 0,
+            details={
+                "fire_year_min": metrics["fire_year_min"],
+                "fire_year_max": metrics["fire_year_max"],
+                "fire_year_nulls": metrics["fire_year_nulls"],
+                "fire_year_out_of_range": metrics["fire_year_out_of_range"],
+                "expected_range": [1900, 2100],
+            },
+        ),
+        SilverValidationCheck(
+            name="wildfire_fire_size_non_negative",
+            passed=metrics["negative_fire_size_count"] == 0,
+            details={
+                "negative_fire_size_count": metrics["negative_fire_size_count"],
+                "fire_size_nulls": metrics["fire_size_nulls"],
+                "fire_size_max": metrics["fire_size_max"],
+            },
+        ),
+        SilverValidationCheck(
+            name="wildfire_province_inference_method_present",
+            passed=metrics["province_method_nulls"] == 0,
+            details={
+                "province_method_nulls": metrics["province_method_nulls"],
+                "province_method_counts": metrics["province_method_counts"],
+            },
+        ),
+        SilverValidationCheck(
+            name="wildfire_source_record_count_valid",
+            passed=metrics["source_record_count_invalid"] == 0,
+            details={
+                "source_record_count_invalid": metrics["source_record_count_invalid"],
+                "source_record_count_max": metrics["source_record_count_max"],
+            },
+        ),
+    ]
+
+    report = SilverValidationReport(
+        validation_name="wildfire_history_silver_validation",
+        passed=all(check.passed for check in checks),
+        checks=checks,
+        output_paths={"silver_wildfire_event": wildfire_path.as_posix()},
+    )
+
+    if output_json_path is not None:
+        write_json(output_json_path, report.to_dict())
+
+    return report
+
+
+def collect_wildfire_event_metrics(dataframe: pd.DataFrame) -> dict[str, Any]:
+    row_count = int(len(dataframe))
+
+    non_null_years = dataframe["fire_year"].dropna()
+    non_null_sizes = dataframe["fire_size_ha"].dropna()
+
+    province_method_counts = (
+        dataframe["province_inference_method"].value_counts(dropna=False).to_dict()
+    )
+
+    return {
+        "row_count": row_count,
+        "provinces": sorted(dataframe["province"].dropna().unique().tolist()),
+        "event_key_nulls": int(dataframe["wildfire_event_key"].isna().sum()),
+        "event_key_duplicates": int(dataframe["wildfire_event_key"].duplicated().sum()),
+        "latitude_nulls": int(dataframe["latitude"].isna().sum()),
+        "longitude_nulls": int(dataframe["longitude"].isna().sum()),
+        "latitude_out_of_range": int(
+            ((dataframe["latitude"] < 48.0) | (dataframe["latitude"] > 61.0)).sum()
+        ),
+        "longitude_out_of_range": int(
+            ((dataframe["longitude"] < -140.0) | (dataframe["longitude"] > -109.0)).sum()
+        ),
+        "fire_year_nulls": int(dataframe["fire_year"].isna().sum()),
+        "fire_year_min": safe_series_min(non_null_years),
+        "fire_year_max": safe_series_max(non_null_years),
+        "fire_year_out_of_range": int(((non_null_years < 1900) | (non_null_years > 2100)).sum()),
+        "fire_size_nulls": int(dataframe["fire_size_ha"].isna().sum()),
+        "fire_size_max": safe_series_max(non_null_sizes),
+        "negative_fire_size_count": int((non_null_sizes < 0).sum()),
+        "province_method_nulls": int(dataframe["province_inference_method"].isna().sum()),
+        "province_method_counts": {
+            str(key): int(value) for key, value in province_method_counts.items()
+        },
+        "source_record_count_invalid": int((dataframe["source_record_count"] < 1).sum()),
+        "source_record_count_max": safe_series_max(dataframe["source_record_count"]),
+    }
+
+
+def safe_series_min(series: pd.Series) -> float | None:
+    if series.empty:
+        return None
+    return float(series.min())
+
+
+def safe_series_max(series: pd.Series) -> float | None:
+    if series.empty:
+        return None
+    return float(series.max())

@@ -624,3 +624,264 @@ def safe_series_max(series: pd.Series) -> float | None:
     if series.empty:
         return None
     return float(series.max())
+
+
+def validate_hydat_archive_silver_outputs(
+    *,
+    silver_root: str | Path = "lakehouse/silver",
+    expected_start_year: int = 1901,
+    expected_end_year: int = 2026,
+    output_json_path: str | Path | None = None,
+) -> SilverValidationReport:
+    """Validate Silver HYDAT station and daily hydrometric outputs."""
+    silver_root = Path(silver_root)
+
+    station_path = latest_table_parquet(
+        silver_root=silver_root,
+        table_name="silver_hydro_station",
+    )
+    daily_files = latest_hydro_daily_partition_files(silver_root=silver_root)
+
+    station_df = pd.read_parquet(station_path)
+    station_metrics = collect_hydro_station_metrics(station_df)
+
+    station_ids = set(station_df["station_id"].dropna().astype(str).tolist())
+    daily_metrics = collect_hydro_daily_metrics(daily_files, station_ids)
+
+    expected_years = list(range(expected_start_year, expected_end_year + 1))
+
+    checks = [
+        SilverValidationCheck(
+            name="hydro_station_row_count_gt_zero",
+            passed=station_metrics["row_count"] > 0,
+            details={"row_count": station_metrics["row_count"]},
+        ),
+        SilverValidationCheck(
+            name="hydro_station_provinces_are_ab_bc",
+            passed=station_metrics["provinces"] == ["AB", "BC"],
+            details={
+                "actual": station_metrics["provinces"],
+                "expected": ["AB", "BC"],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_station_id_not_null_and_unique",
+            passed=station_metrics["station_id_nulls"] == 0
+            and station_metrics["station_id_duplicates"] == 0,
+            details={
+                "null_count": station_metrics["station_id_nulls"],
+                "duplicate_count": station_metrics["station_id_duplicates"],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_station_coordinates_not_null",
+            passed=station_metrics["latitude_nulls"] == 0
+            and station_metrics["longitude_nulls"] == 0,
+            details={
+                "latitude_nulls": station_metrics["latitude_nulls"],
+                "longitude_nulls": station_metrics["longitude_nulls"],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_station_coordinates_in_bc_ab_range",
+            passed=station_metrics["latitude_out_of_range"] == 0
+            and station_metrics["longitude_out_of_range"] == 0,
+            details={
+                "latitude_out_of_range": station_metrics["latitude_out_of_range"],
+                "longitude_out_of_range": station_metrics["longitude_out_of_range"],
+                "latitude_range": [48.0, 61.0],
+                "longitude_range": [-140.0, -109.0],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_daily_partition_count_matches_years",
+            passed=daily_metrics["partition_count"] == len(expected_years),
+            details={
+                "partition_count": daily_metrics["partition_count"],
+                "expected_partition_count": len(expected_years),
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_daily_years_match_expected_range",
+            passed=daily_metrics["years"] == expected_years,
+            details={
+                "actual": daily_metrics["years"],
+                "expected": expected_years,
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_daily_measurement_types_are_flow_level",
+            passed=daily_metrics["measurement_types"] == ["flow", "level"],
+            details={
+                "actual": daily_metrics["measurement_types"],
+                "expected": ["flow", "level"],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_daily_key_not_null_and_unique",
+            passed=daily_metrics["hydro_daily_key_nulls"] == 0
+            and daily_metrics["hydro_daily_key_duplicates"] == 0,
+            details={
+                "null_count": daily_metrics["hydro_daily_key_nulls"],
+                "duplicate_count": daily_metrics["hydro_daily_key_duplicates"],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_daily_required_fields_not_null",
+            passed=daily_metrics["station_id_nulls"] == 0
+            and daily_metrics["observation_date_nulls"] == 0
+            and daily_metrics["measurement_value_nulls"] == 0,
+            details={
+                "station_id_nulls": daily_metrics["station_id_nulls"],
+                "observation_date_nulls": daily_metrics["observation_date_nulls"],
+                "measurement_value_nulls": daily_metrics["measurement_value_nulls"],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_daily_flow_values_non_negative",
+            passed=daily_metrics["negative_flow_value_count"] == 0,
+            details={
+                "negative_flow_value_count": daily_metrics["negative_flow_value_count"],
+                "flow_row_count": daily_metrics["flow_row_count"],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_daily_station_ids_exist_in_station_table",
+            passed=daily_metrics["unknown_station_id_count"] == 0,
+            details={
+                "unknown_station_id_count": daily_metrics["unknown_station_id_count"],
+                "daily_station_count": daily_metrics["daily_station_count"],
+                "station_table_count": station_metrics["row_count"],
+            },
+        ),
+    ]
+
+    report = SilverValidationReport(
+        validation_name="hydat_archive_silver_validation",
+        passed=all(check.passed for check in checks),
+        checks=checks,
+        output_paths={
+            "silver_hydro_station": station_path.as_posix(),
+            "silver_hydro_daily_root": (silver_root / "silver_hydro_daily").as_posix(),
+        },
+    )
+
+    if output_json_path is not None:
+        write_json(output_json_path, report.to_dict())
+
+    return report
+
+
+def latest_hydro_daily_partition_files(*, silver_root: Path) -> list[Path]:
+    files = sorted(silver_root.glob("silver_hydro_daily/**/silver_hydro_daily.parquet"))
+
+    if not files:
+        raise FileNotFoundError(
+            f"No Silver parquet output found for table=silver_hydro_daily under {silver_root}"
+        )
+
+    run_pairs = []
+
+    for file in files:
+        extract_date = None
+        run_id = None
+
+        for part in file.parts:
+            if part.startswith("extract_date="):
+                extract_date = part.replace("extract_date=", "")
+            if part.startswith("run_id="):
+                run_id = part.replace("run_id=", "")
+
+        if extract_date and run_id:
+            run_pairs.append((extract_date, run_id))
+
+    if not run_pairs:
+        raise FileNotFoundError(
+            f"No partitioned Silver HYDAT daily files with extract_date/run_id under {silver_root}"
+        )
+
+    latest_extract_date, latest_run_id = max(run_pairs)
+
+    return [
+        file
+        for file in files
+        if f"extract_date={latest_extract_date}" in file.parts
+        and f"run_id={latest_run_id}" in file.parts
+    ]
+
+
+def collect_hydro_station_metrics(dataframe: pd.DataFrame) -> dict[str, Any]:
+    return {
+        "row_count": int(len(dataframe)),
+        "provinces": sorted(dataframe["province"].dropna().unique().tolist()),
+        "station_id_nulls": int(dataframe["station_id"].isna().sum()),
+        "station_id_duplicates": int(dataframe["station_id"].duplicated().sum()),
+        "latitude_nulls": int(dataframe["latitude"].isna().sum()),
+        "longitude_nulls": int(dataframe["longitude"].isna().sum()),
+        "latitude_out_of_range": int(
+            ((dataframe["latitude"] < 48.0) | (dataframe["latitude"] > 61.0)).sum()
+        ),
+        "longitude_out_of_range": int(
+            ((dataframe["longitude"] < -140.0) | (dataframe["longitude"] > -109.0)).sum()
+        ),
+    }
+
+
+def collect_hydro_daily_metrics(
+    files: list[Path],
+    station_ids: set[str],
+) -> dict[str, Any]:
+    total_rows = 0
+    years: set[int] = set()
+    measurement_types: set[str] = set()
+    daily_station_ids: set[str] = set()
+
+    hydro_daily_key_nulls = 0
+    hydro_daily_key_duplicates = 0
+    station_id_nulls = 0
+    observation_date_nulls = 0
+    measurement_value_nulls = 0
+    negative_flow_value_count = 0
+    flow_row_count = 0
+    unknown_station_id_count = 0
+
+    for file in files:
+        dataframe = pd.read_parquet(file)
+
+        total_rows += int(len(dataframe))
+        years.update(
+            int(value) for value in dataframe["observation_year"].dropna().unique().tolist()
+        )
+        measurement_types.update(
+            str(value) for value in dataframe["measurement_type"].dropna().unique()
+        )
+
+        hydro_daily_key_nulls += int(dataframe["hydro_daily_key"].isna().sum())
+        hydro_daily_key_duplicates += int(dataframe["hydro_daily_key"].duplicated().sum())
+        station_id_nulls += int(dataframe["station_id"].isna().sum())
+        observation_date_nulls += int(dataframe["observation_date"].isna().sum())
+        measurement_value_nulls += int(dataframe["measurement_value"].isna().sum())
+
+        station_series = dataframe["station_id"].dropna().astype(str)
+        daily_station_ids.update(station_series.unique().tolist())
+        unknown_station_id_count += int((~station_series.isin(station_ids)).sum())
+
+        flow_rows = dataframe[dataframe["measurement_type"] == "flow"]
+        flow_row_count += int(len(flow_rows))
+        negative_flow_value_count += int((flow_rows["measurement_value"] < 0).sum())
+
+    return {
+        "partition_count": int(len(files)),
+        "total_rows": total_rows,
+        "years": sorted(years),
+        "measurement_types": sorted(measurement_types),
+        "hydro_daily_key_nulls": hydro_daily_key_nulls,
+        "hydro_daily_key_duplicates": hydro_daily_key_duplicates,
+        "station_id_nulls": station_id_nulls,
+        "observation_date_nulls": observation_date_nulls,
+        "measurement_value_nulls": measurement_value_nulls,
+        "negative_flow_value_count": negative_flow_value_count,
+        "flow_row_count": flow_row_count,
+        "unknown_station_id_count": unknown_station_id_count,
+        "daily_station_count": int(len(daily_station_ids)),
+    }

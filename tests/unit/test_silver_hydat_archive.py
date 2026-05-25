@@ -55,3 +55,48 @@ def test_deduplicate_hydro_daily_keeps_one_row_per_key():
     assert len(result) == 1
     assert result.iloc[0]["measurement_value"] == 2.0
     assert result.iloc[0]["source_record_count"] == 2
+
+
+import math
+
+
+def test_safe_float_rejects_nan_and_infinity():
+    from src.silver.hydat_archive import safe_float
+
+    assert safe_float(float("nan")) is None
+    assert safe_float(float("inf")) is None
+    assert safe_float("-inf") is None
+    assert safe_float("1.5") == 1.5
+
+
+from src.silver.hydat_archive import unpivot_hydat_daily_dataframe
+
+
+def test_unpivot_hydat_daily_dataframe_filters_negative_flow_values():
+    import pandas as pd
+
+    dataframe = pd.DataFrame(
+        [
+            {
+                "STATION_NUMBER": "01AA001",
+                "YEAR": 2020,
+                "MONTH": 1,
+                "FLOW1": -1.0,
+                "FLOW_SYMBOL1": None,
+                "FLOW2": 2.0,
+                "FLOW_SYMBOL2": None,
+            }
+        ]
+    )
+
+    result = unpivot_hydat_daily_dataframe(
+        dataframe=dataframe,
+        measurement_type="flow",
+        value_prefix="FLOW",
+        symbol_prefix="FLOW_SYMBOL",
+        station_ids={"01AA001"},
+    )
+
+    assert len(result) == 1
+    assert result.iloc[0]["observation_date"] == "2020-01-02"
+    assert result.iloc[0]["measurement_value"] == 2.0

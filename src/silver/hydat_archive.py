@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import calendar
+import math
 import sqlite3
 import tempfile
 import uuid
@@ -356,6 +357,9 @@ def read_hydat_daily_table(
             if measurement_value is None:
                 continue
 
+            if measurement_type == "flow" and measurement_value < 0:
+                continue
+
             observation_date = f"{year:04d}-{month:02d}-{day:02d}"
 
             rows.append(
@@ -504,9 +508,14 @@ def safe_float(value: Any) -> float | None:
         return None
 
     try:
-        return float(value)
+        number = float(value)
     except (TypeError, ValueError):
         return None
+
+    if not math.isfinite(number):
+        return None
+
+    return number
 
 
 def safe_int(value: Any) -> int | None:
@@ -738,6 +747,9 @@ def unpivot_hydat_daily_dataframe(
             measurement_value = safe_float(values.get(value_column))
 
             if measurement_value is None:
+                continue
+
+            if measurement_type == "flow" and measurement_value < 0:
                 continue
 
             observation_date = f"{year:04d}-{month:02d}-{day:02d}"

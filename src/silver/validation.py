@@ -885,3 +885,164 @@ def collect_hydro_daily_metrics(
         "unknown_station_id_count": unknown_station_id_count,
         "daily_station_count": int(len(daily_station_ids)),
     }
+
+
+def validate_canadian_disaster_database_silver_outputs(
+    *,
+    silver_root: str | Path = "lakehouse/silver",
+    output_json_path: str | Path | None = None,
+) -> SilverValidationReport:
+    """Validate Silver Canadian Disaster Database event-month outputs."""
+    silver_root = Path(silver_root)
+
+    disaster_path = latest_table_parquet(
+        silver_root=silver_root,
+        table_name="silver_disaster_event_month",
+    )
+
+    dataframe = pd.read_parquet(disaster_path)
+    metrics = collect_disaster_event_month_metrics(dataframe)
+
+    checks = [
+        SilverValidationCheck(
+            name="disaster_row_count_gt_zero",
+            passed=metrics["row_count"] > 0,
+            details={"row_count": metrics["row_count"]},
+        ),
+        SilverValidationCheck(
+            name="disaster_provinces_are_ab_bc",
+            passed=metrics["provinces"] == ["AB", "BC"],
+            details={"actual": metrics["provinces"], "expected": ["AB", "BC"]},
+        ),
+        SilverValidationCheck(
+            name="disaster_event_month_key_not_null_and_unique",
+            passed=metrics["key_nulls"] == 0 and metrics["key_duplicates"] == 0,
+            details={
+                "null_count": metrics["key_nulls"],
+                "duplicate_count": metrics["key_duplicates"],
+            },
+        ),
+        SilverValidationCheck(
+            name="disaster_required_dates_not_null",
+            passed=metrics["event_month_nulls"] == 0
+            and metrics["event_start_date_nulls"] == 0
+            and metrics["event_end_date_nulls"] == 0,
+            details={
+                "event_month_nulls": metrics["event_month_nulls"],
+                "event_start_date_nulls": metrics["event_start_date_nulls"],
+                "event_end_date_nulls": metrics["event_end_date_nulls"],
+            },
+        ),
+        SilverValidationCheck(
+            name="disaster_event_month_between_start_and_end",
+            passed=metrics["event_month_outside_date_range"] == 0,
+            details={"event_month_outside_date_range": metrics["event_month_outside_date_range"]},
+        ),
+        SilverValidationCheck(
+            name="disaster_type_not_null",
+            passed=metrics["disaster_type_nulls"] == 0,
+            details={"null_count": metrics["disaster_type_nulls"]},
+        ),
+        SilverValidationCheck(
+            name="disaster_impact_counts_non_negative",
+            passed=metrics["negative_impact_count"] == 0,
+            details={
+                "negative_impact_count": metrics["negative_impact_count"],
+                "impact_columns": ["fatalities", "injured", "evacuated"],
+            },
+        ),
+        SilverValidationCheck(
+            name="disaster_cost_fields_non_negative",
+            passed=metrics["negative_cost_count"] == 0,
+            details={
+                "negative_cost_count": metrics["negative_cost_count"],
+                "cost_columns": [
+                    "estimated_total_cost_cad",
+                    "normalized_total_cost_cad",
+                ],
+            },
+        ),
+        SilverValidationCheck(
+            name="disaster_source_record_count_valid",
+            passed=metrics["source_record_count_invalid"] == 0,
+            details={
+                "source_record_count_invalid": metrics["source_record_count_invalid"],
+                "source_record_count_max": metrics["source_record_count_max"],
+            },
+        ),
+    ]
+
+    report = SilverValidationReport(
+        validation_name="canadian_disaster_database_silver_validation",
+        passed=all(check.passed for check in checks),
+        checks=checks,
+        output_paths={"silver_disaster_event_month": disaster_path.as_posix()},
+    )
+
+    if output_json_path is not None:
+        write_json(output_json_path, report.to_dict())
+
+    return report
+
+
+def collect_disaster_event_month_metrics(dataframe: pd.DataFrame) -> dict[str, Any]:
+    impact_columns = [
+        column for column in ["fatalities", "injured", "evacuated"] if column in dataframe.columns
+    ]
+
+    cost_columns = [
+        column
+        for column in ["estimated_total_cost_cad", "normalized_total_cost_cad"]
+        if column in dataframe.columns
+    ]
+
+    negative_impact_count = 0
+    for column in impact_columns:
+        negative_impact_count += int((dataframe[column].dropna() < 0).sum())
+
+    negative_cost_count = 0
+    for column in cost_columns:
+        negative_cost_count += int((dataframe[column].dropna() < 0).sum())
+
+    event_month_outside_date_range = count_event_month_outside_date_range(dataframe)
+
+    return {
+        "row_count": int(len(dataframe)),
+        "provinces": sorted(dataframe["province"].dropna().unique().tolist()),
+        "key_nulls": int(dataframe["disaster_event_month_key"].isna().sum()),
+        "key_duplicates": int(dataframe["disaster_event_month_key"].duplicated().sum()),
+        "event_month_nulls": int(dataframe["event_month"].isna().sum()),
+        "event_start_date_nulls": int(dataframe["event_start_date"].isna().sum()),
+        "event_end_date_nulls": int(dataframe["event_end_date"].isna().sum()),
+        "event_month_outside_date_range": event_month_outside_date_range,
+        "disaster_type_nulls": int(dataframe["disaster_type"].isna().sum()),
+        "negative_impact_count": negative_impact_count,
+        "negative_cost_count": negative_cost_count,
+        "source_record_count_invalid": int((dataframe["source_record_count"] < 1).sum()),
+        "source_record_count_max": safe_series_max(dataframe["source_record_count"]),
+    }
+
+
+def count_event_month_outside_date_range(dataframe: pd.DataFrame) -> int:
+    bad_count = 0
+
+    for row in dataframe[["event_month", "event_start_date", "event_end_date"]].itertuples(
+        index=False
+    ):
+        event_month, start_date, end_date = row
+
+        if pd.isna(event_month) or pd.isna(start_date) or pd.isna(end_date):
+            bad_count += 1
+            continue
+
+        event_period = pd.Period(str(event_month)[:7], freq="M")
+        start_period = pd.Period(str(start_date)[:7], freq="M")
+        end_period = pd.Period(str(end_date)[:7], freq="M")
+
+        if end_period < start_period:
+            end_period = start_period
+
+        if event_period < start_period or event_period > end_period:
+            bad_count += 1
+
+    return bad_count

@@ -1046,3 +1046,129 @@ def count_event_month_outside_date_range(dataframe: pd.DataFrame) -> int:
             bad_count += 1
 
     return bad_count
+
+
+def validate_municipal_flood_hazard_silver_outputs(
+    *,
+    silver_root: str | Path = "lakehouse/silver",
+    output_json_path: str | Path | None = None,
+) -> SilverValidationReport:
+    """Validate Silver municipal flood hazard zone outputs."""
+    silver_root = Path(silver_root)
+
+    flood_path = latest_table_parquet(
+        silver_root=silver_root,
+        table_name="silver_flood_hazard_zone",
+    )
+
+    dataframe = pd.read_parquet(flood_path)
+    metrics = collect_municipal_flood_hazard_metrics(dataframe)
+
+    checks = [
+        SilverValidationCheck(
+            name="flood_hazard_row_count_gt_zero",
+            passed=metrics["row_count"] > 0,
+            details={"row_count": metrics["row_count"]},
+        ),
+        SilverValidationCheck(
+            name="flood_hazard_cities_are_calgary_vancouver",
+            passed=metrics["cities"] == ["calgary", "vancouver"],
+            details={
+                "actual": metrics["cities"],
+                "expected": ["calgary", "vancouver"],
+            },
+        ),
+        SilverValidationCheck(
+            name="flood_hazard_sources_are_expected",
+            passed=metrics["source_names"] == ["calgary_flood_hazard", "vancouver_floodplain"],
+            details={
+                "actual": metrics["source_names"],
+                "expected": ["calgary_flood_hazard", "vancouver_floodplain"],
+            },
+        ),
+        SilverValidationCheck(
+            name="flood_hazard_each_city_has_rows",
+            passed=all(count > 0 for count in metrics["city_row_counts"].values()),
+            details={"city_row_counts": metrics["city_row_counts"]},
+        ),
+        SilverValidationCheck(
+            name="flood_hazard_key_not_null_and_unique",
+            passed=metrics["key_nulls"] == 0 and metrics["key_duplicates"] == 0,
+            details={
+                "null_count": metrics["key_nulls"],
+                "duplicate_count": metrics["key_duplicates"],
+            },
+        ),
+        SilverValidationCheck(
+            name="flood_hazard_geometry_not_null",
+            passed=metrics["geometry_nulls"] == 0,
+            details={"geometry_nulls": metrics["geometry_nulls"]},
+        ),
+        SilverValidationCheck(
+            name="flood_hazard_geometry_types_are_polygonal",
+            passed=metrics["unexpected_geometry_type_count"] == 0,
+            details={
+                "geometry_type_counts": metrics["geometry_type_counts"],
+                "unexpected_geometry_type_count": metrics["unexpected_geometry_type_count"],
+                "expected_geometry_types": ["Polygon", "MultiPolygon"],
+            },
+        ),
+        SilverValidationCheck(
+            name="flood_hazard_class_not_null",
+            passed=metrics["hazard_class_nulls"] == 0,
+            details={"hazard_class_nulls": metrics["hazard_class_nulls"]},
+        ),
+        SilverValidationCheck(
+            name="flood_hazard_source_record_count_valid",
+            passed=metrics["source_record_count_invalid"] == 0,
+            details={
+                "source_record_count_invalid": metrics["source_record_count_invalid"],
+                "source_record_count_max": metrics["source_record_count_max"],
+            },
+        ),
+    ]
+
+    report = SilverValidationReport(
+        validation_name="municipal_flood_hazard_silver_validation",
+        passed=all(check.passed for check in checks),
+        checks=checks,
+        output_paths={"silver_flood_hazard_zone": flood_path.as_posix()},
+    )
+
+    if output_json_path is not None:
+        write_json(output_json_path, report.to_dict())
+
+    return report
+
+
+def collect_municipal_flood_hazard_metrics(
+    dataframe: pd.DataFrame,
+) -> dict[str, Any]:
+    expected_geometry_types = {"Polygon", "MultiPolygon"}
+    geometry_type_counts = dataframe["geometry_type"].value_counts(dropna=False).to_dict()
+
+    unexpected_geometry_type_count = int(
+        (~dataframe["geometry_type"].isin(expected_geometry_types)).sum()
+    )
+
+    city_row_counts = {
+        str(key): int(value)
+        for key, value in dataframe["city"].value_counts(dropna=False).to_dict().items()
+    }
+
+    return {
+        "row_count": int(len(dataframe)),
+        "cities": sorted(dataframe["city"].dropna().unique().tolist()),
+        "source_names": sorted(dataframe["source_name"].dropna().unique().tolist()),
+        "city_row_counts": city_row_counts,
+        "key_nulls": int(dataframe["flood_hazard_zone_key"].isna().sum()),
+        "key_duplicates": int(dataframe["flood_hazard_zone_key"].duplicated().sum()),
+        "geometry_nulls": int(dataframe["geometry_wkt"].isna().sum()),
+        "geometry_type_counts": {
+            str(key): int(value) for key, value in geometry_type_counts.items()
+        },
+        "unexpected_geometry_type_count": unexpected_geometry_type_count,
+        "hazard_class_nulls": int(dataframe["hazard_class"].isna().sum()),
+        "source_record_count_invalid": int((dataframe["source_record_count"] < 1).sum()),
+        "source_record_count_max": safe_series_max(dataframe["source_record_count"]),
+    }

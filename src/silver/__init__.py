@@ -10,6 +10,7 @@ from src.silver.validation import (
     validate_census_boundary_silver_outputs,
     validate_eccc_climate_daily_silver_outputs,
     validate_hydat_archive_silver_outputs,
+    validate_municipal_flood_hazard_silver_outputs,
     validate_wildfire_history_silver_outputs,
 )
 from src.silver.wildfire_history import run_wildfire_history_silver
@@ -25,5 +26,6 @@ __all__ = [
     "validate_census_boundary_silver_outputs",
     "validate_eccc_climate_daily_silver_outputs",
     "validate_hydat_archive_silver_outputs",
+    "validate_municipal_flood_hazard_silver_outputs",
     "validate_wildfire_history_silver_outputs",
 ]

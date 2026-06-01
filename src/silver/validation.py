@@ -1172,3 +1172,190 @@ def collect_municipal_flood_hazard_metrics(
         "source_record_count_invalid": int((dataframe["source_record_count"] < 1).sum()),
         "source_record_count_max": safe_series_max(dataframe["source_record_count"]),
     }
+
+
+def validate_municipal_property_assessment_silver_outputs(
+    *,
+    silver_root: str | Path = "lakehouse/silver",
+    expected_assessment_year: int = 2026,
+    output_json_path: str | Path | None = None,
+) -> SilverValidationReport:
+    """Validate Silver municipal property assessment outputs."""
+    silver_root = Path(silver_root)
+
+    assessment_path = latest_table_parquet(
+        silver_root=silver_root,
+        table_name="silver_property_assessment",
+    )
+
+    dataframe = pd.read_parquet(assessment_path)
+    metrics = collect_municipal_property_assessment_metrics(dataframe)
+
+    checks = [
+        SilverValidationCheck(
+            name="property_assessment_row_count_gt_zero",
+            passed=metrics["row_count"] > 0,
+            details={"row_count": metrics["row_count"]},
+        ),
+        SilverValidationCheck(
+            name="property_assessment_city_is_calgary",
+            passed=metrics["cities"] == ["calgary"],
+            details={"actual": metrics["cities"], "expected": ["calgary"]},
+        ),
+        SilverValidationCheck(
+            name="property_assessment_year_matches_expected",
+            passed=metrics["assessment_years"] == [expected_assessment_year],
+            details={
+                "actual": metrics["assessment_years"],
+                "expected": [expected_assessment_year],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_assessment_key_not_null_and_unique",
+            passed=metrics["key_nulls"] == 0 and metrics["key_duplicates"] == 0,
+            details={
+                "null_count": metrics["key_nulls"],
+                "duplicate_count": metrics["key_duplicates"],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_assessment_source_ids_not_null",
+            passed=metrics["source_property_id_nulls"] == 0
+            and metrics["source_unique_key_nulls"] == 0,
+            details={
+                "source_property_id_nulls": metrics["source_property_id_nulls"],
+                "source_unique_key_nulls": metrics["source_unique_key_nulls"],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_assessment_value_present_and_non_negative",
+            passed=metrics["assessed_value_nulls"] == 0
+            and metrics["negative_assessed_value_count"] == 0,
+            details={
+                "assessed_value_nulls": metrics["assessed_value_nulls"],
+                "negative_assessed_value_count": metrics["negative_assessed_value_count"],
+                "assessed_value_min": metrics["assessed_value_min"],
+                "assessed_value_max": metrics["assessed_value_max"],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_assessment_address_not_null",
+            passed=metrics["address_nulls"] == 0,
+            details={"address_nulls": metrics["address_nulls"]},
+        ),
+        SilverValidationCheck(
+            name="property_assessment_geometry_not_null",
+            passed=metrics["geometry_nulls"] == 0,
+            details={"geometry_nulls": metrics["geometry_nulls"]},
+        ),
+        SilverValidationCheck(
+            name="property_assessment_coordinates_not_null",
+            passed=metrics["latitude_nulls"] == 0 and metrics["longitude_nulls"] == 0,
+            details={
+                "latitude_nulls": metrics["latitude_nulls"],
+                "longitude_nulls": metrics["longitude_nulls"],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_assessment_coordinates_in_calgary_range",
+            passed=metrics["latitude_out_of_range"] == 0 and metrics["longitude_out_of_range"] == 0,
+            details={
+                "latitude_out_of_range": metrics["latitude_out_of_range"],
+                "longitude_out_of_range": metrics["longitude_out_of_range"],
+                "latitude_range": [50.8, 51.3],
+                "longitude_range": [-114.4, -113.7],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_assessment_class_not_null",
+            passed=metrics["assessment_class_description_nulls"] == 0,
+            details={
+                "assessment_class_description_nulls": metrics["assessment_class_description_nulls"],
+                "assessment_class_counts": metrics["assessment_class_counts"],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_assessment_land_size_non_negative",
+            passed=metrics["negative_land_size_count"] == 0,
+            details={
+                "negative_land_size_count": metrics["negative_land_size_count"],
+                "land_size_sm_nulls": metrics["land_size_sm_nulls"],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_assessment_source_record_count_valid",
+            passed=metrics["source_record_count_invalid"] == 0,
+            details={
+                "source_record_count_invalid": metrics["source_record_count_invalid"],
+                "source_record_count_max": metrics["source_record_count_max"],
+            },
+        ),
+    ]
+
+    report = SilverValidationReport(
+        validation_name="municipal_property_assessment_silver_validation",
+        passed=all(check.passed for check in checks),
+        checks=checks,
+        output_paths={"silver_property_assessment": assessment_path.as_posix()},
+    )
+
+    if output_json_path is not None:
+        write_json(output_json_path, report.to_dict())
+
+    return report
+
+
+def collect_municipal_property_assessment_metrics(
+    dataframe: pd.DataFrame,
+) -> dict[str, Any]:
+    assessment_class_counts = (
+        dataframe["assessment_class_description"].value_counts(dropna=False).head(20).to_dict()
+    )
+
+    land_size_columns = [
+        column
+        for column in ["land_size_sm", "land_size_sf", "land_size_ac"]
+        if column in dataframe.columns
+    ]
+
+    negative_land_size_count = 0
+    for column in land_size_columns:
+        negative_land_size_count += int((dataframe[column].dropna() < 0).sum())
+
+    return {
+        "row_count": int(len(dataframe)),
+        "cities": sorted(dataframe["city"].dropna().unique().tolist()),
+        "assessment_years": sorted(
+            int(value) for value in dataframe["assessment_year"].dropna().unique().tolist()
+        ),
+        "key_nulls": int(dataframe["property_assessment_key"].isna().sum()),
+        "key_duplicates": int(dataframe["property_assessment_key"].duplicated().sum()),
+        "source_property_id_nulls": int(dataframe["source_property_id"].isna().sum()),
+        "source_unique_key_nulls": int(dataframe["source_unique_key"].isna().sum()),
+        "assessed_value_nulls": int(dataframe["assessed_value_total"].isna().sum()),
+        "negative_assessed_value_count": int(
+            (dataframe["assessed_value_total"].dropna() < 0).sum()
+        ),
+        "assessed_value_min": safe_series_min(dataframe["assessed_value_total"].dropna()),
+        "assessed_value_max": safe_series_max(dataframe["assessed_value_total"].dropna()),
+        "address_nulls": int(dataframe["address_text"].isna().sum()),
+        "geometry_nulls": int(dataframe["geometry_wkt"].isna().sum()),
+        "latitude_nulls": int(dataframe["latitude"].isna().sum()),
+        "longitude_nulls": int(dataframe["longitude"].isna().sum()),
+        "latitude_out_of_range": int(
+            ((dataframe["latitude"] < 50.8) | (dataframe["latitude"] > 51.3)).sum()
+        ),
+        "longitude_out_of_range": int(
+            ((dataframe["longitude"] < -114.4) | (dataframe["longitude"] > -113.7)).sum()
+        ),
+        "assessment_class_description_nulls": int(
+            dataframe["assessment_class_description"].isna().sum()
+        ),
+        "assessment_class_counts": {
+            str(key): int(value) for key, value in assessment_class_counts.items()
+        },
+        "negative_land_size_count": negative_land_size_count,
+        "land_size_sm_nulls": int(dataframe["land_size_sm"].isna().sum()),
+        "source_record_count_invalid": int((dataframe["source_record_count"] < 1).sum()),
+        "source_record_count_max": safe_series_max(dataframe["source_record_count"]),
+    }

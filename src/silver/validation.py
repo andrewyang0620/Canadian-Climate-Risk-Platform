@@ -1359,3 +1359,213 @@ def collect_municipal_property_assessment_metrics(
         "source_record_count_invalid": int((dataframe["source_record_count"] < 1).sum()),
         "source_record_count_max": safe_series_max(dataframe["source_record_count"]),
     }
+
+
+def validate_municipal_building_permit_silver_outputs(
+    *,
+    silver_root: str | Path = "lakehouse/silver",
+    min_address_presence_rate: float = 0.99,
+    min_issue_date_presence_rate: float = 0.95,
+    min_geometry_presence_rate: float = 0.99,
+    output_json_path: str | Path | None = None,
+) -> SilverValidationReport:
+    """Validate Silver municipal building permit outputs."""
+    silver_root = Path(silver_root)
+
+    permit_path = latest_table_parquet(
+        silver_root=silver_root,
+        table_name="silver_building_permit",
+    )
+
+    dataframe = pd.read_parquet(permit_path)
+    metrics = collect_municipal_building_permit_metrics(dataframe)
+
+    checks = [
+        SilverValidationCheck(
+            name="building_permit_row_count_gt_zero",
+            passed=metrics["row_count"] > 0,
+            details={"row_count": metrics["row_count"]},
+        ),
+        SilverValidationCheck(
+            name="building_permit_cities_are_calgary_vancouver",
+            passed=metrics["cities"] == ["calgary", "vancouver"],
+            details={
+                "actual": metrics["cities"],
+                "expected": ["calgary", "vancouver"],
+            },
+        ),
+        SilverValidationCheck(
+            name="building_permit_sources_are_expected",
+            passed=metrics["source_names"]
+            == ["calgary_building_permits", "vancouver_building_permits"],
+            details={
+                "actual": metrics["source_names"],
+                "expected": [
+                    "calgary_building_permits",
+                    "vancouver_building_permits",
+                ],
+            },
+        ),
+        SilverValidationCheck(
+            name="building_permit_each_city_has_rows",
+            passed=all(count > 0 for count in metrics["city_row_counts"].values()),
+            details={"city_row_counts": metrics["city_row_counts"]},
+        ),
+        SilverValidationCheck(
+            name="building_permit_key_not_null_and_unique",
+            passed=metrics["key_nulls"] == 0 and metrics["key_duplicates"] == 0,
+            details={
+                "null_count": metrics["key_nulls"],
+                "duplicate_count": metrics["key_duplicates"],
+            },
+        ),
+        SilverValidationCheck(
+            name="building_permit_source_permit_id_not_null",
+            passed=metrics["source_permit_id_nulls"] == 0,
+            details={"source_permit_id_nulls": metrics["source_permit_id_nulls"]},
+        ),
+        SilverValidationCheck(
+            name="building_permit_issue_year_range_valid",
+            passed=metrics["issue_year_min"] >= 1990 and metrics["issue_year_max"] <= 2030,
+            details={
+                "issue_year_min": metrics["issue_year_min"],
+                "issue_year_max": metrics["issue_year_max"],
+                "expected_range": [1990, 2030],
+            },
+        ),
+        SilverValidationCheck(
+            name="building_permit_address_presence_above_threshold",
+            passed=metrics["address_presence_rate"] >= min_address_presence_rate,
+            details={
+                "address_nulls": metrics["address_nulls"],
+                "address_presence_rate": metrics["address_presence_rate"],
+                "min_required": min_address_presence_rate,
+            },
+        ),
+        SilverValidationCheck(
+            name="building_permit_issue_date_presence_above_threshold",
+            passed=metrics["issue_date_presence_rate"] >= min_issue_date_presence_rate,
+            details={
+                "issue_date_nulls": metrics["issue_date_nulls"],
+                "issue_date_presence_rate": metrics["issue_date_presence_rate"],
+                "min_required": min_issue_date_presence_rate,
+            },
+        ),
+        SilverValidationCheck(
+            name="building_permit_geometry_presence_above_threshold",
+            passed=metrics["geometry_presence_rate"] >= min_geometry_presence_rate
+            and metrics["coordinate_presence_rate"] >= min_geometry_presence_rate,
+            details={
+                "geometry_nulls": metrics["geometry_nulls"],
+                "latitude_nulls": metrics["latitude_nulls"],
+                "longitude_nulls": metrics["longitude_nulls"],
+                "geometry_presence_rate": metrics["geometry_presence_rate"],
+                "coordinate_presence_rate": metrics["coordinate_presence_rate"],
+                "min_required": min_geometry_presence_rate,
+            },
+        ),
+        SilverValidationCheck(
+            name="building_permit_coordinates_in_city_range",
+            passed=metrics["coordinate_out_of_range_count"] == 0,
+            details={
+                "coordinate_out_of_range_count": metrics["coordinate_out_of_range_count"],
+                "latitude_range": [49.0, 51.3],
+                "longitude_range": [-124.0, -113.7],
+            },
+        ),
+        SilverValidationCheck(
+            name="building_permit_estimated_cost_non_negative",
+            passed=metrics["negative_cost_count"] == 0,
+            details={
+                "negative_cost_count": metrics["negative_cost_count"],
+                "cost_nulls": metrics["cost_nulls"],
+                "cost_min": metrics["cost_min"],
+                "cost_max": metrics["cost_max"],
+            },
+        ),
+        SilverValidationCheck(
+            name="building_permit_source_record_count_valid",
+            passed=metrics["source_record_count_invalid"] == 0,
+            details={
+                "source_record_count_invalid": metrics["source_record_count_invalid"],
+                "source_record_count_max": metrics["source_record_count_max"],
+            },
+        ),
+    ]
+
+    report = SilverValidationReport(
+        validation_name="municipal_building_permit_silver_validation",
+        passed=all(check.passed for check in checks),
+        checks=checks,
+        output_paths={"silver_building_permit": permit_path.as_posix()},
+    )
+
+    if output_json_path is not None:
+        write_json(output_json_path, report.to_dict())
+
+    return report
+
+
+def collect_municipal_building_permit_metrics(
+    dataframe: pd.DataFrame,
+) -> dict[str, Any]:
+    row_count = int(len(dataframe))
+
+    non_null_coordinates = dataframe[dataframe["latitude"].notna() & dataframe["longitude"].notna()]
+
+    coordinate_out_of_range_count = int(
+        (
+            (non_null_coordinates["latitude"] < 49.0)
+            | (non_null_coordinates["latitude"] > 51.3)
+            | (non_null_coordinates["longitude"] < -124.0)
+            | (non_null_coordinates["longitude"] > -113.7)
+        ).sum()
+    )
+
+    cost_series = dataframe["estimated_project_cost"].dropna()
+
+    city_row_counts = {
+        str(key): int(value)
+        for key, value in dataframe["city"].value_counts(dropna=False).to_dict().items()
+    }
+
+    return {
+        "row_count": row_count,
+        "cities": sorted(dataframe["city"].dropna().unique().tolist()),
+        "source_names": sorted(dataframe["source_name"].dropna().unique().tolist()),
+        "city_row_counts": city_row_counts,
+        "key_nulls": int(dataframe["building_permit_key"].isna().sum()),
+        "key_duplicates": int(dataframe["building_permit_key"].duplicated().sum()),
+        "source_permit_id_nulls": int(dataframe["source_permit_id"].isna().sum()),
+        "issue_year_min": safe_series_min(dataframe["issue_year"].dropna()),
+        "issue_year_max": safe_series_max(dataframe["issue_year"].dropna()),
+        "address_nulls": int(dataframe["address_text"].isna().sum()),
+        "address_presence_rate": round(
+            1 - (int(dataframe["address_text"].isna().sum()) / row_count), 6
+        ),
+        "issue_date_nulls": int(dataframe["issue_date"].isna().sum()),
+        "issue_date_presence_rate": round(
+            1 - (int(dataframe["issue_date"].isna().sum()) / row_count), 6
+        ),
+        "geometry_nulls": int(dataframe["geometry_wkt"].isna().sum()),
+        "geometry_presence_rate": round(
+            1 - (int(dataframe["geometry_wkt"].isna().sum()) / row_count), 6
+        ),
+        "latitude_nulls": int(dataframe["latitude"].isna().sum()),
+        "longitude_nulls": int(dataframe["longitude"].isna().sum()),
+        "coordinate_presence_rate": round(
+            1
+            - (
+                int((dataframe["latitude"].isna() | dataframe["longitude"].isna()).sum())
+                / row_count
+            ),
+            6,
+        ),
+        "coordinate_out_of_range_count": coordinate_out_of_range_count,
+        "negative_cost_count": int((cost_series < 0).sum()),
+        "cost_nulls": int(dataframe["estimated_project_cost"].isna().sum()),
+        "cost_min": safe_series_min(cost_series),
+        "cost_max": safe_series_max(cost_series),
+        "source_record_count_invalid": int((dataframe["source_record_count"] < 1).sum()),
+        "source_record_count_max": safe_series_max(dataframe["source_record_count"]),
+    }

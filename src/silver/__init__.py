@@ -19,6 +19,7 @@ from src.silver.validation import (
     validate_municipal_building_permit_silver_outputs,
     validate_municipal_flood_hazard_silver_outputs,
     validate_municipal_property_assessment_silver_outputs,
+    validate_municipal_property_parcel_silver_outputs,
     validate_wildfire_history_silver_outputs,
 )
 from src.silver.wildfire_history import run_wildfire_history_silver
@@ -39,5 +40,14 @@ __all__ = [
     "validate_municipal_building_permit_silver_outputs",
     "validate_municipal_flood_hazard_silver_outputs",
     "validate_municipal_property_assessment_silver_outputs",
+    "validate_municipal_property_parcel_silver_outputs",
     "validate_wildfire_history_silver_outputs",
 ]
+from src.silver.municipal_property_parcel import build_vancouver_property_parcel_silver
+
+__all__ = sorted(
+    set(globals().get("__all__", []))
+    | {
+        "build_vancouver_property_parcel_silver",
+    }
+)

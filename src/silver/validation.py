@@ -1569,3 +1569,195 @@ def collect_municipal_building_permit_metrics(
         "source_record_count_invalid": int((dataframe["source_record_count"] < 1).sum()),
         "source_record_count_max": safe_series_max(dataframe["source_record_count"]),
     }
+
+
+def validate_municipal_property_parcel_silver_outputs(
+    *,
+    silver_root: str | Path = "lakehouse/silver",
+    min_source_tax_coord_presence_rate: float = 0.99,
+    min_source_parcel_id_presence_rate: float = 0.99,
+    min_address_presence_rate: float = 0.98,
+    min_geometry_presence_rate: float = 0.999,
+    output_json_path: str | Path | None = None,
+) -> SilverValidationReport:
+    """Validate Silver municipal property parcel outputs."""
+    silver_root = Path(silver_root)
+
+    parcel_path = latest_table_parquet(
+        silver_root=silver_root,
+        table_name="silver_property_parcel",
+    )
+
+    dataframe = pd.read_parquet(parcel_path)
+    metrics = collect_municipal_property_parcel_metrics(dataframe)
+
+    checks = [
+        SilverValidationCheck(
+            name="property_parcel_row_count_gt_zero",
+            passed=metrics["row_count"] > 0,
+            details={"row_count": metrics["row_count"]},
+        ),
+        SilverValidationCheck(
+            name="property_parcel_city_is_vancouver",
+            passed=metrics["cities"] == ["vancouver"],
+            details={"actual": metrics["cities"], "expected": ["vancouver"]},
+        ),
+        SilverValidationCheck(
+            name="property_parcel_province_is_bc",
+            passed=metrics["provinces"] == ["BC"],
+            details={"actual": metrics["provinces"], "expected": ["BC"]},
+        ),
+        SilverValidationCheck(
+            name="property_parcel_source_is_expected",
+            passed=metrics["source_names"] == ["vancouver_property_parcels"],
+            details={
+                "actual": metrics["source_names"],
+                "expected": ["vancouver_property_parcels"],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_parcel_key_not_null_and_unique",
+            passed=metrics["key_nulls"] == 0 and metrics["key_duplicates"] == 0,
+            details={
+                "null_count": metrics["key_nulls"],
+                "duplicate_count": metrics["key_duplicates"],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_parcel_source_tax_coord_presence_above_threshold",
+            passed=metrics["source_tax_coord_presence_rate"] >= min_source_tax_coord_presence_rate,
+            details={
+                "source_tax_coord_nulls": metrics["source_tax_coord_nulls"],
+                "source_tax_coord_presence_rate": metrics["source_tax_coord_presence_rate"],
+                "min_required": min_source_tax_coord_presence_rate,
+            },
+        ),
+        SilverValidationCheck(
+            name="property_parcel_source_parcel_id_presence_above_threshold",
+            passed=metrics["source_parcel_id_presence_rate"] >= min_source_parcel_id_presence_rate,
+            details={
+                "source_parcel_id_nulls": metrics["source_parcel_id_nulls"],
+                "source_parcel_id_presence_rate": metrics["source_parcel_id_presence_rate"],
+                "min_required": min_source_parcel_id_presence_rate,
+            },
+        ),
+        SilverValidationCheck(
+            name="property_parcel_address_presence_above_threshold",
+            passed=metrics["address_presence_rate"] >= min_address_presence_rate,
+            details={
+                "address_nulls": metrics["address_nulls"],
+                "address_presence_rate": metrics["address_presence_rate"],
+                "min_required": min_address_presence_rate,
+            },
+        ),
+        SilverValidationCheck(
+            name="property_parcel_geometry_presence_above_threshold",
+            passed=metrics["geometry_presence_rate"] >= min_geometry_presence_rate
+            and metrics["coordinate_presence_rate"] >= min_geometry_presence_rate,
+            details={
+                "geometry_wkt_nulls": metrics["geometry_wkt_nulls"],
+                "latitude_nulls": metrics["latitude_nulls"],
+                "longitude_nulls": metrics["longitude_nulls"],
+                "geometry_presence_rate": metrics["geometry_presence_rate"],
+                "coordinate_presence_rate": metrics["coordinate_presence_rate"],
+                "min_required": min_geometry_presence_rate,
+            },
+        ),
+        SilverValidationCheck(
+            name="property_parcel_geometry_types_are_supported",
+            passed=set(metrics["geometry_types"]).issubset({"Polygon", "MultiPolygon"}),
+            details={
+                "geometry_types": metrics["geometry_types"],
+                "expected_subset": ["Polygon", "MultiPolygon"],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_parcel_coordinates_in_vancouver_range",
+            passed=metrics["coordinate_out_of_range_count"] == 0,
+            details={
+                "coordinate_out_of_range_count": metrics["coordinate_out_of_range_count"],
+                "latitude_range": [49.0, 49.4],
+                "longitude_range": [-123.4, -122.8],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_parcel_source_record_count_valid",
+            passed=metrics["source_record_count_invalid"] == 0,
+            details={
+                "source_record_count_invalid": metrics["source_record_count_invalid"],
+                "source_record_count_max": metrics["source_record_count_max"],
+            },
+        ),
+    ]
+
+    report = SilverValidationReport(
+        validation_name="municipal_property_parcel_silver_validation",
+        passed=all(check.passed for check in checks),
+        checks=checks,
+        output_paths={"silver_property_parcel": parcel_path.as_posix()},
+    )
+
+    if output_json_path is not None:
+        write_json(output_json_path, report.to_dict())
+
+    return report
+
+
+def collect_municipal_property_parcel_metrics(
+    dataframe: pd.DataFrame,
+) -> dict[str, Any]:
+    row_count = int(len(dataframe))
+
+    non_null_coordinates = dataframe[dataframe["latitude"].notna() & dataframe["longitude"].notna()]
+
+    coordinate_out_of_range_count = int(
+        (
+            (non_null_coordinates["latitude"] < 49.0)
+            | (non_null_coordinates["latitude"] > 49.4)
+            | (non_null_coordinates["longitude"] < -123.4)
+            | (non_null_coordinates["longitude"] > -122.8)
+        ).sum()
+    )
+
+    latitude_or_longitude_null = dataframe["latitude"].isna() | dataframe["longitude"].isna()
+
+    return {
+        "row_count": row_count,
+        "cities": sorted(dataframe["city"].dropna().unique().tolist()),
+        "provinces": sorted(dataframe["province"].dropna().unique().tolist()),
+        "source_names": sorted(dataframe["source_name"].dropna().unique().tolist()),
+        "key_nulls": int(dataframe["property_parcel_key"].isna().sum()),
+        "key_duplicates": int(dataframe["property_parcel_key"].duplicated().sum()),
+        "source_tax_coord_nulls": int(dataframe["source_tax_coord"].isna().sum()),
+        "source_tax_coord_presence_rate": round(
+            1 - (int(dataframe["source_tax_coord"].isna().sum()) / row_count), 6
+        ),
+        "source_parcel_id_nulls": int(dataframe["source_parcel_id"].isna().sum()),
+        "source_parcel_id_presence_rate": round(
+            1 - (int(dataframe["source_parcel_id"].isna().sum()) / row_count), 6
+        ),
+        "address_nulls": int(dataframe["address_text"].isna().sum()),
+        "address_presence_rate": round(
+            1 - (int(dataframe["address_text"].isna().sum()) / row_count), 6
+        ),
+        "geometry_wkt_nulls": int(dataframe["geometry_wkt"].isna().sum()),
+        "geometry_presence_rate": round(
+            1 - (int(dataframe["geometry_wkt"].isna().sum()) / row_count), 6
+        ),
+        "latitude_nulls": int(dataframe["latitude"].isna().sum()),
+        "longitude_nulls": int(dataframe["longitude"].isna().sum()),
+        "coordinate_presence_rate": round(
+            1 - (int(latitude_or_longitude_null.sum()) / row_count), 6
+        ),
+        "geometry_types": sorted(dataframe["geometry_type"].dropna().unique().tolist()),
+        "geometry_type_counts": {
+            str(key): int(value)
+            for key, value in dataframe["geometry_type"]
+            .value_counts(dropna=False)
+            .to_dict()
+            .items()
+        },
+        "coordinate_out_of_range_count": coordinate_out_of_range_count,
+        "source_record_count_invalid": int((dataframe["source_record_count"] < 1).sum()),
+        "source_record_count_max": safe_series_max(dataframe["source_record_count"]),
+    }

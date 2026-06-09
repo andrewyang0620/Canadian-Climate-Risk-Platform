@@ -1761,3 +1761,268 @@ def collect_municipal_property_parcel_metrics(
         "source_record_count_invalid": int((dataframe["source_record_count"] < 1).sum()),
         "source_record_count_max": safe_series_max(dataframe["source_record_count"]),
     }
+
+
+def validate_municipal_property_tax_assessment_silver_outputs(
+    *,
+    silver_root: str | Path = "lakehouse/silver",
+    min_source_pid_presence_rate: float = 0.99,
+    min_tax_assessment_year_presence_rate: float = 0.98,
+    min_land_coordinate_parcel_join_rate: float = 0.98,
+    output_json_path: str | Path | None = None,
+) -> SilverValidationReport:
+    """Validate Silver municipal property tax assessment outputs."""
+    silver_root = Path(silver_root)
+
+    tax_path = latest_table_parquet(
+        silver_root=silver_root,
+        table_name="silver_property_tax_assessment",
+    )
+    parcel_path = latest_table_parquet(
+        silver_root=silver_root,
+        table_name="silver_property_parcel",
+    )
+
+    dataframe = pd.read_parquet(tax_path)
+    parcel_dataframe = pd.read_parquet(parcel_path)
+
+    metrics = collect_municipal_property_tax_assessment_metrics(
+        dataframe=dataframe,
+        parcel_dataframe=parcel_dataframe,
+    )
+
+    checks = [
+        SilverValidationCheck(
+            name="property_tax_assessment_row_count_gt_zero",
+            passed=metrics["row_count"] > 0,
+            details={"row_count": metrics["row_count"]},
+        ),
+        SilverValidationCheck(
+            name="property_tax_assessment_city_is_vancouver",
+            passed=metrics["cities"] == ["vancouver"],
+            details={"actual": metrics["cities"], "expected": ["vancouver"]},
+        ),
+        SilverValidationCheck(
+            name="property_tax_assessment_province_is_bc",
+            passed=metrics["provinces"] == ["BC"],
+            details={"actual": metrics["provinces"], "expected": ["BC"]},
+        ),
+        SilverValidationCheck(
+            name="property_tax_assessment_source_is_expected",
+            passed=metrics["source_names"] == ["vancouver_property_tax"],
+            details={
+                "actual": metrics["source_names"],
+                "expected": ["vancouver_property_tax"],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_tax_assessment_key_not_null_and_unique",
+            passed=metrics["key_nulls"] == 0 and metrics["key_duplicates"] == 0,
+            details={
+                "null_count": metrics["key_nulls"],
+                "duplicate_count": metrics["key_duplicates"],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_tax_assessment_source_row_number_not_null_and_unique",
+            passed=metrics["source_row_number_nulls"] == 0
+            and metrics["source_row_number_duplicates"] == 0,
+            details={
+                "null_count": metrics["source_row_number_nulls"],
+                "duplicate_count": metrics["source_row_number_duplicates"],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_tax_assessment_land_coordinate_not_null",
+            passed=metrics["source_land_coordinate_nulls"] == 0,
+            details={
+                "source_land_coordinate_nulls": metrics["source_land_coordinate_nulls"],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_tax_assessment_source_folio_not_null",
+            passed=metrics["source_folio_nulls"] == 0,
+            details={"source_folio_nulls": metrics["source_folio_nulls"]},
+        ),
+        SilverValidationCheck(
+            name="property_tax_assessment_source_pid_presence_above_threshold",
+            passed=metrics["source_pid_presence_rate"] >= min_source_pid_presence_rate,
+            details={
+                "source_pid_nulls": metrics["source_pid_nulls"],
+                "source_pid_presence_rate": metrics["source_pid_presence_rate"],
+                "min_required": min_source_pid_presence_rate,
+            },
+        ),
+        SilverValidationCheck(
+            name="property_tax_assessment_report_year_valid",
+            passed=metrics["report_year_nulls"] == 0
+            and metrics["report_year_min"] >= 2020
+            and metrics["report_year_max"] <= 2030,
+            details={
+                "report_year_nulls": metrics["report_year_nulls"],
+                "report_year_min": metrics["report_year_min"],
+                "report_year_max": metrics["report_year_max"],
+                "report_year_counts": metrics["report_year_counts"],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_tax_assessment_tax_assessment_year_presence_above_threshold",
+            passed=metrics["tax_assessment_year_presence_rate"]
+            >= min_tax_assessment_year_presence_rate,
+            details={
+                "tax_assessment_year_nulls": metrics["tax_assessment_year_nulls"],
+                "tax_assessment_year_presence_rate": metrics["tax_assessment_year_presence_rate"],
+                "min_required": min_tax_assessment_year_presence_rate,
+            },
+        ),
+        SilverValidationCheck(
+            name="property_tax_assessment_values_non_negative",
+            passed=all(value == 0 for value in metrics["negative_value_counts"].values()),
+            details={"negative_value_counts": metrics["negative_value_counts"]},
+        ),
+        SilverValidationCheck(
+            name="property_tax_assessment_total_values_consistent",
+            passed=metrics["current_total_mismatch_count"] == 0
+            and metrics["previous_total_mismatch_count"] == 0,
+            details={
+                "current_total_mismatch_count": metrics["current_total_mismatch_count"],
+                "previous_total_mismatch_count": metrics["previous_total_mismatch_count"],
+            },
+        ),
+        SilverValidationCheck(
+            name="property_tax_assessment_land_coordinate_joins_parcel_above_threshold",
+            passed=metrics["land_coordinate_parcel_join_rate"]
+            >= min_land_coordinate_parcel_join_rate,
+            details={
+                "tax_unique_land_coordinates": metrics["tax_unique_land_coordinates"],
+                "parcel_unique_tax_coords": metrics["parcel_unique_tax_coords"],
+                "joined_unique_land_coordinates": metrics["joined_unique_land_coordinates"],
+                "land_coordinate_parcel_join_rate": metrics["land_coordinate_parcel_join_rate"],
+                "min_required": min_land_coordinate_parcel_join_rate,
+            },
+        ),
+        SilverValidationCheck(
+            name="property_tax_assessment_source_record_count_valid",
+            passed=metrics["source_record_count_invalid"] == 0,
+            details={
+                "source_record_count_invalid": metrics["source_record_count_invalid"],
+                "source_record_count_max": metrics["source_record_count_max"],
+            },
+        ),
+    ]
+
+    report = SilverValidationReport(
+        validation_name="municipal_property_tax_assessment_silver_validation",
+        passed=all(check.passed for check in checks),
+        checks=checks,
+        output_paths={
+            "silver_property_tax_assessment": tax_path.as_posix(),
+            "silver_property_parcel": parcel_path.as_posix(),
+        },
+    )
+
+    if output_json_path is not None:
+        write_json(output_json_path, report.to_dict())
+
+    return report
+
+
+def collect_municipal_property_tax_assessment_metrics(
+    *,
+    dataframe: pd.DataFrame,
+    parcel_dataframe: pd.DataFrame,
+) -> dict[str, Any]:
+    row_count = int(len(dataframe))
+
+    value_columns = [
+        "current_land_value",
+        "current_improvement_value",
+        "current_total_assessed_value",
+        "previous_land_value",
+        "previous_improvement_value",
+        "previous_total_assessed_value",
+        "tax_levy",
+    ]
+
+    negative_value_counts = {
+        column: int((dataframe[column].dropna() < 0).sum()) for column in value_columns
+    }
+
+    tax_land_coordinates = set(dataframe["source_land_coordinate"].dropna().astype(str).tolist())
+    parcel_tax_coords = set(parcel_dataframe["source_tax_coord"].dropna().astype(str).tolist())
+    joined_land_coordinates = tax_land_coordinates & parcel_tax_coords
+
+    report_year_counts = {
+        str(int(key)): int(value)
+        for key, value in dataframe["report_year"]
+        .value_counts(dropna=False)
+        .sort_index()
+        .to_dict()
+        .items()
+        if not pd.isna(key)
+    }
+
+    return {
+        "row_count": row_count,
+        "cities": sorted(dataframe["city"].dropna().unique().tolist()),
+        "provinces": sorted(dataframe["province"].dropna().unique().tolist()),
+        "source_names": sorted(dataframe["source_name"].dropna().unique().tolist()),
+        "key_nulls": int(dataframe["property_tax_assessment_key"].isna().sum()),
+        "key_duplicates": int(dataframe["property_tax_assessment_key"].duplicated().sum()),
+        "source_row_number_nulls": int(dataframe["source_row_number"].isna().sum()),
+        "source_row_number_duplicates": int(dataframe["source_row_number"].duplicated().sum()),
+        "source_pid_nulls": int(dataframe["source_pid"].isna().sum()),
+        "source_pid_presence_rate": round(
+            1 - (int(dataframe["source_pid"].isna().sum()) / row_count), 6
+        ),
+        "source_land_coordinate_nulls": int(dataframe["source_land_coordinate"].isna().sum()),
+        "source_folio_nulls": int(dataframe["source_folio"].isna().sum()),
+        "report_year_nulls": int(dataframe["report_year"].isna().sum()),
+        "report_year_min": safe_series_min(dataframe["report_year"].dropna()),
+        "report_year_max": safe_series_max(dataframe["report_year"].dropna()),
+        "report_year_counts": report_year_counts,
+        "tax_assessment_year_nulls": int(dataframe["tax_assessment_year"].isna().sum()),
+        "tax_assessment_year_presence_rate": round(
+            1 - (int(dataframe["tax_assessment_year"].isna().sum()) / row_count),
+            6,
+        ),
+        "negative_value_counts": negative_value_counts,
+        "current_total_mismatch_count": count_sum_mismatch(
+            dataframe["current_land_value"],
+            dataframe["current_improvement_value"],
+            dataframe["current_total_assessed_value"],
+        ),
+        "previous_total_mismatch_count": count_sum_mismatch(
+            dataframe["previous_land_value"],
+            dataframe["previous_improvement_value"],
+            dataframe["previous_total_assessed_value"],
+        ),
+        "tax_unique_land_coordinates": len(tax_land_coordinates),
+        "parcel_unique_tax_coords": len(parcel_tax_coords),
+        "joined_unique_land_coordinates": len(joined_land_coordinates),
+        "land_coordinate_parcel_join_rate": (
+            round(
+                len(joined_land_coordinates) / len(tax_land_coordinates),
+                6,
+            )
+            if tax_land_coordinates
+            else 0
+        ),
+        "source_record_count_invalid": int((dataframe["source_record_count"] < 1).sum()),
+        "source_record_count_max": safe_series_max(dataframe["source_record_count"]),
+    }
+
+
+def count_sum_mismatch(
+    first: pd.Series,
+    second: pd.Series,
+    total: pd.Series,
+) -> int:
+    expected = (first.fillna(0) + second.fillna(0)).where(first.notna() | second.notna())
+
+    both_null = expected.isna() & total.isna()
+    both_not_null = expected.notna() & total.notna()
+    value_mismatch = both_not_null & ((expected - total).abs() > 0.01)
+    null_mismatch = ~(both_null | both_not_null)
+
+    return int((value_mismatch | null_mismatch).sum())

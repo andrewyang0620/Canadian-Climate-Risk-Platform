@@ -51,3 +51,23 @@ __all__ = sorted(
         "build_vancouver_property_parcel_silver",
     }
 )
+from src.silver.municipal_property_tax_assessment import (
+    build_vancouver_property_tax_assessment_silver,
+)
+
+__all__ = sorted(
+    set(globals().get("__all__", []))
+    | {
+        "build_vancouver_property_tax_assessment_silver",
+    }
+)
+from src.silver.validation import (
+    validate_municipal_property_tax_assessment_silver_outputs,
+)
+
+__all__ = sorted(
+    set(globals().get("__all__", []))
+    | {
+        "validate_municipal_property_tax_assessment_silver_outputs",
+    }
+)

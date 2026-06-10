@@ -71,3 +71,11 @@ __all__ = sorted(
         "validate_municipal_property_tax_assessment_silver_outputs",
     }
 )
+from src.silver.validation import validate_municipal_development_permit_silver_outputs
+
+__all__ = sorted(
+    set(globals().get("__all__", []))
+    | {
+        "validate_municipal_development_permit_silver_outputs",
+    }
+)

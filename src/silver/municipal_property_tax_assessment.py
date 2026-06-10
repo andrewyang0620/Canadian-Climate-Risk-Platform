@@ -284,9 +284,12 @@ def sum_available_values(
     first: pd.Series,
     second: pd.Series,
 ) -> pd.Series:
-    has_any_value = first.notna() | second.notna()
+    first_numeric = pd.to_numeric(first, errors="coerce")
+    second_numeric = pd.to_numeric(second, errors="coerce")
 
-    return (first.fillna(0) + second.fillna(0)).where(has_any_value)
+    has_any_value = first_numeric.notna() | second_numeric.notna()
+
+    return (first_numeric.fillna(0.0) + second_numeric.fillna(0.0)).where(has_any_value)
 
 
 def clean_text(value: Any) -> str | None:

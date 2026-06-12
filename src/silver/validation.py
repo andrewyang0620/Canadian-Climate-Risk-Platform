@@ -7,6 +7,8 @@ from typing import Any
 
 import pandas as pd
 
+from src.utils.config import load_project_config
+
 
 @dataclass(frozen=True)
 class SilverValidationCheck:
@@ -2271,6 +2273,239 @@ def collect_municipal_development_permit_metrics(
             1 - (int(dataframe["geometry_wkt"].isna().sum()) / row_count), 6
         ),
         "coordinate_out_of_range_count": coordinate_out_of_range_count,
+        "source_record_count_invalid": int((dataframe["source_record_count"] < 1).sum()),
+        "source_record_count_max": safe_series_max(dataframe["source_record_count"]),
+    }
+
+
+def validate_statcan_building_permit_month_silver_outputs(
+    *,
+    silver_root: str | Path = "lakehouse/silver",
+    min_expected_row_count: int = 2_000_000,
+    output_json_path: str | Path | None = None,
+) -> SilverValidationReport:
+    """Validate Silver StatCan monthly building permit aggregate outputs."""
+    silver_root = Path(silver_root)
+
+    config = load_project_config("source_config.yml")
+    source = config["sources"]["statcan_building_permits"]
+    table_name = source.get("target_silver_table", "silver_permit_monthly")
+
+    permit_path = latest_table_parquet(
+        silver_root=silver_root,
+        table_name=table_name,
+    )
+
+    dataframe = pd.read_parquet(permit_path)
+    metrics = collect_statcan_building_permit_month_metrics(dataframe)
+
+    expected_geos = [
+        "Alberta",
+        "British Columbia",
+        "Calgary, Alberta",
+        "Canada",
+        "Vancouver, British Columbia",
+    ]
+
+    expected_geo_levels = ["cma", "country", "province"]
+    expected_measures = [
+        "Number of dwelling-units created",
+        "Number of dwelling-units demolished",
+        "Number of dwelling-units lost",
+        "Number of permits",
+        "Value of permits",
+    ]
+
+    checks = [
+        SilverValidationCheck(
+            name="statcan_building_permit_month_row_count_above_threshold",
+            passed=metrics["row_count"] >= min_expected_row_count,
+            details={
+                "row_count": metrics["row_count"],
+                "min_expected_row_count": min_expected_row_count,
+            },
+        ),
+        SilverValidationCheck(
+            name="statcan_building_permit_month_source_is_expected",
+            passed=metrics["source_names"] == ["statcan_building_permits"],
+            details={
+                "actual": metrics["source_names"],
+                "expected": ["statcan_building_permits"],
+            },
+        ),
+        SilverValidationCheck(
+            name="statcan_building_permit_month_table_id_is_expected",
+            passed=metrics["statcan_table_ids"] == ["34-10-0292-01"]
+            and metrics["statcan_product_ids"] == ["3410029201"],
+            details={
+                "actual_table_ids": metrics["statcan_table_ids"],
+                "expected_table_ids": ["34-10-0292-01"],
+                "actual_product_ids": metrics["statcan_product_ids"],
+                "expected_product_ids": ["3410029201"],
+            },
+        ),
+        SilverValidationCheck(
+            name="statcan_building_permit_month_key_not_null_and_unique",
+            passed=metrics["key_nulls"] == 0 and metrics["key_duplicates"] == 0,
+            details={
+                "null_count": metrics["key_nulls"],
+                "duplicate_count": metrics["key_duplicates"],
+            },
+        ),
+        SilverValidationCheck(
+            name="statcan_building_permit_month_reference_month_valid",
+            passed=metrics["reference_month_nulls"] == 0
+            and metrics["reference_year_min"] >= 2018
+            and metrics["reference_year_max"] >= 2026,
+            details={
+                "reference_month_nulls": metrics["reference_month_nulls"],
+                "reference_year_min": metrics["reference_year_min"],
+                "reference_year_max": metrics["reference_year_max"],
+            },
+        ),
+        SilverValidationCheck(
+            name="statcan_building_permit_month_geos_are_project_scoped",
+            passed=metrics["geo_names"] == expected_geos,
+            details={
+                "actual": metrics["geo_names"],
+                "expected": expected_geos,
+                "geo_counts": metrics["geo_counts"],
+            },
+        ),
+        SilverValidationCheck(
+            name="statcan_building_permit_month_geo_levels_are_expected",
+            passed=metrics["geo_levels"] == expected_geo_levels,
+            details={
+                "actual": metrics["geo_levels"],
+                "expected": expected_geo_levels,
+                "geo_level_counts": metrics["geo_level_counts"],
+            },
+        ),
+        SilverValidationCheck(
+            name="statcan_building_permit_month_measure_names_are_expected",
+            passed=metrics["measure_names"] == expected_measures,
+            details={
+                "actual": metrics["measure_names"],
+                "expected": expected_measures,
+                "measure_counts": metrics["measure_counts"],
+            },
+        ),
+        SilverValidationCheck(
+            name="statcan_building_permit_month_required_fields_not_null",
+            passed=metrics["geo_name_nulls"] == 0
+            and metrics["type_of_building_nulls"] == 0
+            and metrics["type_of_work_nulls"] == 0
+            and metrics["measure_name_nulls"] == 0
+            and metrics["seasonal_adjustment_value_type_nulls"] == 0
+            and metrics["unit_of_measure_nulls"] == 0
+            and metrics["vector_nulls"] == 0
+            and metrics["coordinate_nulls"] == 0,
+            details={
+                "geo_name_nulls": metrics["geo_name_nulls"],
+                "type_of_building_nulls": metrics["type_of_building_nulls"],
+                "type_of_work_nulls": metrics["type_of_work_nulls"],
+                "measure_name_nulls": metrics["measure_name_nulls"],
+                "seasonal_adjustment_value_type_nulls": metrics[
+                    "seasonal_adjustment_value_type_nulls"
+                ],
+                "unit_of_measure_nulls": metrics["unit_of_measure_nulls"],
+                "vector_nulls": metrics["vector_nulls"],
+                "coordinate_nulls": metrics["coordinate_nulls"],
+            },
+        ),
+        SilverValidationCheck(
+            name="statcan_building_permit_month_values_non_negative",
+            passed=metrics["negative_value_count"] == 0
+            and metrics["negative_value_scaled_count"] == 0,
+            details={
+                "negative_value_count": metrics["negative_value_count"],
+                "negative_value_scaled_count": metrics["negative_value_scaled_count"],
+                "value_nulls": metrics["value_nulls"],
+                "value_scaled_nulls": metrics["value_scaled_nulls"],
+                "value_min": metrics["value_min"],
+                "value_max": metrics["value_max"],
+            },
+        ),
+        SilverValidationCheck(
+            name="statcan_building_permit_month_scaled_values_consistent",
+            passed=metrics["scaled_value_mismatch_count"] == 0,
+            details={
+                "scaled_value_mismatch_count": metrics["scaled_value_mismatch_count"],
+            },
+        ),
+        SilverValidationCheck(
+            name="statcan_building_permit_month_source_record_count_valid",
+            passed=metrics["source_record_count_invalid"] == 0
+            and metrics["source_record_count_max"] == 1,
+            details={
+                "source_record_count_invalid": metrics["source_record_count_invalid"],
+                "source_record_count_max": metrics["source_record_count_max"],
+            },
+        ),
+    ]
+
+    report = SilverValidationReport(
+        validation_name="statcan_building_permit_month_silver_validation",
+        passed=all(check.passed for check in checks),
+        checks=checks,
+        output_paths={table_name: permit_path.as_posix()},
+    )
+
+    if output_json_path is not None:
+        write_json(output_json_path, report.to_dict())
+
+    return report
+
+
+def collect_statcan_building_permit_month_metrics(
+    dataframe: pd.DataFrame,
+) -> dict[str, Any]:
+    expected_scaled_value = dataframe["value"] * dataframe["scalar_factor"].map(
+        {
+            "units": 1.0,
+            "thousands": 1000.0,
+            "millions": 1_000_000.0,
+        }
+    ).fillna(1.0)
+
+    comparable = dataframe["value"].notna() & dataframe["value_scaled"].notna()
+    scaled_value_mismatch_count = int(
+        (comparable & ((dataframe["value_scaled"] - expected_scaled_value).abs() > 0.01)).sum()
+    )
+
+    return {
+        "row_count": int(len(dataframe)),
+        "source_names": sorted(dataframe["source_name"].dropna().unique().tolist()),
+        "statcan_table_ids": sorted(dataframe["statcan_table_id"].dropna().unique().tolist()),
+        "statcan_product_ids": sorted(dataframe["statcan_product_id"].dropna().unique().tolist()),
+        "key_nulls": int(dataframe["statcan_building_permit_month_key"].isna().sum()),
+        "key_duplicates": int(dataframe["statcan_building_permit_month_key"].duplicated().sum()),
+        "reference_month_nulls": int(dataframe["reference_month"].isna().sum()),
+        "reference_year_min": safe_series_min(dataframe["reference_year"].dropna()),
+        "reference_year_max": safe_series_max(dataframe["reference_year"].dropna()),
+        "geo_names": sorted(dataframe["geo_name"].dropna().unique().tolist()),
+        "geo_counts": dataframe["geo_name"].value_counts(dropna=False).to_dict(),
+        "geo_levels": sorted(dataframe["geo_level"].dropna().unique().tolist()),
+        "geo_level_counts": dataframe["geo_level"].value_counts(dropna=False).to_dict(),
+        "measure_names": sorted(dataframe["measure_name"].dropna().unique().tolist()),
+        "measure_counts": dataframe["measure_name"].value_counts(dropna=False).to_dict(),
+        "geo_name_nulls": int(dataframe["geo_name"].isna().sum()),
+        "type_of_building_nulls": int(dataframe["type_of_building"].isna().sum()),
+        "type_of_work_nulls": int(dataframe["type_of_work"].isna().sum()),
+        "measure_name_nulls": int(dataframe["measure_name"].isna().sum()),
+        "seasonal_adjustment_value_type_nulls": int(
+            dataframe["seasonal_adjustment_value_type"].isna().sum()
+        ),
+        "unit_of_measure_nulls": int(dataframe["unit_of_measure"].isna().sum()),
+        "vector_nulls": int(dataframe["vector"].isna().sum()),
+        "coordinate_nulls": int(dataframe["coordinate"].isna().sum()),
+        "value_nulls": int(dataframe["value"].isna().sum()),
+        "value_scaled_nulls": int(dataframe["value_scaled"].isna().sum()),
+        "negative_value_count": int((dataframe["value"].dropna() < 0).sum()),
+        "negative_value_scaled_count": int((dataframe["value_scaled"].dropna() < 0).sum()),
+        "value_min": safe_series_min(dataframe["value"].dropna()),
+        "value_max": safe_series_max(dataframe["value"].dropna()),
+        "scaled_value_mismatch_count": scaled_value_mismatch_count,
         "source_record_count_invalid": int((dataframe["source_record_count"] < 1).sum()),
         "source_record_count_max": safe_series_max(dataframe["source_record_count"]),
     }

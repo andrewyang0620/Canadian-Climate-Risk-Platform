@@ -13,6 +13,7 @@ from src.silver.validation import (
     validate_eccc_climate_daily_silver_outputs,
     validate_hydat_archive_silver_outputs,
     validate_wildfire_history_silver_outputs,
+    validate_statcan_building_permit_month_silver_outputs,
 )
 
 
@@ -75,6 +76,14 @@ def run_core_silver_validations(
             "function": validate_canadian_disaster_database_silver_outputs,
             "output_json_path": validation_root
             / "canadian_disaster_database"
+            / "latest_validation.json",
+            "kwargs": {},
+        },
+        {
+            "source_name": "statcan_building_permits",
+            "function": validate_statcan_building_permit_month_silver_outputs,
+            "output_json_path": validation_root
+            / "statcan_building_permit_month"
             / "latest_validation.json",
             "kwargs": {},
         },

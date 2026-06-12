@@ -2,6 +2,7 @@
 
 import argparse
 import gzip
+import io
 import json
 import uuid
 import requests
@@ -481,6 +482,155 @@ def download_eccc_historical_climate_bc_ab(
     return manifest_record
 
 
+def download_statcan_building_permits(
+    *,
+    output_root: str | Path = "lakehouse/bronze",
+    manifest_path: str | Path = "lakehouse/bronze/_manifests/bronze_runs.jsonl",
+) -> dict[str, Any]:
+    """Download StatCan building permits full-table CSV into Bronze.
+
+    Source table:
+    - 34-10-0292-01
+    - Product id 3410029201
+    - Building permits, by type of structure and type of work
+    """
+    config = load_project_config("source_config.yml")
+    source = config["sources"]["statcan_building_permits"]
+
+    statcan_cfg = source.get(
+        "statcan_download",
+        {
+            "table_id": "34-10-0292-01",
+            "product_id": "3410029201",
+            "url": "https://www150.statcan.gc.ca/n1/tbl/csv/34100292-eng.zip",
+            "filename": "statcan_building_permits_raw.csv",
+            "format": "csv_zip",
+            "note": "Full Statistics Canada CSV table download.",
+        },
+    )
+
+    run_id = str(uuid.uuid4())
+    extract_timestamp = utc_now_iso()
+    extract_date = utc_today()
+
+    source_name = "statcan_building_permits"
+    base_dir = Path(output_root) / source_name / f"extract_date={extract_date}" / f"run_id={run_id}"
+    raw_dir = base_dir / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+
+    raw_path = raw_dir / str(statcan_cfg.get("filename", "statcan_building_permits_raw.csv"))
+
+    http = HttpDownloader()
+    result = http.get(str(statcan_cfg["url"]))
+
+    selected_member: str | None = None
+    archive_members: list[dict[str, Any]] = []
+
+    with zipfile.ZipFile(io.BytesIO(result.content)) as archive:
+        for member in archive.infolist():
+            archive_members.append(
+                {
+                    "filename": member.filename,
+                    "file_size": member.file_size,
+                    "compress_size": member.compress_size,
+                }
+            )
+
+        data_member = _select_largest_non_metadata_csv_member(archive)
+        selected_member = data_member.filename
+        raw_path.write_bytes(archive.read(data_member.filename))
+
+    raw_content = raw_path.read_bytes()
+    raw_checksum = compute_bytes_sha256(raw_content)
+    raw_size = raw_path.stat().st_size
+    row_count = _count_csv_data_rows(raw_path)
+
+    metadata = {
+        "run_id": run_id,
+        "source_name": source_name,
+        "display_name": source["display_name"],
+        "source_group": source["source_group"],
+        "provider": source["provider"],
+        "source_url": source["source_url"],
+        "extract_timestamp": extract_timestamp,
+        "extract_date": extract_date,
+        "raw_file_path": raw_path.as_posix(),
+        "file_name": raw_path.name,
+        "file_size_bytes": raw_size,
+        "file_checksum": raw_checksum,
+        "checksum_algorithm": "sha256",
+        "ingestion_method": "statcan_full_table_csv_zip_download",
+        "row_count": row_count,
+        "schema_hash": None,
+        "source_period_start": None,
+        "source_period_end": None,
+        "target_bronze_table": source["target_bronze_table"],
+        "target_silver_table": source["target_silver_table"],
+        "load_status": "success",
+        "extra_metadata": {
+            "table_id": statcan_cfg.get("table_id"),
+            "product_id": statcan_cfg.get("product_id"),
+            "download_url": statcan_cfg["url"],
+            "download_format": statcan_cfg.get("format"),
+            "download_status_code": result.status_code,
+            "download_content_type": result.content_type,
+            "download_size_bytes": result.size_bytes,
+            "download_checksum": result.checksum,
+            "download_final_url": result.final_url,
+            "selected_archive_member": selected_member,
+            "archive_members": archive_members,
+            "note": statcan_cfg.get("note"),
+        },
+    }
+
+    metadata_path = base_dir / "metadata.json"
+    write_json(metadata_path, metadata)
+
+    manifest_record = {
+        **metadata,
+        "metadata_path": metadata_path.as_posix(),
+        "manifest_record_created_at": utc_now_iso(),
+    }
+
+    append_jsonl(Path(manifest_path), manifest_record)
+
+    print(
+        f"[OK] downloaded statcan_building_permits -> {raw_path} | "
+        f"rows={row_count} size_bytes={raw_size} run_id={run_id}"
+    )
+
+    return manifest_record
+
+
+def _select_largest_non_metadata_csv_member(
+    archive: zipfile.ZipFile,
+) -> zipfile.ZipInfo:
+    csv_members = [
+        member for member in archive.infolist() if member.filename.lower().endswith(".csv")
+    ]
+
+    data_candidates = [
+        member
+        for member in csv_members
+        if "metadata" not in Path(member.filename).name.lower()
+        and "meta" not in Path(member.filename).name.lower()
+    ]
+
+    if not data_candidates:
+        raise NationalCoreIngestionError(
+            "No non-metadata CSV found in StatCan building permits archive."
+        )
+
+    return max(data_candidates, key=lambda member: member.file_size)
+
+
+def _count_csv_data_rows(path: Path) -> int:
+    with path.open("r", encoding="utf-8-sig", errors="replace") as file:
+        line_count = sum(1 for _ in file)
+
+    return max(0, line_count - 1)
+
+
 def _request_eccc_json_with_retries(
     *,
     url: str,
@@ -684,6 +834,12 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--download-statcan-building-permits",
+        action="store_true",
+        help="Download Statistics Canada building permits full-table CSV into Bronze.",
+    )
+
+    parser.add_argument(
         "--download-eccc-historical-climate-bc-ab",
         action="store_true",
         help="Download ECCC climate-daily observations for BC + Alberta into Bronze.",
@@ -705,6 +861,10 @@ def main() -> None:
 
     if args.download_hydat_archive:
         download_hydat_archive()
+        return
+
+    if args.download_statcan_building_permits:
+        download_statcan_building_permits()
         return
 
     if args.download_eccc_historical_climate_bc_ab:

@@ -123,7 +123,7 @@ sources:
       start_year: 2026
       end_year: null
     target_bronze_table: bronze_hydrometric_realtime
-    target_silver_table: silver_hydro_daily
+    target_silver_table: silver_hydro_realtime_observation
     downstream_use:
     - flood_hydrometric_signal
     - daily_hazard_pipeline
@@ -155,6 +155,21 @@ sources:
     - non_negative_discharge
     - station_timestamp_uniqueness
     redistribution: public
+    hydrometric_realtime_api:
+      collection: hydrometric-realtime
+      items_url: https://api.weather.gc.ca/collections/hydrometric-realtime/items
+      bbox_name: bc_ab
+      bbox:
+      - -139.2
+      - 48.0
+      - -110.0
+      - 60.1
+      page_limit: 10000
+      lookback_hours: 36
+      target_provinces:
+      - BC
+      - AB
+      note: Bronze downloads recent ECCC hydrometric realtime GeoJSON items in the BC/Alberta bounding box using GeoMet OGC API pagination.
   hydat_archive:
     display_name: HYDAT Historical Hydrometric Archive
     source_group: national

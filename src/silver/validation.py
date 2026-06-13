@@ -2509,3 +2509,250 @@ def collect_statcan_building_permit_month_metrics(
         "source_record_count_invalid": int((dataframe["source_record_count"] < 1).sum()),
         "source_record_count_max": safe_series_max(dataframe["source_record_count"]),
     }
+
+
+def validate_eccc_hydro_realtime_observation_silver_outputs(
+    *,
+    silver_root: str | Path = "lakehouse/silver",
+    max_freshness_hours: float = 24.0,
+    min_window_hours: float = 24.0,
+    max_window_hours: float = 48.0,
+    reference_time_utc: str | pd.Timestamp | None = None,
+    output_json_path: str | Path | None = None,
+) -> SilverValidationReport:
+    """Validate ECCC hydrometric realtime Silver observations."""
+    silver_root = Path(silver_root)
+
+    permit_path = latest_table_parquet(
+        silver_root=silver_root,
+        table_name="silver_hydro_realtime_observation",
+    )
+
+    dataframe = pd.read_parquet(permit_path)
+
+    metrics = collect_eccc_hydro_realtime_observation_metrics(
+        dataframe,
+        reference_time_utc=reference_time_utc,
+    )
+
+    checks = [
+        SilverValidationCheck(
+            name="hydro_realtime_row_count_gt_zero",
+            passed=metrics["row_count"] > 0,
+            details={"row_count": metrics["row_count"]},
+        ),
+        SilverValidationCheck(
+            name="hydro_realtime_source_is_expected",
+            passed=metrics["source_names"] == ["eccc_hydrometric_realtime"],
+            details={
+                "actual": metrics["source_names"],
+                "expected": ["eccc_hydrometric_realtime"],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_realtime_provinces_are_ab_bc",
+            passed=metrics["province_codes"] == ["AB", "BC"],
+            details={
+                "actual": metrics["province_codes"],
+                "expected": ["AB", "BC"],
+                "province_counts": metrics["province_counts"],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_realtime_key_not_null_and_unique",
+            passed=metrics["key_nulls"] == 0 and metrics["key_duplicates"] == 0,
+            details={
+                "null_count": metrics["key_nulls"],
+                "duplicate_count": metrics["key_duplicates"],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_realtime_station_timestamp_unique",
+            passed=metrics["station_timestamp_duplicates"] == 0,
+            details={"station_timestamp_duplicates": metrics["station_timestamp_duplicates"]},
+        ),
+        SilverValidationCheck(
+            name="hydro_realtime_required_identifiers_not_null",
+            passed=metrics["station_id_nulls"] == 0 and metrics["observed_at_nulls"] == 0,
+            details={
+                "station_id_nulls": metrics["station_id_nulls"],
+                "observed_at_nulls": metrics["observed_at_nulls"],
+                "station_count": metrics["station_count"],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_realtime_coordinates_present_and_in_range",
+            passed=metrics["latitude_nulls"] == 0
+            and metrics["longitude_nulls"] == 0
+            and metrics["geometry_nulls"] == 0
+            and metrics["coordinate_out_of_range_count"] == 0,
+            details={
+                "latitude_nulls": metrics["latitude_nulls"],
+                "longitude_nulls": metrics["longitude_nulls"],
+                "geometry_nulls": metrics["geometry_nulls"],
+                "coordinate_out_of_range_count": metrics["coordinate_out_of_range_count"],
+                "latitude_range": [48.0, 61.0],
+                "longitude_range": [-140.0, -110.0],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_realtime_measurement_present",
+            passed=metrics["rows_without_measurement"] == 0,
+            details={
+                "water_level_nulls": metrics["water_level_nulls"],
+                "discharge_nulls": metrics["discharge_nulls"],
+                "rows_without_measurement": metrics["rows_without_measurement"],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_realtime_standardized_discharge_non_negative",
+            passed=metrics["negative_standardized_discharge_count"] == 0,
+            details={
+                "negative_standardized_discharge_count": metrics[
+                    "negative_standardized_discharge_count"
+                ],
+                "raw_negative_discharge_count": metrics["raw_negative_discharge_count"],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_realtime_negative_discharge_cleaning_consistent",
+            passed=metrics["raw_negative_discharge_count"]
+            == metrics["negative_discharge_flag_count"]
+            and metrics["flagged_discharge_not_null_count"] == 0,
+            details={
+                "raw_negative_discharge_count": metrics["raw_negative_discharge_count"],
+                "negative_discharge_flag_count": metrics["negative_discharge_flag_count"],
+                "flagged_discharge_not_null_count": metrics["flagged_discharge_not_null_count"],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_realtime_window_duration_valid",
+            passed=metrics["window_hours"] >= min_window_hours
+            and metrics["window_hours"] <= max_window_hours,
+            details={
+                "observed_at_min": metrics["observed_at_min"],
+                "observed_at_max": metrics["observed_at_max"],
+                "window_hours": metrics["window_hours"],
+                "expected_window_hours": [
+                    min_window_hours,
+                    max_window_hours,
+                ],
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_realtime_latest_observation_is_fresh",
+            passed=metrics["freshness_hours"] <= max_freshness_hours,
+            details={
+                "reference_time_utc": metrics["reference_time_utc"],
+                "observed_at_max": metrics["observed_at_max"],
+                "freshness_hours": metrics["freshness_hours"],
+                "max_freshness_hours": max_freshness_hours,
+            },
+        ),
+        SilverValidationCheck(
+            name="hydro_realtime_source_record_count_valid",
+            passed=metrics["source_record_count_invalid"] == 0
+            and metrics["source_record_count_max"] == 1,
+            details={
+                "source_record_count_invalid": metrics["source_record_count_invalid"],
+                "source_record_count_max": metrics["source_record_count_max"],
+            },
+        ),
+    ]
+
+    report = SilverValidationReport(
+        validation_name=("eccc_hydro_realtime_observation_silver_validation"),
+        passed=all(check.passed for check in checks),
+        checks=checks,
+        output_paths={"silver_hydro_realtime_observation": permit_path.as_posix()},
+    )
+
+    if output_json_path is not None:
+        write_json(output_json_path, report.to_dict())
+
+    return report
+
+
+def collect_eccc_hydro_realtime_observation_metrics(
+    dataframe: pd.DataFrame,
+    *,
+    reference_time_utc: str | pd.Timestamp | None = None,
+) -> dict[str, Any]:
+    observed_at = pd.to_datetime(
+        dataframe["observed_at_utc"],
+        utc=True,
+        errors="coerce",
+    )
+
+    observed_at_min = observed_at.min()
+    observed_at_max = observed_at.max()
+
+    reference_time = (
+        pd.Timestamp.now(tz="UTC")
+        if reference_time_utc is None
+        else pd.to_datetime(reference_time_utc, utc=True)
+    )
+
+    window_hours = (
+        float((observed_at_max - observed_at_min).total_seconds() / 3600)
+        if pd.notna(observed_at_min) and pd.notna(observed_at_max)
+        else 0.0
+    )
+
+    freshness_hours = (
+        float((reference_time - observed_at_max).total_seconds() / 3600)
+        if pd.notna(observed_at_max)
+        else float("inf")
+    )
+
+    negative_flags = dataframe["negative_discharge_flag"].fillna(False).astype(bool)
+
+    non_null_coordinates = dataframe[dataframe["latitude"].notna() & dataframe["longitude"].notna()]
+
+    coordinate_out_of_range_count = int(
+        (
+            (non_null_coordinates["latitude"] < 48.0)
+            | (non_null_coordinates["latitude"] > 61.0)
+            | (non_null_coordinates["longitude"] < -140.0)
+            | (non_null_coordinates["longitude"] > -110.0)
+        ).sum()
+    )
+
+    return {
+        "row_count": int(len(dataframe)),
+        "source_names": sorted(dataframe["source_name"].dropna().unique().tolist()),
+        "province_codes": sorted(dataframe["province_code"].dropna().unique().tolist()),
+        "province_counts": dataframe["province_code"].value_counts(dropna=False).to_dict(),
+        "key_nulls": int(dataframe["hydro_realtime_observation_key"].isna().sum()),
+        "key_duplicates": int(dataframe["hydro_realtime_observation_key"].duplicated().sum()),
+        "station_timestamp_duplicates": int(
+            dataframe.duplicated(subset=["station_id", "observed_at_utc"]).sum()
+        ),
+        "station_id_nulls": int(dataframe["station_id"].isna().sum()),
+        "observed_at_nulls": int(observed_at.isna().sum()),
+        "station_count": int(dataframe["station_id"].nunique()),
+        "latitude_nulls": int(dataframe["latitude"].isna().sum()),
+        "longitude_nulls": int(dataframe["longitude"].isna().sum()),
+        "geometry_nulls": int(dataframe["geometry_wkt"].isna().sum()),
+        "coordinate_out_of_range_count": coordinate_out_of_range_count,
+        "water_level_nulls": int(dataframe["water_level_m"].isna().sum()),
+        "discharge_nulls": int(dataframe["discharge_cms"].isna().sum()),
+        "rows_without_measurement": int(
+            (dataframe["water_level_m"].isna() & dataframe["discharge_cms"].isna()).sum()
+        ),
+        "negative_standardized_discharge_count": int(
+            (dataframe["discharge_cms"].dropna() < 0).sum()
+        ),
+        "raw_negative_discharge_count": int((dataframe["raw_discharge_cms"].dropna() < 0).sum()),
+        "negative_discharge_flag_count": int(negative_flags.sum()),
+        "flagged_discharge_not_null_count": int(
+            (negative_flags & dataframe["discharge_cms"].notna()).sum()
+        ),
+        "observed_at_min": (observed_at_min.isoformat() if pd.notna(observed_at_min) else None),
+        "observed_at_max": (observed_at_max.isoformat() if pd.notna(observed_at_max) else None),
+        "reference_time_utc": reference_time.isoformat(),
+        "window_hours": round(window_hours, 3),
+        "freshness_hours": round(freshness_hours, 3),
+        "source_record_count_invalid": int((dataframe["source_record_count"] < 1).sum()),
+        "source_record_count_max": safe_series_max(dataframe["source_record_count"]),
+    }

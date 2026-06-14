@@ -8,7 +8,7 @@ import uuid
 import requests
 import time
 import zipfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
@@ -124,6 +124,10 @@ def download_census_boundaries(
         "source_period_end": None,
         "target_bronze_table": source["target_bronze_table"],
         "target_silver_table": source["target_silver_table"],
+        "target_silver_tables": source.get(
+            "target_silver_tables",
+            [source["target_silver_table"]],
+        ),
         "load_status": "success",
         "extra_metadata": {
             "boundary_package_type": "combined_raw_zip_package",
@@ -210,6 +214,10 @@ def download_wildfire_history(
         "source_period_end": None,
         "target_bronze_table": source["target_bronze_table"],
         "target_silver_table": source["target_silver_table"],
+        "target_silver_tables": source.get(
+            "target_silver_tables",
+            [source["target_silver_table"]],
+        ),
         "load_status": "success",
         "extra_metadata": {
             "dataset_name": download_cfg.get("dataset_name"),
@@ -299,6 +307,10 @@ def download_hydat_archive(
         "source_period_end": None,
         "target_bronze_table": source["target_bronze_table"],
         "target_silver_table": source["target_silver_table"],
+        "target_silver_tables": source.get(
+            "target_silver_tables",
+            [source["target_silver_table"]],
+        ),
         "load_status": "success",
         "extra_metadata": {
             "dataset_name": download_cfg.get("dataset_name"),
@@ -445,6 +457,10 @@ def download_eccc_historical_climate_bc_ab(
         "source_period_end": api_cfg["datetime_end"],
         "target_bronze_table": source["target_bronze_table"],
         "target_silver_table": source["target_silver_table"],
+        "target_silver_tables": source.get(
+            "target_silver_tables",
+            [source["target_silver_table"]],
+        ),
         "load_status": "success",
         "extra_metadata": {
             "collection": api_cfg["collection"],
@@ -566,6 +582,10 @@ def download_statcan_building_permits(
         "source_period_end": None,
         "target_bronze_table": source["target_bronze_table"],
         "target_silver_table": source["target_silver_table"],
+        "target_silver_tables": source.get(
+            "target_silver_tables",
+            [source["target_silver_table"]],
+        ),
         "load_status": "success",
         "extra_metadata": {
             "table_id": statcan_cfg.get("table_id"),
@@ -629,6 +649,246 @@ def _count_csv_data_rows(path: Path) -> int:
         line_count = sum(1 for _ in file)
 
     return max(0, line_count - 1)
+
+
+def download_eccc_hydrometric_realtime(
+    *,
+    output_root: str | Path = "lakehouse/bronze",
+    manifest_path: str | Path = "lakehouse/bronze/_manifests/bronze_runs.jsonl",
+) -> dict[str, Any]:
+    """Download recent ECCC hydrometric realtime observations into Bronze.
+
+    The raw output is GeoJSON feature JSONL gzip. Each line is one feature from
+    the GeoMet hydrometric-realtime collection.
+    """
+    config = load_project_config("source_config.yml")
+    source = config["sources"]["eccc_hydrometric_realtime"]
+    api_cfg = source["hydrometric_realtime_api"]
+
+    run_id = str(uuid.uuid4())
+    extract_timestamp = utc_now_iso()
+    extract_date = utc_today()
+
+    source_name = "eccc_hydrometric_realtime"
+    base_dir = Path(output_root) / source_name / f"extract_date={extract_date}" / f"run_id={run_id}"
+    raw_dir = base_dir / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+
+    raw_path = raw_dir / "eccc_hydrometric_realtime_bc_ab.jsonl.gz"
+
+    lookback_hours = int(api_cfg.get("lookback_hours", 36))
+    request_end = datetime.now(timezone.utc).replace(microsecond=0)
+    request_start = request_end - timedelta(hours=lookback_hours)
+    datetime_range = (
+        f"{request_start.isoformat().replace('+00:00', 'Z')}/"
+        f"{request_end.isoformat().replace('+00:00', 'Z')}"
+    )
+
+    result = _download_eccc_hydrometric_realtime_to_jsonl_gz(
+        items_url=api_cfg["items_url"],
+        out_path=raw_path,
+        bbox=api_cfg["bbox"],
+        datetime_range=datetime_range,
+        limit=int(api_cfg.get("page_limit", 10000)),
+        target_provinces=set(api_cfg.get("target_provinces", [])),
+    )
+
+    raw_checksum = compute_bytes_sha256(raw_path.read_bytes())
+    raw_size = raw_path.stat().st_size
+
+    metadata = {
+        "run_id": run_id,
+        "source_name": source_name,
+        "display_name": source["display_name"],
+        "source_group": source["source_group"],
+        "provider": source["provider"],
+        "source_url": source["source_url"],
+        "extract_timestamp": extract_timestamp,
+        "extract_date": extract_date,
+        "raw_file_path": raw_path.as_posix(),
+        "file_name": raw_path.name,
+        "file_size_bytes": raw_size,
+        "file_checksum": raw_checksum,
+        "checksum_algorithm": "sha256",
+        "ingestion_method": "geomet_ogc_api_pagination_jsonl_gzip",
+        "row_count": result["record_count"],
+        "schema_hash": None,
+        "source_period_start": result.get("first_observed_at"),
+        "source_period_end": result.get("last_observed_at"),
+        "target_bronze_table": source["target_bronze_table"],
+        "target_silver_table": source["target_silver_table"],
+        "target_silver_tables": source.get(
+            "target_silver_tables",
+            [source["target_silver_table"]],
+        ),
+        "load_status": "success",
+        "extra_metadata": {
+            "collection": api_cfg["collection"],
+            "items_url": api_cfg["items_url"],
+            "bbox_name": api_cfg["bbox_name"],
+            "bbox": api_cfg["bbox"],
+            "target_provinces": api_cfg.get("target_provinces", []),
+            "lookback_hours": lookback_hours,
+            "request_datetime_range": datetime_range,
+            "request_datetime_start": request_start.isoformat().replace("+00:00", "Z"),
+            "request_datetime_end": request_end.isoformat().replace("+00:00", "Z"),
+            "record_count": result["record_count"],
+            "page_count": result["page_count"],
+            "number_matched_first_page": result.get("number_matched_first_page"),
+            "first_observed_at": result.get("first_observed_at"),
+            "last_observed_at": result.get("last_observed_at"),
+            "station_count": result.get("station_count"),
+            "stations": result.get("stations_sample"),
+            "note": api_cfg.get("note"),
+        },
+    }
+
+    metadata_path = base_dir / "metadata.json"
+    write_json(metadata_path, metadata)
+
+    manifest_record = {
+        **metadata,
+        "metadata_path": metadata_path.as_posix(),
+        "manifest_record_created_at": utc_now_iso(),
+    }
+
+    append_jsonl(Path(manifest_path), manifest_record)
+
+    print(
+        f"[OK] downloaded eccc_hydrometric_realtime -> {raw_path} | "
+        f"records={result['record_count']} pages={result['page_count']} "
+        f"stations={result.get('station_count')} run_id={run_id}"
+    )
+
+    return manifest_record
+
+
+def _download_eccc_hydrometric_realtime_to_jsonl_gz(
+    *,
+    items_url: str,
+    out_path: Path,
+    bbox: list[float],
+    datetime_range: str,
+    limit: int,
+    target_provinces: set[str],
+) -> dict[str, Any]:
+    params = {
+        "f": "json",
+        "bbox": ",".join(str(value) for value in bbox),
+        "datetime": datetime_range,
+        "limit": limit,
+    }
+
+    next_url: str | None = items_url
+    next_params: dict[str, Any] | None = params
+
+    record_count = 0
+    page_count = 0
+    number_matched_first_page = None
+    first_observed_at = None
+    last_observed_at = None
+    station_numbers: set[str] = set()
+
+    with gzip.open(out_path, "wt", encoding="utf-8") as output:
+        while next_url:
+            payload = _request_eccc_json_with_retries(
+                url=next_url,
+                params=next_params,
+                timeout=120,
+                max_attempts=6,
+            )
+
+            if page_count == 0:
+                number_matched_first_page = payload.get("numberMatched")
+
+            features = payload.get("features", [])
+            if not isinstance(features, list):
+                raise NationalCoreIngestionError(
+                    f"ECCC hydrometric realtime API returned invalid features payload: {next_url}"
+                )
+
+            for feature in features:
+                if not isinstance(feature, dict):
+                    continue
+
+                if not _hydrometric_feature_matches_target_provinces(
+                    feature,
+                    target_provinces,
+                ):
+                    continue
+
+                output.write(json.dumps(feature, sort_keys=True) + "\n")
+                record_count += 1
+
+                properties = feature.get("properties", {})
+                if isinstance(properties, dict):
+                    station_number = properties.get("STATION_NUMBER")
+                    if station_number:
+                        station_numbers.add(str(station_number))
+
+                    observed_at = properties.get("DATETIME")
+                    if observed_at:
+                        observed_at_text = str(observed_at)
+                        first_observed_at = (
+                            observed_at_text
+                            if first_observed_at is None
+                            else min(first_observed_at, observed_at_text)
+                        )
+                        last_observed_at = (
+                            observed_at_text
+                            if last_observed_at is None
+                            else max(last_observed_at, observed_at_text)
+                        )
+
+            page_count += 1
+
+            next_link = None
+            for link in payload.get("links", []):
+                if isinstance(link, dict) and link.get("rel") == "next" and link.get("href"):
+                    next_link = link["href"]
+                    break
+
+            next_url = next_link
+            next_params = None
+
+            if page_count % 10 == 0:
+                print(
+                    "[INFO] ECCC hydrometric realtime pagination | "
+                    f"pages={page_count} records={record_count}"
+                )
+
+    if record_count == 0:
+        raise NationalCoreIngestionError(
+            "ECCC hydrometric realtime download returned zero records."
+        )
+
+    return {
+        "record_count": record_count,
+        "page_count": page_count,
+        "number_matched_first_page": number_matched_first_page,
+        "first_observed_at": first_observed_at,
+        "last_observed_at": last_observed_at,
+        "station_count": len(station_numbers),
+        "stations_sample": sorted(station_numbers)[:50],
+    }
+
+
+def _hydrometric_feature_matches_target_provinces(
+    feature: dict[str, Any],
+    target_provinces: set[str],
+) -> bool:
+    if not target_provinces:
+        return True
+
+    properties = feature.get("properties")
+    if not isinstance(properties, dict):
+        return False
+
+    value = properties.get("PROV_TERR_STATE_LOC")
+    if value is None:
+        return False
+
+    return str(value).strip().upper() in target_provinces
 
 
 def _request_eccc_json_with_retries(
@@ -840,6 +1100,12 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--download-eccc-hydrometric-realtime",
+        action="store_true",
+        help="Download ECCC hydrometric realtime observations for BC + Alberta into Bronze.",
+    )
+
+    parser.add_argument(
         "--download-eccc-historical-climate-bc-ab",
         action="store_true",
         help="Download ECCC climate-daily observations for BC + Alberta into Bronze.",
@@ -865,6 +1131,10 @@ def main() -> None:
 
     if args.download_statcan_building_permits:
         download_statcan_building_permits()
+        return
+
+    if args.download_eccc_hydrometric_realtime:
+        download_eccc_hydrometric_realtime()
         return
 
     if args.download_eccc_historical_climate_bc_ab:

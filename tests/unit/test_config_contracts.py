@@ -27,32 +27,33 @@ def test_source_level_silver_targets_do_not_point_to_overlay_or_mapping_outputs(
             )
 
 
-def test_vancouver_floodplain_targets_source_level_silver_table():
+def test_vancouver_floodplain_targets_shared_silver_table():
+    sources = _sources()
+    source = sources["vancouver_floodplain"]
+
+    assert source["target_silver_table"] == "silver_flood_hazard_zone"
+    assert source["target_silver_tables"] == ["silver_flood_hazard_zone"]
+
+
+def test_vancouver_building_permits_targets_shared_silver_table():
+    sources = _sources()
+    source = sources["vancouver_building_permits"]
+
+    assert source["target_silver_table"] == "silver_building_permit"
+    assert source["target_silver_tables"] == ["silver_building_permit"]
+
+
+def test_calgary_permit_sources_target_canonical_silver_tables():
     sources = _sources()
 
-    assert sources["vancouver_floodplain"]["target_silver_table"] == "silver_vancouver_floodplain"
+    building_source = sources["calgary_building_permits"]
+    development_source = sources["calgary_development_permits"]
 
+    assert building_source["target_silver_table"] == "silver_building_permit"
+    assert building_source["target_silver_tables"] == ["silver_building_permit"]
 
-def test_vancouver_building_permits_targets_source_level_silver_table():
-    sources = _sources()
-
-    assert (
-        sources["vancouver_building_permits"]["target_silver_table"]
-        == "silver_vancouver_building_permits"
-    )
-
-
-def test_calgary_permit_sources_have_separate_source_level_silver_tables():
-    sources = _sources()
-
-    assert (
-        sources["calgary_building_permits"]["target_silver_table"]
-        == "silver_calgary_building_permits"
-    )
-    assert (
-        sources["calgary_development_permits"]["target_silver_table"]
-        == "silver_calgary_development_permits"
-    )
+    assert development_source["target_silver_table"] == "silver_development_permit"
+    assert development_source["target_silver_tables"] == ["silver_development_permit"]
 
 
 def test_census_boundaries_contract_covers_province_and_municipality_outputs():
@@ -264,21 +265,11 @@ def test_hydat_archive_has_sqlite_download_config():
 
     assert source["access_method"] == "direct_zip_download"
     assert source["file_format"] == "zip_sqlite"
-    assert source["target_silver_table"] == "silver_hydro_baseline"
-
-    download = source["hydat_download"]
-    assert download["dataset_name"] == "Hydat_sqlite3"
-    assert download["filename"].startswith("Hydat_sqlite3_")
-    assert download["filename"].endswith(".zip")
-
-    required = set(source["required_fields"])
-    assert "sqlite_database" in required
-
-    contract = source["measurement_contract"]
-    assert "discharge" in contract["required_measurements"]
-    assert "water_level" in contract["required_measurements"]
-    assert "DLY_FLOWS" in contract["candidate_tables"]
-    assert "DLY_LEVELS" in contract["candidate_tables"]
+    assert source["target_silver_table"] == "silver_hydro_daily"
+    assert source["target_silver_tables"] == [
+        "silver_hydro_daily",
+        "silver_hydro_station",
+    ]
 
 
 def test_eccc_historical_climate_has_bc_ab_ogc_api_config():

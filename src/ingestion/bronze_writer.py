@@ -131,6 +131,7 @@ class BronzeWriter:
             "row_count": row_count,
             "target_bronze_table": source.target_bronze_table,
             "target_silver_table": source.target_silver_table,
+            "target_silver_tables": source.target_silver_tables,
             "load_status": "success",
         }
 

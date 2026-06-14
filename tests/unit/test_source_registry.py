@@ -66,8 +66,14 @@ def test_bronze_and_silver_tables_are_registered():
 
     assert "silver_climate_daily" in silver_tables
     assert "silver_disaster_event_month" in silver_tables
-    assert "silver_vancouver_parcel" in silver_tables
-    assert "silver_calgary_flood_hazard" in silver_tables
+    assert "silver_property_parcel" in silver_tables
+    assert "silver_property_tax_assessment" in silver_tables
+    assert "silver_property_assessment" in silver_tables
+    assert "silver_building_permit" in silver_tables
+    assert "silver_development_permit" in silver_tables
+    assert "silver_flood_hazard_zone" in silver_tables
+    assert "silver_hydro_daily" in silver_tables
+    assert "silver_hydro_station" in silver_tables
 
 
 def test_spatial_config_loads_required_crs():

@@ -58,6 +58,20 @@ class SourceDefinition:
     redistribution: str
     raw: dict[str, Any]
 
+    @property
+    def target_silver_tables(self) -> list[str]:
+        """Return every declared Silver output for this source.
+
+        target_silver_table remains the primary output for backward
+        compatibility. target_silver_tables is the complete contract.
+        """
+        configured = self.raw.get("target_silver_tables")
+
+        if configured is None:
+            return [self.target_silver_table]
+
+        return [str(table_name) for table_name in configured]
+
 
 class SourceRegistry:
     """Config-driven source registry for ingestion and audit planning."""
@@ -145,6 +159,39 @@ class SourceRegistry:
                     f"Source '{source_name}' field '{table_field}' must be non-empty."
                 )
 
+        target_silver_tables = metadata.get("target_silver_tables")
+
+        if target_silver_tables is not None:
+            if not isinstance(target_silver_tables, list) or not target_silver_tables:
+                raise ConfigError(
+                    f"Source '{source_name}' field 'target_silver_tables' "
+                    "must be a non-empty list when provided."
+                )
+
+            invalid_outputs = [
+                value
+                for value in target_silver_tables
+                if not isinstance(value, str) or not value.strip()
+            ]
+            if invalid_outputs:
+                raise ConfigError(
+                    f"Source '{source_name}' contains invalid Silver output names: "
+                    f"{invalid_outputs}"
+                )
+
+            if len(target_silver_tables) != len(set(target_silver_tables)):
+                raise ConfigError(
+                    f"Source '{source_name}' field 'target_silver_tables' "
+                    "must not contain duplicates."
+                )
+
+            if metadata["target_silver_table"] not in target_silver_tables:
+                raise ConfigError(
+                    f"Source '{source_name}' primary target_silver_table "
+                    f"'{metadata['target_silver_table']}' must also appear in "
+                    "target_silver_tables."
+                )
+
         source_url = metadata["source_url"]
         if not isinstance(source_url, str) or not source_url.startswith("http"):
             raise ConfigError(f"Source '{source_name}' must have a valid HTTP source_url.")
@@ -169,5 +216,13 @@ class SourceRegistry:
         return {source.target_bronze_table for source in self.sources.values()}
 
     def silver_tables(self) -> set[str]:
-        """Return all configured Silver table names."""
-        return {source.target_silver_table for source in self.sources.values()}
+        """Return every configured Silver output table name."""
+        return {
+            table_name
+            for source in self.sources.values()
+            for table_name in source.target_silver_tables
+        }
+
+    def silver_outputs_for(self, source_name: str) -> list[str]:
+        """Return all declared Silver outputs for one source."""
+        return list(self.get_source(source_name).target_silver_tables)

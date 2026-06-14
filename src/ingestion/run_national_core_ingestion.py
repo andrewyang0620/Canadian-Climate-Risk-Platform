@@ -124,6 +124,10 @@ def download_census_boundaries(
         "source_period_end": None,
         "target_bronze_table": source["target_bronze_table"],
         "target_silver_table": source["target_silver_table"],
+        "target_silver_tables": source.get(
+            "target_silver_tables",
+            [source["target_silver_table"]],
+        ),
         "load_status": "success",
         "extra_metadata": {
             "boundary_package_type": "combined_raw_zip_package",
@@ -210,6 +214,10 @@ def download_wildfire_history(
         "source_period_end": None,
         "target_bronze_table": source["target_bronze_table"],
         "target_silver_table": source["target_silver_table"],
+        "target_silver_tables": source.get(
+            "target_silver_tables",
+            [source["target_silver_table"]],
+        ),
         "load_status": "success",
         "extra_metadata": {
             "dataset_name": download_cfg.get("dataset_name"),
@@ -299,6 +307,10 @@ def download_hydat_archive(
         "source_period_end": None,
         "target_bronze_table": source["target_bronze_table"],
         "target_silver_table": source["target_silver_table"],
+        "target_silver_tables": source.get(
+            "target_silver_tables",
+            [source["target_silver_table"]],
+        ),
         "load_status": "success",
         "extra_metadata": {
             "dataset_name": download_cfg.get("dataset_name"),
@@ -445,6 +457,10 @@ def download_eccc_historical_climate_bc_ab(
         "source_period_end": api_cfg["datetime_end"],
         "target_bronze_table": source["target_bronze_table"],
         "target_silver_table": source["target_silver_table"],
+        "target_silver_tables": source.get(
+            "target_silver_tables",
+            [source["target_silver_table"]],
+        ),
         "load_status": "success",
         "extra_metadata": {
             "collection": api_cfg["collection"],
@@ -566,6 +582,10 @@ def download_statcan_building_permits(
         "source_period_end": None,
         "target_bronze_table": source["target_bronze_table"],
         "target_silver_table": source["target_silver_table"],
+        "target_silver_tables": source.get(
+            "target_silver_tables",
+            [source["target_silver_table"]],
+        ),
         "load_status": "success",
         "extra_metadata": {
             "table_id": statcan_cfg.get("table_id"),
@@ -697,6 +717,10 @@ def download_eccc_hydrometric_realtime(
         "source_period_end": result.get("last_observed_at"),
         "target_bronze_table": source["target_bronze_table"],
         "target_silver_table": source["target_silver_table"],
+        "target_silver_tables": source.get(
+            "target_silver_tables",
+            [source["target_silver_table"]],
+        ),
         "load_status": "success",
         "extra_metadata": {
             "collection": api_cfg["collection"],

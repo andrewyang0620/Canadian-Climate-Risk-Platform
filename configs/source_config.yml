@@ -184,7 +184,10 @@ sources:
       start_year: 2016
       end_year: 2025
     target_bronze_table: bronze_hydat
-    target_silver_table: silver_hydro_baseline
+    target_silver_table: silver_hydro_daily
+    target_silver_tables:
+    - silver_hydro_daily
+    - silver_hydro_station
     downstream_use:
     - hydrometric_baseline
     - water_level_percentile
@@ -365,6 +368,9 @@ sources:
       end_year: null
     target_bronze_table: bronze_boundaries
     target_silver_table: silver_boundary_municipality
+    target_silver_tables:
+    - silver_boundary_province
+    - silver_boundary_municipality
     additional_silver_tables:
     - silver_boundary_province
     downstream_use:
@@ -493,7 +499,9 @@ sources:
       start_year: null
       end_year: null
     target_bronze_table: bronze_vancouver_property_parcels
-    target_silver_table: silver_vancouver_parcel
+    target_silver_table: silver_property_parcel
+    target_silver_tables:
+    - silver_property_parcel
     downstream_use:
     - vancouver_parcel_exposure
     - vancouver_parcel_flood_overlay
@@ -539,7 +547,9 @@ sources:
       start_year: null
       end_year: null
     target_bronze_table: bronze_vancouver_property_tax
-    target_silver_table: silver_vancouver_property_tax
+    target_silver_table: silver_property_tax_assessment
+    target_silver_tables:
+    - silver_property_tax_assessment
     downstream_use:
     - vancouver_property_value_proxy
     - vancouver_parcel_exposure
@@ -551,7 +561,7 @@ sources:
     - report_year
     join_contract:
       intended_join_target: vancouver_property_parcels
-      intended_join_target_silver_table: silver_vancouver_parcel
+      intended_join_target_silver_table: silver_property_parcel
       join_required_for_downstream: true
       candidate_join_keys:
       - pid
@@ -594,7 +604,9 @@ sources:
       start_year: 2017
       end_year: null
     target_bronze_table: bronze_vancouver_building_permits
-    target_silver_table: silver_vancouver_building_permits
+    target_silver_table: silver_building_permit
+    target_silver_tables:
+    - silver_building_permit
     downstream_use:
     - vancouver_development_activity
     - vancouver_parcel_exposure
@@ -606,7 +618,7 @@ sources:
     - address
     join_contract:
       intended_join_target: vancouver_property_parcels
-      intended_join_target_silver_table: silver_vancouver_parcel
+      intended_join_target_silver_table: silver_property_parcel
       join_required_for_downstream: true
       candidate_join_keys:
       - address
@@ -651,7 +663,9 @@ sources:
       start_year: null
       end_year: null
     target_bronze_table: bronze_vancouver_floodplain
-    target_silver_table: silver_vancouver_floodplain
+    target_silver_table: silver_flood_hazard_zone
+    target_silver_tables:
+    - silver_flood_hazard_zone
     downstream_use:
     - vancouver_parcel_flood_overlay
     - floodplain_overlap_pct
@@ -682,7 +696,9 @@ sources:
       start_year: null
       end_year: null
     target_bronze_table: bronze_calgary_property_assessment
-    target_silver_table: silver_calgary_property
+    target_silver_table: silver_property_assessment
+    target_silver_tables:
+    - silver_property_assessment
     downstream_use:
     - calgary_property_flood_exposure
     - assessed_value_proxy
@@ -739,7 +755,9 @@ sources:
       start_year: null
       end_year: null
     target_bronze_table: bronze_calgary_flood_hazard
-    target_silver_table: silver_calgary_flood_hazard
+    target_silver_table: silver_flood_hazard_zone
+    target_silver_tables:
+    - silver_flood_hazard_zone
     downstream_use:
     - calgary_property_flood_overlay
     - flood_zone_category
@@ -789,7 +807,9 @@ sources:
       start_year: null
       end_year: null
     target_bronze_table: bronze_calgary_building_permits
-    target_silver_table: silver_calgary_building_permits
+    target_silver_table: silver_building_permit
+    target_silver_tables:
+    - silver_building_permit
     downstream_use:
     - calgary_development_activity
     - calgary_property_flood_exposure
@@ -802,7 +822,7 @@ sources:
     - originaladdress
     join_contract:
       intended_join_target: calgary_property_assessment
-      intended_join_target_silver_table: silver_calgary_property
+      intended_join_target_silver_table: silver_property_assessment
       join_required_for_downstream: true
       candidate_join_keys:
       - originaladdress
@@ -850,7 +870,9 @@ sources:
       start_year: null
       end_year: null
     target_bronze_table: bronze_calgary_development_permits
-    target_silver_table: silver_calgary_development_permits
+    target_silver_table: silver_development_permit
+    target_silver_tables:
+    - silver_development_permit
     downstream_use:
     - calgary_development_activity
     - calgary_property_flood_exposure
@@ -862,7 +884,7 @@ sources:
     - longitude
     join_contract:
       intended_join_target: calgary_property_assessment
-      intended_join_target_silver_table: silver_calgary_property
+      intended_join_target_silver_table: silver_property_assessment
       join_required_for_downstream: true
       candidate_join_keys:
       - address

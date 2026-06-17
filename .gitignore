@@ -66,3 +66,6 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 .terraform.lock.hcl
+
+# Project documentation
+SUMMARY.md

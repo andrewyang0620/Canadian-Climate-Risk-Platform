@@ -10,6 +10,7 @@ from shapely import make_valid, wkt
 from shapely.geometry import MultiPolygon, Polygon, box
 from shapely.geometry.base import BaseGeometry
 from shapely.ops import unary_union
+from shapely.prepared import prep
 
 
 ANALYSIS_CRS_EPSG = 3347
@@ -160,14 +161,32 @@ def generate_boundary_grid(
         always_xy=True,
     )
 
+    prepared_boundary = prep(normalized_boundary)
+
     full_cell_area_sq_m = float(cell_size * cell_size)
     rows: list[dict[str, Any]] = []
+
+    candidate_count = (max_x_index - min_x_index + 1) * (max_y_index - min_y_index + 1)
+
+    print(
+        "[INFO] evaluating grid candidates | "
+        f"grid_system={spec.grid_system} "
+        f"candidates={candidate_count}"
+    )
+
+    processed_candidates = 0
+    accepted_cells = 0
 
     for y_index in range(min_y_index, max_y_index + 1):
         cell_min_y = y_index * cell_size
         cell_max_y = cell_min_y + cell_size
 
-        for x_index in range(min_x_index, max_x_index + 1):
+        for x_index in range(
+            min_x_index,
+            max_x_index + 1,
+        ):
+            processed_candidates += 1
+
             cell_min_x = x_index * cell_size
             cell_max_x = cell_min_x + cell_size
 
@@ -178,23 +197,45 @@ def generate_boundary_grid(
                 cell_max_y,
             )
 
-            if not normalized_boundary.intersects(full_cell):
+            if not prepared_boundary.intersects(full_cell):
                 continue
 
-            intersection = full_cell.intersection(normalized_boundary)
+            # Most inland cells are complete squares. Avoid the
+            # expensive intersection and polygon-repair path for them.
+            if prepared_boundary.contains(full_cell):
+                analysis_geometry = full_cell
+                analysis_area_sq_m = full_cell_area_sq_m
+                coverage_ratio = 1.0
 
-            if intersection.is_empty or intersection.area <= 0:
-                continue
+            else:
+                intersection = full_cell.intersection(normalized_boundary)
 
-            analysis_geometry, _ = normalize_polygonal_geometry(intersection)
+                if intersection.is_empty or intersection.area <= 0:
+                    continue
 
-            analysis_area_sq_m = float(analysis_geometry.area)
+                if not intersection.is_valid:
+                    intersection = make_valid(intersection)
 
-            if analysis_area_sq_m <= 0:
-                continue
+                polygons = _polygonal_components(intersection)
 
-            coverage_ratio = analysis_area_sq_m / full_cell_area_sq_m
-            coverage_ratio = min(max(coverage_ratio, 0.0), 1.0)
+                if not polygons:
+                    continue
+
+                if len(polygons) == 1:
+                    analysis_geometry = polygons[0]
+                else:
+                    analysis_geometry = unary_union(polygons)
+
+                if analysis_geometry.is_empty or analysis_geometry.area <= 0:
+                    continue
+
+                analysis_area_sq_m = float(analysis_geometry.area)
+
+                coverage_ratio = analysis_area_sq_m / full_cell_area_sq_m
+                coverage_ratio = min(
+                    max(coverage_ratio, 0.0),
+                    1.0,
+                )
 
             centroid = full_cell.centroid
             longitude, latitude = transformer.transform(
@@ -230,7 +271,7 @@ def generate_boundary_grid(
                     "full_cell_area_sq_km": (full_cell_area_sq_m / 1_000_000),
                     "analysis_area_sq_km": (analysis_area_sq_m / 1_000_000),
                     "boundary_coverage_ratio": coverage_ratio,
-                    "is_boundary_edge_cell": coverage_ratio < 0.999999,
+                    "is_boundary_edge_cell": (coverage_ratio < 0.999999),
                     "source_boundary_geometry_repaired": (boundary_repaired),
                     "full_cell_geometry_wkt": full_cell.wkt,
                     "analysis_geometry_type": (analysis_geometry.geom_type),
@@ -239,17 +280,31 @@ def generate_boundary_grid(
                 }
             )
 
+            accepted_cells += 1
+
+        if processed_candidates % 5_000 == 0 or processed_candidates == candidate_count:
+            print(
+                "[INFO] grid generation progress | "
+                f"grid_system={spec.grid_system} "
+                f"processed={processed_candidates}/{candidate_count} "
+                f"accepted={accepted_cells}"
+            )
+
     if not rows:
         raise GoldSpatialGridError(f"Grid system '{spec.grid_system}' produced zero cells.")
 
     dataframe = pd.DataFrame(rows)
 
-    dataframe = dataframe.sort_values(["grid_system", "grid_y_index", "grid_x_index"]).reset_index(
-        drop=True
-    )
+    dataframe = dataframe.sort_values(
+        [
+            "grid_system",
+            "grid_y_index",
+            "grid_x_index",
+        ]
+    ).reset_index(drop=True)
 
     if dataframe["grid_cell_key"].duplicated().any():
-        raise GoldSpatialGridError(f"Grid system '{spec.grid_system}' produced duplicate keys.")
+        raise GoldSpatialGridError(f"Grid system '{spec.grid_system}' " "produced duplicate keys.")
 
     return dataframe
 

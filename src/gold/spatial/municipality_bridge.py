@@ -6,7 +6,7 @@ import pandas as pd
 from shapely import wkt
 from shapely.strtree import STRtree
 
-from src.gold.spatial_grid import (
+from src.gold.spatial.grid import (
     ANALYSIS_CRS_EPSG,
     GoldSpatialGridError,
     normalize_polygonal_geometry,

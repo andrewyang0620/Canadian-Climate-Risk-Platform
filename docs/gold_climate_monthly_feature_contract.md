@@ -132,7 +132,7 @@ Allowed values:
 The formal validation runner is:
 
 ```bash
-python -m src.gold.validate_climate_monthly_features
+python -m src.gold.climate.validate_monthly_features
 ```
 
 Current validation coverage:

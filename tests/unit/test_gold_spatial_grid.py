@@ -3,7 +3,7 @@ import pytest
 from pyproj import CRS
 from shapely.geometry import Polygon, box
 
-from src.gold.spatial_grid import (
+from src.gold.spatial.grid import (
     GoldSpatialGridError,
     GridSpec,
     generate_boundary_grid,

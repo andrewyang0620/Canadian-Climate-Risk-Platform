@@ -2,7 +2,7 @@
 from pyproj import CRS
 from shapely.geometry import box
 
-from src.gold.run_spatial_grid_foundation import (
+from src.gold.spatial.run_spatial_grid_foundation import (
     build_gold_grid_cell,
 )
 

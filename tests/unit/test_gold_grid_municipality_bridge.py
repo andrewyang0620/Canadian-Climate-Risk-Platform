@@ -2,7 +2,7 @@
 from pyproj import CRS
 from shapely.geometry import box
 
-from src.gold.grid_municipality_bridge import (
+from src.gold.spatial.municipality_bridge import (
     build_gold_grid_municipality_bridge,
 )
 

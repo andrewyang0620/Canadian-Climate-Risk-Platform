@@ -1,6 +1,6 @@
 ﻿import pandas as pd
 
-from src.gold.climate_validation import (
+from src.gold.climate.validation import (
     validate_climate_monthly_feature_dataframes,
 )
 

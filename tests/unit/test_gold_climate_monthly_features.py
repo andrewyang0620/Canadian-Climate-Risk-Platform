@@ -1,7 +1,7 @@
 ﻿import pandas as pd
 from shapely.geometry import box
 
-from src.gold.climate_monthly_features import (
+from src.gold.climate.monthly_features import (
     build_gold_climate_station_month_feature,
     build_gold_grid_month_climate_feature,
 )

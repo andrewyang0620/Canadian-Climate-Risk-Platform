@@ -12,7 +12,7 @@ from shapely import wkt
 from shapely.geometry import Point
 from shapely.strtree import STRtree
 
-from src.gold.spatial_grid import ANALYSIS_CRS_EPSG
+from src.gold.spatial.grid import ANALYSIS_CRS_EPSG
 
 
 DISPLAY_CRS_EPSG = 4326

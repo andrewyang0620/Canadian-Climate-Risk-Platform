@@ -10,7 +10,9 @@ from uuid import uuid4
 
 import pandas as pd
 
-from src.gold.spatial_grid import (
+from src.gold.common.io import latest_table_parquet
+
+from src.gold.spatial.grid import (
     ANALYSIS_CRS_EPSG,
     DEFAULT_GRID_VERSION,
     GridSpec,
@@ -50,24 +52,6 @@ def parse_args() -> argparse.Namespace:
     )
 
     return parser.parse_args()
-
-
-def latest_table_parquet(
-    *,
-    silver_root: str | Path,
-    table_name: str,
-) -> Path:
-    table_root = Path(silver_root) / table_name
-
-    candidates = list(table_root.glob("extract_date=*/run_id=*/*.parquet"))
-
-    if not candidates:
-        raise FileNotFoundError(f"No Silver Parquet found for {table_name}: {table_root}")
-
-    return max(
-        candidates,
-        key=lambda path: path.stat().st_mtime,
-    )
 
 
 def select_province_boundary(

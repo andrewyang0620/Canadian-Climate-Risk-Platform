@@ -7,7 +7,7 @@ from typing import Any
 
 import pandas as pd
 
-from src.gold.validation import latest_table_parquet
+from src.gold.common.io import latest_table_parquet
 
 
 EXPECTED_GRID_SYSTEMS = {"ab_10km", "bc_10km"}

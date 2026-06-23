@@ -9,12 +9,12 @@ from uuid import uuid4
 
 import pandas as pd
 
-from src.gold.climate_monthly_features import (
+from src.gold.climate.monthly_features import (
     build_gold_climate_station_month_feature,
     build_gold_grid_month_climate_feature,
     read_silver_climate_daily,
 )
-from src.gold.validation import latest_table_parquet
+from src.gold.common.io import latest_table_parquet
 
 
 STATION_MONTH_TABLE = "gold_climate_station_month_feature"

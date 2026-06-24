@@ -154,3 +154,49 @@ def make_grid_cell():
             },
         ]
     )
+
+
+def test_climate_monthly_validation_accepts_silver_coordinate_bounds():
+    station_month = make_station_month()
+    grid_month = make_grid_month()
+    grid_cell = make_grid_cell()
+
+    station_month.loc[
+        station_month["province_key"] == "BC",
+        "latitude",
+    ] = 60.8
+    station_month.loc[
+        station_month["province_key"] == "BC",
+        "longitude",
+    ] = -109.5
+
+    report = validate_climate_monthly_feature_dataframes(
+        station_month=station_month,
+        grid_month=grid_month,
+        gold_grid_cell=grid_cell,
+    )
+
+    assert report.passed is True
+
+
+def test_climate_monthly_validation_detects_excessive_station_distance():
+    station_month = make_station_month()
+    grid_month = make_grid_month()
+    grid_cell = make_grid_cell()
+
+    grid_month.loc[
+        0,
+        "nearest_station_distance_km",
+    ] = 999.0
+
+    report = validate_climate_monthly_feature_dataframes(
+        station_month=station_month,
+        grid_month=grid_month,
+        gold_grid_cell=grid_cell,
+    )
+
+    assert report.passed is False
+
+    failed_names = {check.name for check in report.checks if not check.passed}
+
+    assert "gold_grid_month_climate_distance_valid" in failed_names

@@ -12,6 +12,7 @@ from shapely import wkt
 from shapely.geometry import Point
 from shapely.strtree import STRtree
 
+from src.gold.common.io import latest_partitioned_table_parquet_files
 from src.gold.spatial.grid import ANALYSIS_CRS_EPSG
 
 
@@ -20,6 +21,9 @@ DISPLAY_CRS_EPSG = 4326
 HEAVY_PRECIP_THRESHOLD_MM = 10.0
 EXTREME_HEAT_THRESHOLD_C = 30.0
 EXTREME_COLD_THRESHOLD_C = -20.0
+
+MIN_STATION_MAPPING_COVERAGE_RATIO = 0.95
+MAX_REASONABLE_STATION_GRID_DISTANCE_KM = 50.0
 
 
 class GoldClimateFeatureError(Exception):
@@ -50,16 +54,13 @@ def read_silver_climate_daily(
     *,
     silver_climate_root: str | Path,
 ) -> pd.DataFrame:
-    paths = sorted(
-        Path(silver_climate_root).glob("extract_date=*/run_id=*/observation_year=*/*.parquet")
+    paths = latest_partitioned_table_parquet_files(
+        table_root=silver_climate_root,
+        partition_pattern="observation_year=*/*.parquet",
     )
 
-    if not paths:
-        raise FileNotFoundError(
-            f"No silver climate daily parquet files found under {silver_climate_root}."
-        )
-
     frames = [pd.read_parquet(path) for path in paths]
+
     return pd.concat(frames, ignore_index=True)
 
 
@@ -114,13 +115,13 @@ def build_gold_climate_station_month_feature(
         df.groupby(
             [
                 "station_id",
-                "station_name",
                 "province_key",
                 "reference_month",
             ],
             dropna=False,
         )
         .agg(
+            station_name=("station_name", "first"),
             latitude=("latitude", "mean"),
             longitude=("longitude", "mean"),
             daily_record_count=("observation_date", "count"),
@@ -166,7 +167,11 @@ def build_gold_climate_station_month_feature(
     ).clip(0, 1)
 
     grouped["climate_station_month_key"] = (
-        grouped["station_id"].astype(str) + "__" + grouped["reference_month"].astype(str)
+        grouped["province_key"].astype(str)
+        + "__"
+        + grouped["station_id"].astype(str)
+        + "__"
+        + grouped["reference_month"].astype(str)
     )
 
     return grouped.sort_values(["reference_month", "province_key", "station_id"]).reset_index(
@@ -230,6 +235,38 @@ def build_gold_grid_month_climate_feature(
         station_month=station_month,
         grid=grid_for_mapping,
     )
+
+    station_keys = station_month[["station_id", "province_key"]].drop_duplicates()
+
+    if station_keys.empty:
+        raise GoldClimateFeatureError(
+            "No station-month records are available for climate grid mapping."
+        )
+
+    mapped_station_keys = (
+        mapping[["station_id", "province_key"]].drop_duplicates()
+        if not mapping.empty
+        else station_keys.iloc[0:0]
+    )
+
+    mapping_coverage_ratio = len(mapped_station_keys) / len(station_keys)
+
+    if mapping_coverage_ratio < MIN_STATION_MAPPING_COVERAGE_RATIO:
+        raise GoldClimateFeatureError(
+            "Climate station mapping coverage below threshold: "
+            f"{mapping_coverage_ratio:.4f} < "
+            f"{MIN_STATION_MAPPING_COVERAGE_RATIO:.4f}."
+        )
+
+    maximum_station_grid_distance_km = float(mapping["station_grid_distance_km"].max())
+
+    if maximum_station_grid_distance_km > MAX_REASONABLE_STATION_GRID_DISTANCE_KM:
+        raise GoldClimateFeatureError(
+            "Climate station mapping produced an unreasonable "
+            "station-to-grid distance: "
+            f"{maximum_station_grid_distance_km:.3f} km > "
+            f"{MAX_REASONABLE_STATION_GRID_DISTANCE_KM:.3f} km."
+        )
 
     mapped = station_month.merge(
         mapping,
@@ -356,6 +393,14 @@ def _map_stations_to_grid_cells(
     station_month: pd.DataFrame,
     grid: pd.DataFrame,
 ) -> pd.DataFrame:
+    crs_values = {int(value) for value in grid["crs_epsg"].dropna().unique()}
+
+    if crs_values != {ANALYSIS_CRS_EPSG}:
+        raise GoldClimateFeatureError(
+            "Gold grid must use EPSG:3347 for climate station mapping; "
+            f"found {sorted(crs_values)}."
+        )
+
     station_points = (
         station_month.assign(
             station_id=station_month["station_id"].astype(str),
@@ -402,8 +447,10 @@ def _map_stations_to_grid_cells(
                 distance_km = point.distance(geometries[nearest_index]) / 1_000
                 mapping_method = "nearest_grid_cell"
             else:
-                grid_index = int(candidate_indices[0])
-                grid_row = grid_lookup.iloc[grid_index]
+                candidate_rows = grid_lookup.iloc[
+                    [int(index) for index in candidate_indices]
+                ].sort_values("grid_cell_key")
+                grid_row = candidate_rows.iloc[0]
                 distance_km = 0.0
                 mapping_method = "point_within_grid_cell"
 
@@ -422,7 +469,20 @@ def _map_stations_to_grid_cells(
                 }
             )
 
-    return pd.DataFrame(rows)
+    mapping_columns = [
+        "station_id",
+        "province_key",
+        "grid_cell_key",
+        "grid_system",
+        "grid_level",
+        "grid_version",
+        "station_projected_x",
+        "station_projected_y",
+        "station_grid_distance_km",
+        "station_grid_mapping_method",
+    ]
+
+    return pd.DataFrame(rows, columns=mapping_columns)
 
 
 def _sum_with_min_count(series: pd.Series) -> float:

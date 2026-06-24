@@ -15,6 +15,12 @@ EXPECTED_MONTH_MIN = "2016-01"
 EXPECTED_MONTH_MAX = "2025-12"
 EXPECTED_MONTH_COUNT = 120
 
+CLIMATE_LATITUDE_MIN = 48.0
+CLIMATE_LATITUDE_MAX = 61.0
+CLIMATE_LONGITUDE_MIN = -140.0
+CLIMATE_LONGITUDE_MAX = -109.0
+MAX_REASONABLE_STATION_GRID_DISTANCE_KM = 50.0
+
 
 class GoldClimateValidationError(Exception):
     """Raised when Gold climate validation cannot be executed."""
@@ -242,8 +248,16 @@ def _validate_station_month(
     coordinate_nulls = int(station_month[["latitude", "longitude"]].isna().any(axis=1).sum())
     coordinate_out_of_range = int(
         (
-            ~station_month["latitude"].between(48, 60, inclusive="both")
-            | ~station_month["longitude"].between(-140, -110, inclusive="both")
+            ~station_month["latitude"].between(
+                CLIMATE_LATITUDE_MIN,
+                CLIMATE_LATITUDE_MAX,
+                inclusive="both",
+            )
+            | ~station_month["longitude"].between(
+                CLIMATE_LONGITUDE_MIN,
+                CLIMATE_LONGITUDE_MAX,
+                inclusive="both",
+            )
         ).sum()
     )
 
@@ -257,6 +271,10 @@ def _validate_station_month(
             "latitude_max": float(station_month["latitude"].max()),
             "longitude_min": float(station_month["longitude"].min()),
             "longitude_max": float(station_month["longitude"].max()),
+            "allowed_latitude_min": CLIMATE_LATITUDE_MIN,
+            "allowed_latitude_max": CLIMATE_LATITUDE_MAX,
+            "allowed_longitude_min": CLIMATE_LONGITUDE_MIN,
+            "allowed_longitude_max": CLIMATE_LONGITUDE_MAX,
         },
     )
 
@@ -370,6 +388,9 @@ def _validate_grid_month(
         },
     )
 
+    maximum_nearest_distance = float(grid_month["nearest_station_distance_km"].max())
+    maximum_mean_distance = float(grid_month["mean_station_distance_km"].max())
+
     distance_invalid = int(
         (
             (grid_month["nearest_station_distance_km"] < 0)
@@ -377,15 +398,22 @@ def _validate_grid_month(
         ).sum()
     )
 
+    excessive_distance_rows = int(
+        (
+            (grid_month["nearest_station_distance_km"] > MAX_REASONABLE_STATION_GRID_DISTANCE_KM)
+            | (grid_month["mean_station_distance_km"] > MAX_REASONABLE_STATION_GRID_DISTANCE_KM)
+        ).sum()
+    )
+
     report.add_check(
         name="gold_grid_month_climate_distance_valid",
-        passed=distance_invalid == 0,
+        passed=(distance_invalid == 0 and excessive_distance_rows == 0),
         details={
             "invalid_distance_rows": distance_invalid,
-            "maximum_nearest_station_distance_km": float(
-                grid_month["nearest_station_distance_km"].max()
-            ),
-            "maximum_mean_station_distance_km": float(grid_month["mean_station_distance_km"].max()),
+            "excessive_distance_rows": excessive_distance_rows,
+            "maximum_nearest_station_distance_km": (maximum_nearest_distance),
+            "maximum_mean_station_distance_km": (maximum_mean_distance),
+            "maximum_allowed_station_grid_distance_km": (MAX_REASONABLE_STATION_GRID_DISTANCE_KM),
         },
     )
 

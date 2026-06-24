@@ -151,3 +151,47 @@ Current validation coverage:
 - [x] station count validity
 - [x] station distance validity
 - [x] quality flag validity
+
+## Source Selection and Mapping Guardrails
+
+The Gold monthly climate feature pipeline intentionally reads only the latest available
+`silver_climate_daily` run. The source reader selects the latest `extract_date`, then the
+latest `run_id` within that extract date by file modification time. This prevents historical
+Silver runs from being silently concatenated into the Gold feature build.
+
+Climate station-to-grid mapping uses only provincial 10km grid systems:
+
+- `ab_10km`
+- `bc_10km`
+
+The mapping step requires the input grid to use EPSG:3347 analysis geometry. The pipeline
+fails fast if a non-3347 grid is supplied.
+
+The pipeline also enforces station mapping guardrails:
+
+- minimum station mapping coverage: `0.95`
+- maximum reasonable station-to-grid distance: `50.0 km`
+
+Current production output maps all climate stations successfully, with no unmapped stations.
+
+## Grid-Month Aggregation Semantics
+
+`gold_climate_station_month_feature` is built at the station-month grain:
+
+    province_key × station_id × reference_month
+
+The station-month key format is:
+
+    province_key__station_id__reference_month
+
+`gold_grid_month_climate_feature` is built at the grid-cell-month grain. When multiple stations
+map to the same grid cell, climate values are station-averaged unless the field is explicitly a
+count of records or stations.
+
+For example:
+
+- station-level `extreme_heat_days` means the number of extreme heat days at one station in one month
+- grid-level `extreme_heat_days` means the average extreme heat days across stations mapped to that grid cell
+- grid-level `total_precip_mm`, `total_rain_mm`, and `total_snow` are station-averaged monthly values, not summed totals across stations
+
+This avoids inflating climate intensity simply because more stations are mapped to a grid cell.

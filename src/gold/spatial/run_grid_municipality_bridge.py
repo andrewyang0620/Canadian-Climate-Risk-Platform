@@ -9,7 +9,9 @@ from uuid import uuid4
 
 import pandas as pd
 
-from src.gold.grid_municipality_bridge import (
+from src.gold.common.io import latest_table_parquet
+
+from src.gold.spatial.municipality_bridge import (
     build_gold_grid_municipality_bridge,
 )
 
@@ -34,22 +36,6 @@ def parse_args() -> argparse.Namespace:
     )
 
     return parser.parse_args()
-
-
-def latest_table_parquet(
-    *,
-    root: str | Path,
-    table_name: str,
-) -> Path:
-    candidates = list((Path(root) / table_name).glob("extract_date=*/run_id=*/*.parquet"))
-
-    if not candidates:
-        raise FileNotFoundError(f"No Parquet found for {table_name}.")
-
-    return max(
-        candidates,
-        key=lambda path: path.stat().st_mtime,
-    )
 
 
 def run_grid_municipality_bridge(

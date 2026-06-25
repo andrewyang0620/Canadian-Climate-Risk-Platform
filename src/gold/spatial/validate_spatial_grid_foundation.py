@@ -3,7 +3,7 @@
 import argparse
 import json
 
-from src.gold.validation import (
+from src.gold.spatial.validation import (
     validate_spatial_grid_foundation_outputs,
 )
 

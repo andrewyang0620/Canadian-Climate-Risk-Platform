@@ -10,7 +10,9 @@ import pandas as pd
 import shapely
 from shapely import wkt
 
-from src.gold.spatial_grid import (
+from src.gold.common.io import latest_table_parquet
+
+from src.gold.spatial.grid import (
     ANALYSIS_CRS_EPSG,
     normalize_polygonal_geometry,
 )
@@ -84,22 +86,6 @@ class GoldValidationReport:
             "checks": [check.to_dict() for check in self.checks],
             "output_paths": self.output_paths,
         }
-
-
-def latest_table_parquet(
-    *,
-    root: str | Path,
-    table_name: str,
-) -> Path:
-    candidates = list((Path(root) / table_name).glob("extract_date=*/run_id=*/*.parquet"))
-
-    if not candidates:
-        raise FileNotFoundError(f"No Parquet output found for {table_name}.")
-
-    return max(
-        candidates,
-        key=lambda path: path.stat().st_mtime,
-    )
 
 
 def validate_spatial_grid_foundation_dataframes(

@@ -199,3 +199,30 @@ Grid-month hydro quality is based on mean station completeness:
 - `medium` >= 0.70
 - `low` >= 0.40
 - `very_low` < 0.40
+
+## Current Validated Output
+
+Latest validated run:
+
+```text
+gold_hydro_station_month_feature rows: 158,831
+gold_grid_month_hydro_feature rows: 142,249
+station_count: 981
+mapped_station_count: 981
+unmapped_station_count: 0
+reference_month range: 2016-01 through 2025-12
+month_count: 120
+measurement_types: flow, level
+feature_grid_cell_count: 841
+valid_10km_grid_cell_count: 16,508
+validation checks: 25/25 passed
+```
+
+Important interpretation:
+
+`gold_grid_month_hydro_feature` is a sparse grid feature table. It only includes grid
+cells with mapped hydrometric stations. It does not attempt to fabricate hydro values
+for all 10km grid cells.
+
+This is intentional because hydrometric station values are river-network dependent and
+should not be treated as continuous surface measurements.

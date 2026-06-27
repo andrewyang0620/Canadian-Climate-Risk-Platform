@@ -247,3 +247,40 @@ The mart validation must check:
 - hydro level feature flags match level null/non-null state
 - completeness ratios are between 0 and 1 when non-null
 - quality flags are one of `high`, `medium`, `low`, `very_low` when non-null
+
+## Current Validated Output
+ 
+Latest validated run:
+ 
+```text
+gold_grid_month_risk_feature_mart rows: 1,980,960
+grid_cell_count: 16,508
+reference_month range: 2016-01 through 2025-12
+month_count: 120
+grid_systems: ab_10km, bc_10km
+columns: 82
+ 
+climate_grid_month_count: 48,360
+hydro_flow_grid_month_count: 68,247
+hydro_level_grid_month_count: 74,002
+ 
+grid_cells_with_climate_feature: 513
+grid_cells_with_hydro_flow_feature: 732
+grid_cells_with_hydro_level_feature: 809
+ 
+validation checks: 17/17 passed
+```
+ 
+Important interpretation:
+ 
+The mart is a complete 10km grid-month skeleton. Climate and hydro features are sparse
+and are joined with coverage flags:
+ 
+```text
+has_climate_feature
+has_hydro_flow_feature
+has_hydro_level_feature
+```
+ 
+Rows without climate or hydro features are intentionally preserved with null feature
+values.

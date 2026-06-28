@@ -64,6 +64,7 @@ class NationalSourceDownloader:
         implemented = source.name in {
             "canadian_disaster_database",
             "national_hydrometric_basin_polygons",
+            "wildfire_perimeter_polygons",
         }
 
         return NationalDownloadPlan(
@@ -140,6 +141,9 @@ class NationalSourceDownloader:
 
     def plan_wildfire_history(self) -> NationalDownloadPlan:
         return self.build_plan("wildfire_history")
+
+    def plan_wildfire_perimeter_polygons(self) -> NationalDownloadPlan:
+        return self.build_plan("wildfire_perimeter_polygons")
 
     def plan_statcan_building_permits(self) -> NationalDownloadPlan:
         return self.build_plan("statcan_building_permits")

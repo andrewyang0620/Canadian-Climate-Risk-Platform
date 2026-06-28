@@ -108,7 +108,8 @@ def test_national_source_specific_plan_methods():
     assert downloader.plan_eccc_historical_climate().source_name == "eccc_historical_climate"
     assert downloader.plan_eccc_hydrometric_realtime().source_name == "eccc_hydrometric_realtime"
     assert downloader.plan_hydat_archive().source_name == "hydat_archive"
-    assert downloader.plan_wildfire_history().source_name == "wildfire_history"
+    assert downloader.plan_wildfire_history()
+    downloader.plan_wildfire_perimeter_polygons().source_name == "wildfire_history"
     assert downloader.plan_statcan_building_permits().source_name == "statcan_building_permits"
     assert downloader.plan_census_boundaries().source_name == "census_boundaries"
     assert downloader.plan_canadian_disaster_database().source_name == "canadian_disaster_database"
@@ -161,4 +162,14 @@ def test_national_hydrometric_basin_polygon_plan_is_implemented():
     assert plan.source_name == "national_hydrometric_basin_polygons"
     assert plan.target_bronze_table == "bronze_hydro_basin_polygon"
     assert plan.suggested_raw_filename.startswith("national_hydrometric_basin_polygons_raw")
+    assert plan.implemented is True
+
+
+def test_wildfire_perimeter_polygon_plan_is_implemented():
+    downloader = NationalSourceDownloader()
+    plan = downloader.build_plan("wildfire_perimeter_polygons")
+
+    assert plan.source_name == "wildfire_perimeter_polygons"
+    assert plan.target_bronze_table == "bronze_wildfire_perimeter_polygon"
+    assert plan.suggested_raw_filename.startswith("wildfire_perimeter_polygons_raw")
     assert plan.implemented is True

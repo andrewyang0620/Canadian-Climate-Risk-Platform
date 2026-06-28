@@ -1072,3 +1072,154 @@ sources:
         interpretation: Hydro basin polygons provide spatial footprint/allocation data. They do not replace
           HYDAT daily flow/level observations. Existing hydro measurements remain the measurement source;
           basin polygons improve grid-level spatial allocation.
+  wildfire_perimeter_polygons:
+    display_name: Canadian National Fire Database Fire Polygon Data
+    source_group: national
+    provider: Natural Resources Canada / Canadian Forest Service
+    source_url: https://cwfis.cfs.nrcan.gc.ca/downloads/nfdb/fire_poly/current_version/
+    access_method: direct_zip_download
+    expected_frequency: periodic
+    file_format: zip_shapefile
+    spatial_grain: wildfire_perimeter_polygon
+    temporal_grain: event
+    time_window:
+      start_year: 1972
+      end_year: 2024
+    target_bronze_table: bronze_wildfire_perimeter_polygon
+    target_silver_table: silver_wildfire_perimeter_polygon
+    downstream_use:
+    - wildfire_burned_area_features
+    - wildfire_grid_intersection_features
+    - grid_month_hazard_exposure
+    required_fields:
+    - geometry
+    validation_checks:
+    - schema_hash
+    - row_count
+    - geometry_validity
+    - event_date_range
+    post_silver_validation_checks:
+    - wildfire_perimeter_required_columns
+    - wildfire_perimeter_key_uniqueness
+    - wildfire_perimeter_year_presence
+    - wildfire_perimeter_geometry_validity
+    - wildfire_perimeter_bc_ab_filter
+    - crs_check
+    redistribution: public
+    wildfire_perimeter_download:
+      dataset_name: NFDB_poly
+      url: https://cwfis.cfs.nrcan.gc.ca/downloads/nfdb/fire_poly/current_version/NFDB_poly.zip
+      filename: NFDB_poly.zip
+      format: zip_shapefile
+      source_version: current_version
+      metadata_files_in_zip:
+      - NFDB_Poly_metadata_NAP_ISO_19115_2003.xml
+      - NFDB_Poly_metadata_NAP_ISO_19115_2003_EN.pdf
+      - NFDB_Poly_metadata_NAP_ISO_19115_2003_FR.pdf
+      - NFDB_poly_shapefile_metadata.pdf
+      - NFDB_poly_update_log.txt
+      expected_shapefiles:
+      - NFDB_poly_1972to2020_20250630.shp
+      - NFDB_poly_2021to2024_20250630.shp
+      note: Canadian National Fire Database fire perimeter polygon shapefile package. The package contains
+        two polygon shapefiles covering 1972-2020 and 2021-2024. Silver standardization filters to BC/AB
+        and 2016-2025.
+    wildfire_perimeter_contract:
+      required_for_downstream_features: true
+      silver_table: silver_wildfire_perimeter_polygon
+      silver_grain: one NFDB polygon perimeter record filtered to BC/AB across available source history
+      primary_key: wildfire_perimeter_key
+      primary_key_rule: wildfire_perimeter_key = 'nfdb_poly__' + cfs_ref_id + '__' + source_file_stem
+        + '__record_' + source_record_number
+      natural_source_key: CFS_REF_ID
+      source_crs: NAD_1983_Lambert_Conformal_Conic
+      candidate_event_id_fields:
+      - CFS_REF_ID
+      - FIRE_ID
+      - SOURCE_KEY
+      candidate_year_fields:
+      - YEAR
+      candidate_date_fields:
+      - REP_DATE
+      - OUT_DATE
+      - POLY_DATE
+      - ACQ_DATE
+      candidate_size_fields:
+      - SIZE_HA
+      - CALC_HA
+      candidate_agency_fields:
+      - SRC_AGENCY
+      candidate_cause_fields:
+      - CAUSE
+      profile_summary:
+        raw_total_rows: 48571
+        raw_bc_ab_rows: 14527
+        raw_2016_2025_rows: 13426
+        source_shapefiles:
+          NFDB_poly_1972to2020_20250630.shp:
+            row_count: 41210
+            shape_type: POLYGONZ
+            year_min: -9999
+            year_max: 2020
+            bc_ab_2016_2025_count: 2249
+          NFDB_poly_2021to2024_20250630.shp:
+            row_count: 7361
+            shape_type: POLYGONZ
+            year_min: 2021
+            year_max: 2024
+            bc_ab_2016_2025_count: 2805
+        year_counts_2016_2025_all_canada:
+          2016: 1021
+          2017: 1601
+          2018: 1833
+          2019: 924
+          2020: 686
+          2021: 1823
+          2022: 1360
+          2023: 2200
+          2024: 1978
+          2025: 0
+        silver_scope_year_province_counts:
+          AB:
+            2016: 185
+            2017: 140
+            2018: 196
+            2019: 171
+            2020: 45
+            2021: 193
+            2022: 212
+            2023: 226
+            2024: 245
+          BC:
+            2016: 219
+            2017: 344
+            2018: 675
+            2019: 160
+            2020: 114
+            2021: 438
+            2022: 380
+            2023: 676
+            2024: 435
+        silver_scope_bc_ab_rows: 14527
+        gold_feature_window_bc_ab_2016_2025_rows: 5054
+      key_profile:
+        filtered_scope_rows: 5054
+        cfs_ref_id_non_empty_rows: 5054
+        cfs_ref_id_unique_count: 5054
+        cfs_ref_id_duplicate_rows: 0
+        fire_id_unique_count: 4811
+        fire_id_duplicate_rows: 243
+        src_agency_year_fire_id_unique_count: 5054
+        src_agency_year_fire_id_duplicate_rows: 0
+        note: CFS_REF_ID is unique in the BC/AB 2016-2025 feature window, but full-history Silver uses
+          a lineage-safe primary key to avoid assuming global CFS_REF_ID uniqueness.
+      join_policy: Do not assume CFS_REF_ID, FIRE_ID, SOURCE_KEY, nfdb_fire_id, or existing silver_wildfire_event
+        keys are equivalent. Join keys against point wildfire events must be proven with match-rate profiling
+        before downstream use.
+      validation_rule: Silver must read both NFDB polygon shapefiles, filter to BC/AB, preserve historical
+        years, require non-null CFS_REF_ID and fire_year, and audit geometry repairs. The 2016-2025 modeling
+        window is applied downstream in Gold.
+    downstream_feature_window:
+      start_year: 2016
+      end_year: 2025
+      note: Feature/modeling window belongs in Gold or mart layers, not Silver.

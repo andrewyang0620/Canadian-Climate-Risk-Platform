@@ -35,3 +35,50 @@ This summary is generated from local Bronze raw files. It verifies raw schema, c
 - Candidate contracts are checked by case-insensitive normalized field matching.
 - Large CSV row counts are exact only when profiling is run with `--count-rows`.
 - This file should be reviewed before implementing Silver standardization logic.
+
+## Pending Polygon/Basin Profiling Requirements
+
+The current source profiling covers the existing registered sources. Two planned area-based source upgrades still require dedicated profiling before they can be registered in `configs/source_config.yml`.
+
+### Hydro basin polygon profiling requirements
+
+The Hydro basin polygon source must be profiled before implementation decisions are made.
+
+Do not assume raw field names for station identity. Candidate field names must come from actual downloaded source schema inspection, not from guesswork.
+
+The profiling output must report:
+
+- raw file format and layer names
+- raw column names and dtypes
+- geometry type distribution
+- source CRS
+- geometry null count
+- geometry validity rate
+- station identifier candidate fields
+- duplicate station identifier count
+- join rate against `silver_hydro_station`
+- join rate against `silver_hydro_daily`
+- AB/BC intersection coverage
+
+### Wildfire perimeter polygon profiling requirements
+
+The NFDB perimeter polygon source must be profiled before implementation decisions are made.
+
+Do not assume that `CFS_REF_ID` is equivalent to `NFDBFIREID` or the current `silver_wildfire_event.nfdb_fire_id`. Any join key must be proven through data profiling and match-rate audit.
+
+The profiling output must report:
+
+- raw file format and layer names
+- raw column names and dtypes
+- geometry type distribution
+- source CRS
+- geometry null count
+- geometry validity rate
+- fire identity candidate fields
+- year/date candidate fields
+- size/area candidate fields
+- duplicate identity candidate counts
+- join rate against `silver_wildfire_event`
+- AB/BC intersection coverage
+- unmatched polygon count
+- unmatched point/event count

@@ -82,3 +82,45 @@ The profiling output must report:
 - AB/BC intersection coverage
 - unmatched polygon count
 - unmatched point/event count
+
+## National Hydrometric Network Basin Polygons profile
+
+Schema probe confirmed that each project-scope MDA_ADP GeoJSON chunk contains three aligned layers:
+
+1. `DrainageBasin_BassinDeDrainage`
+   - geometry: Polygon / MultiPolygon after repair
+   - target Silver table: `silver_hydro_basin_polygon`
+   - key field: `StationNum`
+   - standardized key: `station_id`
+   - area fields: `Area_km2`, `Aire_km2`
+   - revision fields: `Version`, `Date_rev`
+
+2. `PourPoint_PointExutoire`
+   - geometry: Point
+   - target Silver table: `silver_hydro_basin_pour_point`
+   - key field: `StationNum`
+   - province field: `ProvTerr`
+
+3. `Station`
+   - geometry: Point
+   - target Silver table: `silver_hydro_basin_station_point`
+   - key field: `StationNum`
+   - province field: `ProvTerr`
+   - HYDAT version field: `HYDAT_ver`
+
+Full project-scope profile:
+
+- total station IDs across each layer: 5,071
+- layer alignment: polygon, pour point, and station point station ID sets are identical
+- MDA_ADP region counts:
+  - 05: 1,740
+  - 06: 164
+  - 07: 476
+  - 08: 2,180
+  - 09: 87
+  - 10: 258
+  - 11: 166
+- existing `silver_hydro_station` match count: 3,212
+- existing `silver_hydro_station` unmatched count: 216
+
+Station ID note: the source includes standard WSC station IDs such as `11AA001` and extended/test or auxiliary IDs such as `08HDX03` and `08HDX05`. Silver validation accepts both forms while preserving the source station identifier.

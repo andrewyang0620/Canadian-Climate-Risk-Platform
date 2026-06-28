@@ -61,7 +61,10 @@ class NationalSourceDownloader:
         source = self.registry.get_source(source_name)
         self._validate_national_source(source)
 
-        implemented = source.name == "canadian_disaster_database"
+        implemented = source.name in {
+            "canadian_disaster_database",
+            "national_hydrometric_basin_polygons",
+        }
 
         return NationalDownloadPlan(
             source_name=source.name,
@@ -146,6 +149,9 @@ class NationalSourceDownloader:
 
     def plan_canadian_disaster_database(self) -> NationalDownloadPlan:
         return self.build_plan("canadian_disaster_database")
+
+    def plan_national_hydrometric_basin_polygons(self) -> NationalDownloadPlan:
+        return self.build_plan("national_hydrometric_basin_polygons")
 
     def _national_source_definitions(self) -> list[SourceDefinition]:
         return [

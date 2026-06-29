@@ -2,68 +2,16 @@
 
 This document tracks all national, provincial, and municipal public datasets used by the platform, including source URL, update frequency, file format, spatial grain, ingestion method, and downstream mart usage.
 
-## Planned Polygon/Basin Source Upgrade
+## Registered Polygon/Basin Source Upgrades
 
-Two source upgrades are planned because grid-level modeling should prefer area-based spatial footprints over point-only allocation when available.
+Grid-level modeling should prefer area-based spatial footprints over point-only allocation when reliable footprints are available. The following two source upgrades are now registered and profiled.
 
-### Hydro basin polygons
+| Source ID | Source | Spatial role | Bronze output | Silver output |
+|---|---|---|---|---|
+| `national_hydrometric_basin_polygons` | National Hydrometric Network Basin Polygons | Hydrometric drainage basin polygons, pour points, and station points | `bronze_hydro_basin_polygon` | `silver_hydro_basin_polygon`, `silver_hydro_basin_pour_point`, `silver_hydro_basin_station_point` |
+| `wildfire_perimeter_polygons` | Canadian National Fire Database `NFDB_poly` | Wildfire perimeter / burned-area polygons | `bronze_wildfire_perimeter_polygon` | `silver_wildfire_perimeter_polygon` |
 
-Candidate source:
-
-- National Hydrometric Network Basin Polygons
-
-Purpose:
-
-- provide drainage basin polygons for hydrometric stations
-- support basin-to-grid intersection for future hydro Gold logic
-- keep HYDAT station and daily observations as the measurement source
-
-Branch 19 decision:
-
-- do not register this source in `configs/source_config.yml` yet
-- do not assume station key field names yet
-- do not set match-rate thresholds yet
-
-Required future audit in the Hydro basin Bronze/Silver branch:
-
-- inspect actual raw schema
-- confirm station identifier field
-- standardize geometry and CRS
-- measure join rate against `silver_hydro_station`
-- measure join rate against `silver_hydro_daily`
-- measure AB/BC grid intersection coverage
-
-### Wildfire perimeter polygons
-
-Candidate source:
-
-- NFDB fire perimeter polygons
-
-Purpose:
-
-- provide fire perimeter polygons for burned-area grid features
-- replace point-count / nearest-fire allocation in future Gold wildfire logic if quality is sufficient
-- keep existing `silver_wildfire_event` as a legacy point/event reference source until polygon quality and join rate are validated
-
-Branch 19 decision:
-
-- do not register this source in `configs/source_config.yml` yet
-- do not assume polygon-to-point join keys yet
-- do not assume `CFS_REF_ID` is equivalent to `NFDBFIREID` / `nfdb_fire_id`
-- do not set match-rate thresholds yet
-
-Required future audit in the Wildfire polygon Bronze/Silver branch:
-
-- inspect actual polygon schema
-- confirm available fire identity fields
-- confirm date/year fields
-- confirm size/area fields
-- standardize geometry and CRS
-- measure AB/BC polygon coverage
-- measure join rate against `silver_wildfire_event`
-- report unmatched polygon and point/event records separately
-
-## National Hydrometric Network Basin Polygons
+### National Hydrometric Network Basin Polygons
 
 The National Hydrometric Network Basin Polygons source was added as a Hydro spatial-footprint source for grid-level hydro allocation.
 
@@ -105,3 +53,37 @@ Geometry handling:
 - final geometry types: Polygon and MultiPolygon
 
 Interpretation: unmatched hydro stations are retained in existing Hydro Silver tables. Downstream Gold hydro logic must use basin polygons where available and a documented fallback strategy for stations without basin polygon coverage.
+
+### Wildfire perimeter polygons - NFDB_poly
+
+Source: Canadian National Fire Database fire polygon data.
+
+This source is registered separately from the existing NFDB point wildfire history source.
+
+Bronze source:
+
+- source name: `wildfire_perimeter_polygons`
+- raw package: `NFDB_poly.zip`
+- target Bronze table: `bronze_wildfire_perimeter_polygon`
+
+Silver output:
+
+- target Silver table: `silver_wildfire_perimeter_polygon`
+- Silver grain: one NFDB wildfire perimeter polygon record for BC/AB
+- Silver geographic scope: BC and AB
+- Silver historical scope: full available BC/AB source history, 1972-2024
+- Gold/modeling window: downstream feature layers may filter to 2016-2025
+
+Latest source profile:
+
+- raw NFDB polygon rows: 48,571
+- BC/AB Silver rows: 14,527
+- AB rows: 4,805
+- BC rows: 9,722
+- BC/AB rows in 2016-2025 feature window: 5,054
+- source files:
+  - `NFDB_poly_1972to2020_20250630.shp`: 11,722 BC/AB Silver rows
+  - `NFDB_poly_2021to2024_20250630.shp`: 2,805 BC/AB Silver rows
+
+Design note:
+The wildfire perimeter polygon source does not replace `silver_wildfire_event`. The existing point source remains the wildfire event occurrence source. The polygon source provides burned-area/perimeter geometry for future grid-intersection and exposure features.

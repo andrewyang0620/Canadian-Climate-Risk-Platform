@@ -6,7 +6,7 @@ This summary is generated from local Bronze raw files. It verifies raw schema, c
 
 ## Summary
 
-- Profiled sources: `13`
+- Profiled sources: `15`
 - Missing Bronze runs: `0`
 - Raw files missing: `0`
 - Profile failures: `0`
@@ -28,6 +28,8 @@ This summary is generated from local Bronze raw files. It verifies raw schema, c
 | `calgary_flood_hazard` | `profiled` | `geojson` | `1144` | `4` | `required_fields:True` |
 | `calgary_building_permits` | `profiled` | `csv` | `490102` | `30` | `required_fields:True` `join_contract:True` `coordinate_contract:True` |
 | `calgary_development_permits` | `profiled` | `csv` | `190399` | `35` | `required_fields:True` `join_contract:True` `coordinate_contract:True` |
+| `national_hydrometric_basin_polygons` | `profiled` | `zip_geojson_package` | `5071 per layer` | `varies` | `required_fields:True` `geometry_contract:True` `layer_alignment:True` `station_join_contract:True` |
+| `wildfire_perimeter_polygons` | `profiled` | `zip_shapefile` | `48571` | `varies` | `required_fields:True` `geometry_contract:True` `bc_ab_filter:True` `key_contract:True` |
 
 ## Notes
 
@@ -36,52 +38,13 @@ This summary is generated from local Bronze raw files. It verifies raw schema, c
 - Large CSV row counts are exact only when profiling is run with `--count-rows`.
 - This file should be reviewed before implementing Silver standardization logic.
 
-## Pending Polygon/Basin Profiling Requirements
+## Polygon/Basin Profiling Notes
 
-The current source profiling covers the existing registered sources. Two planned area-based source upgrades still require dedicated profiling before they can be registered in `configs/source_config.yml`.
+The two area-based source upgrades are now registered and profiled. Remaining work is downstream allocation and join-policy validation, not raw-schema discovery.
 
-### Hydro basin polygon profiling requirements
+Hydro basin polygons use `StationNum` as the source station identifier and standardize it to `station_id`. The profile confirms layer alignment across basin polygons, pour points, and station points, plus measured coverage against existing Hydro Silver station records.
 
-The Hydro basin polygon source must be profiled before implementation decisions are made.
-
-Do not assume raw field names for station identity. Candidate field names must come from actual downloaded source schema inspection, not from guesswork.
-
-The profiling output must report:
-
-- raw file format and layer names
-- raw column names and dtypes
-- geometry type distribution
-- source CRS
-- geometry null count
-- geometry validity rate
-- station identifier candidate fields
-- duplicate station identifier count
-- join rate against `silver_hydro_station`
-- join rate against `silver_hydro_daily`
-- AB/BC intersection coverage
-
-### Wildfire perimeter polygon profiling requirements
-
-The NFDB perimeter polygon source must be profiled before implementation decisions are made.
-
-Do not assume that `CFS_REF_ID` is equivalent to `NFDBFIREID` or the current `silver_wildfire_event.nfdb_fire_id`. Any join key must be proven through data profiling and match-rate audit.
-
-The profiling output must report:
-
-- raw file format and layer names
-- raw column names and dtypes
-- geometry type distribution
-- source CRS
-- geometry null count
-- geometry validity rate
-- fire identity candidate fields
-- year/date candidate fields
-- size/area candidate fields
-- duplicate identity candidate counts
-- join rate against `silver_wildfire_event`
-- AB/BC intersection coverage
-- unmatched polygon count
-- unmatched point/event count
+Wildfire perimeter polygons preserve `CFS_REF_ID` as a natural source identifier and use a lineage-safe Silver primary key. Do not assume that `CFS_REF_ID`, `FIRE_ID`, `SOURCE_KEY`, `NFDBFIREID`, or current `silver_wildfire_event.nfdb_fire_id` values are equivalent without a separate match-rate audit.
 
 ## National Hydrometric Network Basin Polygons profile
 
@@ -124,3 +87,57 @@ Full project-scope profile:
 - existing `silver_hydro_station` unmatched count: 216
 
 Station ID note: the source includes standard WSC station IDs such as `11AA001` and extended/test or auxiliary IDs such as `08HDX03` and `08HDX05`. Silver validation accepts both forms while preserving the source station identifier.
+
+## Wildfire perimeter polygon source profile - NFDB_poly
+
+Source package:
+
+- `NFDB_poly.zip`
+- raw size observed in Bronze: 778,498,701 bytes
+- source shapefiles:
+  - `NFDB_poly_1972to2020_20250630.shp`
+  - `NFDB_poly_2021to2024_20250630.shp`
+
+Raw profile:
+
+- total raw polygon rows: 48,571
+- 1972-2020 shapefile rows: 41,210
+- 2021-2024 shapefile rows: 7,361
+
+BC/AB Silver profile:
+
+- total Silver rows: 14,527
+- AB rows: 4,805
+- BC rows: 9,722
+- year range: 1972-2024
+- 2016-2025 downstream feature-window rows: 5,054
+
+Source-file contribution after BC/AB Silver filter:
+
+- `NFDB_poly_1972to2020_20250630.shp`: 11,722 rows
+- `NFDB_poly_2021to2024_20250630.shp`: 2,805 rows
+
+Silver fields preserve:
+
+- source identifiers: `cfs_ref_id`, `source_fire_id`, `source_key`
+- temporal fields: `fire_year`, `fire_month`, `fire_day`, `report_date`, `out_date`, `polygon_date`, `acquired_date`
+- size fields: `source_size_ha`, `calculated_size_ha`
+- cause and mapping fields: `fire_cause`, `prescribed`, `map_source`, `map_method`
+- geometry audit fields: `geometry_original_is_valid`, `geometry_was_repaired`, `geometry_is_valid`
+- lineage fields: `source_file`, `source_record_number`, `source_name`, `source_layer`
+
+Validation result:
+
+- required columns: passed
+- non-empty table: passed
+- primary key uniqueness: 14,527 / 14,527
+- null or blank `cfs_ref_id`: 0
+- province filter: AB/BC only
+- fire year presence: passed
+- geometry repaired count: 143
+- invalid geometry after repair: 0
+- geometry types: Polygon, MultiPolygon
+- source CRS: `NAD_1983_Lambert_Conformal_Conic`
+
+Key policy:
+`wildfire_perimeter_key` is a lineage-safe Silver primary key. `CFS_REF_ID` is preserved as a natural source identifier, but polygon keys must not be assumed equivalent to existing `silver_wildfire_event` point-event keys without separate join profiling.

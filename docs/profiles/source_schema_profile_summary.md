@@ -141,3 +141,77 @@ Validation result:
 
 Key policy:
 `wildfire_perimeter_key` is a lineage-safe Silver primary key. `CFS_REF_ID` is preserved as a natural source identifier, but polygon keys must not be assumed equivalent to existing `silver_wildfire_event` point-event keys without separate join profiling.
+
+## Gold wildfire perimeter grid-month feature profile
+ 
+Gold table:
+ 
+```text
+gold_grid_month_wildfire_perimeter_feature
+```
+ 
+Input source:
+ 
+```text
+silver_wildfire_perimeter_polygon
+```
+ 
+Feature window:
+ 
+```text
+2016-01 through 2025-12
+```
+ 
+Spatial scope:
+ 
+```text
+ab_10km, bc_10km
+```
+ 
+Validated output profile:
+ 
+```text
+row_count: 1,980,960
+grid_cell_count: 16,508
+month_count: 120
+nonzero_grid_month_count: 8,242
+observed perimeter grid-month coverage: 0.416%
+```
+ 
+Temporal source quality:
+ 
+```text
+feature-window polygons: 5,054
+monthly-assignable polygons: 4,939
+missing/invalid fire_month polygons: 115
+monthly-assignable rate: 97.7246%
+```
+ 
+Area checks:
+ 
+```text
+total_intersection_area_ha: 11,625,500.8334
+max_intersection_area_ha: 10,000.0
+max_intersection_area_ratio_of_grid: 1.0
+rows with ratio > 1: 0
+```
+ 
+Cause totals after polygon-grid intersection:
+ 
+```text
+wildfire_cause_n_polygon_count: 6,186
+wildfire_cause_h_polygon_count: 2,023
+wildfire_cause_u_polygon_count: 700
+wildfire_cause_prescribed_burn_polygon_count: 0
+wildfire_cause_other_polygon_count: 0
+```
+ 
+Important semantics:
+ 
+- Zero wildfire metrics mean no observed NFDB polygon perimeter overlap for that grid-month.
+- Zero does not mean zero physical wildfire risk.
+- `wildfire_intersection_area_ha` is additive across grid cells and months.
+- `wildfire_max_source_size_ha` and `wildfire_max_calculated_size_ha` are non-additive
+  reference metrics.
+- The table intentionally excludes total source-size sum fields to avoid cross-grid
+  double counting.

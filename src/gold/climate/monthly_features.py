@@ -160,9 +160,7 @@ def build_gold_climate_station_month_feature(
     )
     df["has_precipitation_observation"] = df["total_precip_mm"].notna()
     df["precipitation_day"] = df["total_precip_mm"].fillna(0) > 0
-    df["heavy_precipitation_day"] = (
-        df["total_precip_mm"].fillna(0) >= HEAVY_PRECIP_THRESHOLD_MM
-    )
+    df["heavy_precipitation_day"] = df["total_precip_mm"].fillna(0) >= HEAVY_PRECIP_THRESHOLD_MM
     df["extreme_heat_day"] = df["max_temp_c"].fillna(-999) >= EXTREME_HEAT_THRESHOLD_C
     df["extreme_cold_day"] = df["min_temp_c"].fillna(999) <= EXTREME_COLD_THRESHOLD_C
     df["freeze_thaw_day"] = (df["min_temp_c"] <= 0) & (df["max_temp_c"] > 0)
@@ -230,9 +228,9 @@ def build_gold_climate_station_month_feature(
         + grouped["reference_month"].astype(str)
     )
 
-    return grouped.sort_values(
-        ["reference_month", "province_key", "station_id"]
-    ).reset_index(drop=True)
+    return grouped.sort_values(["reference_month", "province_key", "station_id"]).reset_index(
+        drop=True
+    )
 
 
 def build_gold_grid_month_climate_feature(
@@ -271,9 +269,7 @@ def build_gold_grid_month_climate_feature(
     )
 
     grid_for_mapping = grid[grid["grid_system"].isin(TARGET_GRID_SYSTEMS)].copy()
-    grid_for_mapping = grid_for_mapping[
-        grid_for_mapping["province_key"].isin(["AB", "BC"])
-    ].copy()
+    grid_for_mapping = grid_for_mapping[grid_for_mapping["province_key"].isin(["AB", "BC"])].copy()
 
     if grid_for_mapping.empty:
         raise GoldClimateFeatureError("No AB/BC 10km grid cells are available.")
@@ -333,9 +329,7 @@ def build_gold_grid_month_climate_feature(
         ].copy()
 
         for province_key, province_grid in grid_for_mapping.groupby("province_key"):
-            province_station = month_station[
-                month_station["province_key"] == province_key
-            ].copy()
+            province_station = month_station[month_station["province_key"] == province_key].copy()
 
             monthly_frames.append(
                 _build_province_month_grid_features(
@@ -383,9 +377,9 @@ def build_gold_grid_month_climate_feature(
         ]
     ]
 
-    result = result.sort_values(
-        ["reference_month", "grid_system", "grid_cell_key"]
-    ).reset_index(drop=True)
+    result = result.sort_values(["reference_month", "grid_system", "grid_cell_key"]).reset_index(
+        drop=True
+    )
 
     method_counts = result["climate_mapping_method"].value_counts().to_dict()
     no_station_count = int(method_counts.get("no_station_within_radius", 0))
@@ -398,9 +392,7 @@ def build_gold_grid_month_climate_feature(
         unmapped_station_count=int(station_grid_mapping["direct_grid_cell_key"].isna().sum()),
         month_count=int(result["reference_month"].nunique()),
         grid_cell_count=int(result["grid_cell_key"].nunique()),
-        direct_station_in_cell_grid_month_count=int(
-            method_counts.get("direct_station_in_cell", 0)
-        ),
+        direct_station_in_cell_grid_month_count=int(method_counts.get("direct_station_in_cell", 0)),
         direct_station_average_in_cell_grid_month_count=int(
             method_counts.get("direct_station_average_in_cell", 0)
         ),
@@ -519,9 +511,11 @@ def _build_static_idw_candidates(
             candidates_by_province[province_key] = province_candidates
             continue
 
-        station_points = province_stations[
-            ["station_projected_x", "station_projected_y"]
-        ].astype(float).to_numpy()
+        station_points = (
+            province_stations[["station_projected_x", "station_projected_y"]]
+            .astype(float)
+            .to_numpy()
+        )
         station_keys = province_stations["station_key"].astype(str).tolist()
 
         grid_points = grid_group[["centroid_x", "centroid_y"]].astype(float).to_numpy()
@@ -534,12 +528,13 @@ def _build_static_idw_candidates(
 
             candidate_pairs = [
                 (station_key, float(distance))
-                for station_key, distance in zip(
+                for station_key, distance, is_nearby in zip(
                     station_keys,
                     distances_km,
+                    nearby_mask,
                     strict=True,
                 )
-                if nearby_mask[station_keys.index(station_key)]
+                if is_nearby
             ]
 
             candidate_pairs.sort(key=lambda item: (item[1], item[0]))
@@ -572,14 +567,10 @@ def _build_province_month_grid_features(
     direct_features = _aggregate_direct_features(province_station)
 
     feature_lookup = {
-        str(row["grid_cell_key"]): row
-        for row in direct_features.to_dict(orient="records")
+        str(row["grid_cell_key"]): row for row in direct_features.to_dict(orient="records")
     }
 
-    station_by_key = {
-        str(row.station_key): row
-        for row in province_station.itertuples(index=False)
-    }
+    station_by_key = {str(row.station_key): row for row in province_station.itertuples(index=False)}
 
     rows: list[dict[str, Any]] = []
 
@@ -611,11 +602,7 @@ def _build_province_month_grid_features(
             "grid_version": grid_row.grid_version,
             "province_key": grid_row.province_key,
             "reference_month": reference_month,
-            **{
-                key: value
-                for key, value in feature.items()
-                if key != "grid_cell_key"
-            },
+            **{key: value for key, value in feature.items() if key != "grid_cell_key"},
         }
         rows.append(row)
 
@@ -623,9 +610,7 @@ def _build_province_month_grid_features(
 
 
 def _aggregate_direct_features(province_station: pd.DataFrame) -> pd.DataFrame:
-    direct_rows = province_station[
-        province_station["direct_grid_cell_key"].notna()
-    ].copy()
+    direct_rows = province_station[province_station["direct_grid_cell_key"].notna()].copy()
 
     if direct_rows.empty:
         return pd.DataFrame(columns=["grid_cell_key"])
@@ -700,9 +685,11 @@ def _build_idw_feature(
     for column in CLIMATE_VALUE_COLUMNS:
         values = np.array(
             [
-                np.nan
-                if pd.isna(getattr(station_row, column))
-                else float(getattr(station_row, column))
+                (
+                    np.nan
+                    if pd.isna(getattr(station_row, column))
+                    else float(getattr(station_row, column))
+                )
                 for station_row in station_rows
             ],
             dtype=float,
@@ -750,9 +737,7 @@ def _build_idw_confidence_score(
 
     return float(
         np.clip(
-            (0.4 * station_score)
-            + (0.3 * nearest_distance_score)
-            + (0.3 * mean_distance_score),
+            (0.4 * station_score) + (0.3 * nearest_distance_score) + (0.3 * mean_distance_score),
             0,
             1,
         )
@@ -762,24 +747,25 @@ def _build_idw_confidence_score(
 def _build_quality_flag(result: pd.DataFrame) -> pd.Series:
     score = result["climate_data_completeness_score"].fillna(0)
     confidence = result["climate_idw_confidence_score"].fillna(0)
-
     combined_score = (0.7 * score) + (0.3 * confidence)
 
-    return np.select(
+    quality = pd.Series(pd.NA, index=result.index, dtype="object")
+
+    direct_mask = result["climate_mapping_method"].isin(
         [
-            result["climate_mapping_method"] == "no_station_within_radius",
-            combined_score >= 0.9,
-            combined_score >= 0.7,
-            combined_score >= 0.4,
-        ],
-        [
-            "no_station_within_radius",
-            "high",
-            "medium",
-            "low",
-        ],
-        default="very_low",
+            "direct_station_in_cell",
+            "direct_station_average_in_cell",
+        ]
     )
+    idw_mask = result["climate_mapping_method"] == "idw_interpolated"
+
+    quality.loc[direct_mask] = "direct"
+    quality.loc[idw_mask & (combined_score >= 0.9)] = "high"
+    quality.loc[idw_mask & (combined_score >= 0.7) & (combined_score < 0.9)] = "medium"
+    quality.loc[idw_mask & (combined_score >= 0.4) & (combined_score < 0.7)] = "low"
+    quality.loc[idw_mask & (combined_score < 0.4)] = "very_low"
+
+    return quality
 
 
 def _sum_with_min_count(series: pd.Series) -> float:
@@ -794,6 +780,4 @@ def _require_columns(
     missing_columns = required_columns - set(dataframe.columns)
 
     if missing_columns:
-        raise GoldClimateFeatureError(
-            f"{table_name} is missing columns: {sorted(missing_columns)}"
-        )
+        raise GoldClimateFeatureError(f"{table_name} is missing columns: {sorted(missing_columns)}")

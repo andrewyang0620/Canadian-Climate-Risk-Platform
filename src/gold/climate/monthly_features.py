@@ -343,12 +343,25 @@ def build_gold_grid_month_climate_feature(
 
     result = pd.concat(monthly_frames, ignore_index=True)
 
-    result["climate_data_completeness_score"] = result[
-        [
-            "temperature_completeness_ratio",
-            "precipitation_completeness_ratio",
+    for ratio_column in [
+        "temperature_completeness_ratio",
+        "precipitation_completeness_ratio",
+    ]:
+        result[ratio_column] = pd.to_numeric(
+            result[ratio_column],
+            errors="coerce",
+        ).clip(0, 1)
+
+    result["climate_data_completeness_score"] = (
+        result[
+            [
+                "temperature_completeness_ratio",
+                "precipitation_completeness_ratio",
+            ]
         ]
-    ].mean(axis=1)
+        .mean(axis=1)
+        .clip(0, 1)
+    )
 
     result.loc[
         result["climate_mapping_method"] == "no_station_within_radius",

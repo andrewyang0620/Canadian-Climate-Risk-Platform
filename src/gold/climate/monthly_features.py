@@ -423,8 +423,8 @@ def _build_station_locations(station_month: pd.DataFrame) -> pd.DataFrame:
     )
 
     x_values, y_values = transformer.transform(
-        station_locations["longitude"].astype(float).to_numpy(),
-        station_locations["latitude"].astype(float).to_numpy(),
+        station_locations["longitude"].astype(float).tolist(),
+        station_locations["latitude"].astype(float).tolist(),
     )
 
     station_locations["station_projected_x"] = x_values

@@ -312,9 +312,7 @@ def test_build_gold_grid_month_climate_feature_uses_idw_weighting():
     assert row["climate_nearest_station_distance_km"] == pytest.approx(50.0)
     assert row["climate_max_station_distance_km"] == pytest.approx(100.0)
 
-    expected = ((10.0 * (1 / 50.0**2)) + (30.0 * (1 / 100.0**2))) / (
-        (1 / 50.0**2) + (1 / 100.0**2)
-    )
+    expected = ((10.0 * (1 / 50.0**2)) + (30.0 * (1 / 100.0**2))) / ((1 / 50.0**2) + (1 / 100.0**2))
 
     assert row["mean_temp_c"] == pytest.approx(expected)
     assert summary.idw_interpolated_grid_month_count == 1
@@ -400,8 +398,6 @@ def test_build_gold_climate_station_month_feature_requires_columns():
 
 
 def test_idw_expected_value_sanity():
-    expected = ((10.0 * (1 / 50.0**2)) + (30.0 * (1 / 100.0**2))) / (
-        (1 / 50.0**2) + (1 / 100.0**2)
-    )
+    expected = ((10.0 * (1 / 50.0**2)) + (30.0 * (1 / 100.0**2))) / ((1 / 50.0**2) + (1 / 100.0**2))
 
     assert math.isclose(expected, 14.0)

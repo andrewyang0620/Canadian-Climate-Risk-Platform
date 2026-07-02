@@ -215,3 +215,73 @@ Important semantics:
   reference metrics.
 - The table intentionally excludes total source-size sum fields to avoid cross-grid
   double counting.
+
+
+## Gold climate monthly feature v2 profile
+
+Gold tables:
+
+```text
+gold_climate_station_month_feature
+gold_grid_month_climate_feature
+```
+
+Climate v2 upgrades `gold_grid_month_climate_feature` from sparse station-grid aggregation to a complete AB/BC 10km grid-month skeleton with direct station mapping and IDW interpolation.
+
+Validated station-month output:
+
+```text
+station_month_rows: 56,160
+station_count: 620
+month_count: 120
+province scope: AB, BC
+reference_month range: 2016-01 through 2025-12
+```
+
+Validated grid-month output:
+
+```text
+row_count: 1,980,960
+grid_cell_count: 16,508
+month_count: 120
+AB 10km grids: 6,630
+BC 10km grids: 9,878
+reference_month range: 2016-01 through 2025-12
+```
+
+Mapping method distribution:
+
+```text
+idw_interpolated:                  1,786,619
+no_station_within_radius:            146,617
+direct_station_in_cell:               40,941
+direct_station_average_in_cell:        6,783
+```
+
+Climate value coverage:
+
+```text
+91.62%
+```
+
+Quality flag distribution:
+
+```text
+medium:   1,393,187
+low:        193,200
+high:       164,066
+null:       146,617
+direct:      47,724
+very_low:    36,166
+```
+
+Important semantics:
+
+- `climate_mapping_method` explains how the grid-month climate value was produced.
+- `direct_station_in_cell` uses one station directly inside the grid.
+- `direct_station_average_in_cell` uses simple average across 2+ direct stations inside the grid.
+- `idw_interpolated` uses inverse-distance weighting from stations within 150km.
+- `no_station_within_radius` keeps climate values null.
+- Climate no-data rows must not be filled with zero.
+- `climate_feature_quality_flag` is null for `no_station_within_radius`.
+- Direct rows use `climate_feature_quality_flag = direct`.

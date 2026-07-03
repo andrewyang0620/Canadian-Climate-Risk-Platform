@@ -1,8 +1,9 @@
-﻿import pandas as pd
+import pandas as pd
 import pytest
 
 from src.gold.hydro.monthly_features import (
     GoldHydroFeatureError,
+    build_gold_grid_month_hydro_feature,
     build_gold_hydro_station_month_feature,
 )
 
@@ -52,6 +53,154 @@ def hydro_station_row(
         "geometry_type": "Point",
         "geometry_wkt": "POINT (-114.04528 49.606392)",
     }
+
+
+def projected_box_around_point(
+    *,
+    longitude=-114.04528,
+    latitude=49.606392,
+    buffer_m=10_000,
+):
+    from pyproj import Transformer
+    from shapely.geometry import box
+
+    from src.gold.spatial.grid import ANALYSIS_CRS_EPSG
+
+    transformer = Transformer.from_crs(
+        4326,
+        ANALYSIS_CRS_EPSG,
+        always_xy=True,
+    )
+    x, y = transformer.transform(longitude, latitude)
+
+    return box(
+        x - buffer_m,
+        y - buffer_m,
+        x + buffer_m,
+        y + buffer_m,
+    )
+
+
+def make_test_grid(
+    *,
+    crs_epsg=3347,
+    include_far_grid=False,
+    longitude=-114.04528,
+    latitude=49.606392,
+):
+    rows = [
+        {
+            "grid_cell_key": "ab_10km_test",
+            "grid_system": "ab_10km",
+            "grid_level": "province",
+            "grid_version": "v1",
+            "province_key": "AB",
+            "analysis_geometry_wkt": projected_box_around_point(
+                longitude=longitude,
+                latitude=latitude,
+            ).wkt,
+            "crs_epsg": crs_epsg,
+        }
+    ]
+
+    if include_far_grid:
+        rows.append(
+            {
+                "grid_cell_key": "ab_10km_far",
+                "grid_system": "ab_10km",
+                "grid_level": "province",
+                "grid_version": "v1",
+                "province_key": "AB",
+                "analysis_geometry_wkt": projected_box_around_point(
+                    longitude=-112.0,
+                    latitude=53.0,
+                ).wkt,
+                "crs_epsg": crs_epsg,
+            }
+        )
+
+    return pd.DataFrame(rows)
+
+
+def basin_polygon_row(
+    *,
+    station_id="05AA001",
+    geometry=None,
+    crs_epsg=3347,
+):
+    if geometry is None:
+        geometry = projected_box_around_point(buffer_m=8_000)
+
+    return {
+        "station_id": station_id,
+        "geometry_wkt": geometry.wkt,
+        "crs_epsg": crs_epsg,
+    }
+
+
+def make_basin_polygon(
+    *,
+    station_id="05AA001",
+    geometry=None,
+    crs_epsg=3347,
+):
+    return pd.DataFrame(
+        [
+            basin_polygon_row(
+                station_id=station_id,
+                geometry=geometry,
+                crs_epsg=crs_epsg,
+            )
+        ]
+    )
+
+
+def make_station_month(
+    *,
+    station_id="05AA001",
+    start_month="2026-01",
+    end_month="2026-01",
+):
+    hydro_daily = pd.DataFrame(
+        [
+            hydro_daily_row(
+                "2026-01-01",
+                "flow",
+                0.0,
+                station_id=station_id,
+            ),
+            hydro_daily_row(
+                "2026-01-02",
+                "flow",
+                10.0,
+                station_id=station_id,
+            ),
+            hydro_daily_row(
+                "2026-01-01",
+                "level",
+                -0.5,
+                station_id=station_id,
+            ),
+            hydro_daily_row(
+                "2026-01-02",
+                "level",
+                1.5,
+                station_id=station_id,
+            ),
+        ]
+    )
+    hydro_station = pd.DataFrame(
+        [
+            hydro_station_row(station_id=station_id),
+        ]
+    )
+
+    return build_gold_hydro_station_month_feature(
+        hydro_daily=hydro_daily,
+        hydro_station=hydro_station,
+        start_month=start_month,
+        end_month=end_month,
+    )
 
 
 def test_build_hydro_station_month_feature_aggregates_flow_and_level():
@@ -161,109 +310,113 @@ def test_build_hydro_station_month_feature_rejects_unexpected_measurement_type()
         )
 
 
-def grid_box_around_hydro_station(
-    *,
-    longitude=-114.04528,
-    latitude=49.606392,
-    buffer_m=10_000,
-):
-    from pyproj import Transformer
-    from shapely.geometry import box
-
-    from src.gold.spatial.grid import ANALYSIS_CRS_EPSG
-
-    transformer = Transformer.from_crs(
-        4326,
-        ANALYSIS_CRS_EPSG,
-        always_xy=True,
-    )
-    x, y = transformer.transform(longitude, latitude)
-
-    return box(
-        x - buffer_m,
-        y - buffer_m,
-        x + buffer_m,
-        y + buffer_m,
-    )
-
-
-def make_test_grid(crs_epsg=3347):
-    return pd.DataFrame(
-        [
-            {
-                "grid_cell_key": "ab_10km_test",
-                "grid_system": "ab_10km",
-                "grid_level": "province",
-                "grid_version": "v1",
-                "province_key": "AB",
-                "analysis_geometry_wkt": grid_box_around_hydro_station().wkt,
-                "crs_epsg": crs_epsg,
-            }
-        ]
-    )
-
-
-def test_build_grid_month_hydro_feature_maps_station_to_grid():
-    from src.gold.hydro.monthly_features import (
-        build_gold_grid_month_hydro_feature,
-    )
-
-    hydro_daily = pd.DataFrame(
-        [
-            hydro_daily_row("2026-01-01", "flow", 0.0),
-            hydro_daily_row("2026-01-02", "flow", 10.0),
-            hydro_daily_row("2026-01-01", "level", -0.5),
-            hydro_daily_row("2026-01-02", "level", 1.5),
-        ]
-    )
-    hydro_station = pd.DataFrame([hydro_station_row()])
-
-    station_month = build_gold_hydro_station_month_feature(
-        hydro_daily=hydro_daily,
-        hydro_station=hydro_station,
-        start_month="2026-01",
-        end_month="2026-01",
-    )
+def test_build_grid_month_hydro_feature_uses_basin_intersection_first():
+    station_month = make_station_month()
+    grid = make_test_grid(include_far_grid=True)
+    basin_polygon = make_basin_polygon()
 
     grid_month, summary = build_gold_grid_month_hydro_feature(
         station_month=station_month,
-        grid=make_test_grid(),
+        grid=grid,
+        basin_polygon=basin_polygon,
+        start_month="2026-01",
+        end_month="2026-01",
     )
 
     assert len(grid_month) == 2
     assert summary["grid_month_row_count"] == 2
-    assert summary["mapped_station_count"] == 1
-    assert summary["unmapped_station_count"] == 0
+    assert summary["basin_matched_station_count"] == 1
+    assert summary["basin_unmatched_station_count"] == 0
+    assert summary["basin_covered_grid_count"] == 1
+    assert summary["covered_grid_count"] == 1
+    assert summary["no_hydro_coverage_grid_count"] == 1
 
-    assert set(grid_month["measurement_type"]) == {"flow", "level"}
-    assert set(grid_month["grid_system"]) == {"ab_10km"}
-    assert grid_month["station_count"].tolist() == [1, 1]
-    assert grid_month["nearest_station_distance_km"].max() == 0.0
+    covered = grid_month[grid_month["grid_cell_key"] == "ab_10km_test"].iloc[0]
+    no_coverage = grid_month[grid_month["grid_cell_key"] == "ab_10km_far"].iloc[0]
 
-    flow = grid_month[grid_month["measurement_type"] == "flow"].iloc[0]
-    assert flow["grid_month_hydro_feature_key"] == "ab_10km_test__flow__2026-01"
-    assert flow["daily_record_count"] == 2
-    assert flow["mean_measurement_value"] == 5.0
+    assert covered["grid_month_hydro_feature_key"] == "ab_10km_test__2026-01"
+    assert covered["hydro_spatial_assignment_method"] == "basin_polygon_intersection"
+    assert covered["hydro_station_count"] == 1
+    assert covered["hydro_basin_station_count"] == 1
+    assert covered["hydro_point_station_count"] == 0
+    assert covered["flow_station_count"] == 1
+    assert covered["level_station_count"] == 1
+    assert covered["flow_daily_record_count"] == 2
+    assert covered["level_daily_record_count"] == 2
+    assert covered["flow_mean_measurement_value"] == 5.0
+    assert covered["level_mean_measurement_value"] == 0.5
+    assert covered["hydro_basin_grid_coverage_ratio"] > 0
+
+    assert no_coverage["hydro_spatial_assignment_method"] == "no_hydro_coverage"
+    assert no_coverage["hydro_station_count"] == 0
+    assert no_coverage["flow_station_count"] == 0
+    assert pd.isna(no_coverage["flow_mean_measurement_value"])
+    assert pd.isna(no_coverage["hydro_feature_quality_flag"])
 
 
-def test_build_grid_month_hydro_feature_rejects_non_3347_grid():
-    from src.gold.hydro.monthly_features import (
-        build_gold_grid_month_hydro_feature,
-    )
+def test_build_grid_month_hydro_feature_uses_point_in_cell_for_unmatched_station():
+    station_month = make_station_month(station_id="05ZZ999")
+    grid = make_test_grid()
+    basin_polygon = make_basin_polygon(station_id="DIFFERENT")
 
-    hydro_daily = pd.DataFrame(
-        [
-            hydro_daily_row("2026-01-01", "flow", 1.0),
-        ]
-    )
-    hydro_station = pd.DataFrame([hydro_station_row()])
-
-    station_month = build_gold_hydro_station_month_feature(
-        hydro_daily=hydro_daily,
-        hydro_station=hydro_station,
+    grid_month, summary = build_gold_grid_month_hydro_feature(
+        station_month=station_month,
+        grid=grid,
+        basin_polygon=basin_polygon,
         start_month="2026-01",
         end_month="2026-01",
     )
+
+    assert len(grid_month) == 1
+    assert summary["basin_matched_station_count"] == 0
+    assert summary["basin_unmatched_station_count"] == 1
+    assert summary["point_in_cell_station_count"] == 1
+    assert summary["point_in_cell_grid_count"] == 1
+    assert summary["covered_grid_count"] == 1
+
+    row = grid_month.iloc[0]
+
+    assert row["hydro_spatial_assignment_method"] == "station_point_in_cell"
+    assert row["hydro_station_count"] == 1
+    assert row["hydro_basin_station_count"] == 0
+    assert row["hydro_point_station_count"] == 1
+    assert row["flow_station_count"] == 1
+    assert row["flow_mean_measurement_value"] == 5.0
+
+
+def test_build_grid_month_hydro_feature_does_not_use_nearest_grid_fallback():
+    station_month = make_station_month(station_id="05ZZ999")
+    grid = make_test_grid(
+        longitude=-112.0,
+        latitude=53.0,
+    )
+    basin_polygon = make_basin_polygon(station_id="DIFFERENT")
+
+    grid_month, summary = build_gold_grid_month_hydro_feature(
+        station_month=station_month,
+        grid=grid,
+        basin_polygon=basin_polygon,
+        start_month="2026-01",
+        end_month="2026-01",
+    )
+
+    assert len(grid_month) == 1
+    assert summary["point_in_cell_station_count"] == 0
+    assert summary["covered_grid_count"] == 0
+    assert summary["no_hydro_coverage_grid_count"] == 1
+
+    row = grid_month.iloc[0]
+
+    assert row["hydro_spatial_assignment_method"] == "no_hydro_coverage"
+    assert row["hydro_station_count"] == 0
+    assert row["flow_station_count"] == 0
+    assert pd.isna(row["flow_mean_measurement_value"])
+    assert pd.isna(row["hydro_feature_quality_flag"])
+
+
+def test_build_grid_month_hydro_feature_rejects_non_3347_grid():
+    station_month = make_station_month()
+    basin_polygon = make_basin_polygon()
 
     with pytest.raises(
         GoldHydroFeatureError,
@@ -272,4 +425,47 @@ def test_build_grid_month_hydro_feature_rejects_non_3347_grid():
         build_gold_grid_month_hydro_feature(
             station_month=station_month,
             grid=make_test_grid(crs_epsg=4326),
+            basin_polygon=basin_polygon,
+            start_month="2026-01",
+            end_month="2026-01",
         )
+
+
+def test_build_grid_month_hydro_feature_keeps_basin_values_when_grid_province_differs_from_station():
+    station_month = make_station_month()
+
+    grid = pd.DataFrame(
+        [
+            {
+                "grid_cell_key": "bc_10km_cross_province_test",
+                "grid_system": "bc_10km",
+                "grid_level": "province",
+                "grid_version": "v1",
+                "province_key": "BC",
+                "analysis_geometry_wkt": projected_box_around_point().wkt,
+                "crs_epsg": 3347,
+            }
+        ]
+    )
+    basin_polygon = make_basin_polygon()
+
+    grid_month, summary = build_gold_grid_month_hydro_feature(
+        station_month=station_month,
+        grid=grid,
+        basin_polygon=basin_polygon,
+        start_month="2026-01",
+        end_month="2026-01",
+    )
+
+    assert len(grid_month) == 1
+    assert summary["basin_covered_grid_count"] == 1
+
+    row = grid_month.iloc[0]
+
+    assert row["province_key"] == "BC"
+    assert row["hydro_spatial_assignment_method"] == "basin_polygon_intersection"
+    assert row["hydro_station_count"] == 1
+    assert row["flow_station_count"] == 1
+    assert row["level_station_count"] == 1
+    assert row["flow_mean_measurement_value"] == 5.0
+    assert row["level_mean_measurement_value"] == 0.5

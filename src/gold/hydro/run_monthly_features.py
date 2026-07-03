@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from datetime import date
@@ -11,6 +11,7 @@ from src.gold.common.io import latest_table_parquet
 from src.gold.hydro.monthly_features import (
     build_gold_grid_month_hydro_feature,
     build_gold_hydro_station_month_feature,
+    read_silver_hydro_basin_polygon,
     read_silver_hydro_daily,
     read_silver_hydro_station,
     summarize_hydro_station_month,
@@ -39,6 +40,9 @@ def run_gold_hydro_monthly_features(
     hydro_daily = read_silver_hydro_daily(
         silver_root=silver_root,
     )
+    hydro_basin_polygon = read_silver_hydro_basin_polygon(
+        silver_root=silver_root,
+    )
 
     grid_path = latest_table_parquet(
         root=gold_root,
@@ -54,6 +58,7 @@ def run_gold_hydro_monthly_features(
     grid_month, grid_summary = build_gold_grid_month_hydro_feature(
         station_month=station_month,
         grid=grid,
+        basin_polygon=hydro_basin_polygon,
     )
 
     station_month_output_path = _write_gold_table(
@@ -86,6 +91,9 @@ def run_gold_hydro_monthly_features(
         "input_paths": {
             "silver_hydro_station_root": (Path(silver_root) / "silver_hydro_station").as_posix(),
             "silver_hydro_daily_root": (Path(silver_root) / "silver_hydro_daily").as_posix(),
+            "silver_hydro_basin_polygon_root": (
+                Path(silver_root) / "silver_hydro_basin_polygon"
+            ).as_posix(),
             "gold_grid_cell": grid_path.as_posix(),
         },
     }

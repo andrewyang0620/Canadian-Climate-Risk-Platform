@@ -368,7 +368,6 @@ def build_gold_grid_month_hydro_feature(
         {
             "station_id",
             "geometry_wkt",
-            "crs_epsg",
         },
         "silver_hydro_basin_polygon",
     )
@@ -428,10 +427,15 @@ def build_gold_grid_month_hydro_feature(
         excluded_grid_cell_keys=basin_covered_grid_keys,
     )
 
-    spatial_mapping = pd.concat(
-        [basin_mapping, point_mapping],
-        ignore_index=True,
-    )
+    spatial_mapping_frames = [frame for frame in [basin_mapping, point_mapping] if not frame.empty]
+
+    if spatial_mapping_frames:
+        spatial_mapping = pd.concat(
+            spatial_mapping_frames,
+            ignore_index=True,
+        )
+    else:
+        spatial_mapping = pd.DataFrame(columns=basin_mapping.columns)
 
     spatial_summary = _build_spatial_grid_summary(
         spatial_mapping=spatial_mapping,
@@ -647,23 +651,55 @@ def _build_basin_grid_mapping(
     if basin.empty:
         return pd.DataFrame(columns=mapping_columns)
 
-    basin_crs_values = {int(value) for value in basin["crs_epsg"].dropna().unique()}
+    if "crs_epsg" in basin.columns:
+        basin_crs_values = {int(value) for value in basin["crs_epsg"].dropna().unique()}
 
-    if len(basin_crs_values) != 1:
-        raise GoldHydroFeatureError(
-            "silver_hydro_basin_polygon must contain exactly one crs_epsg value; "
-            f"found {sorted(basin_crs_values)}."
-        )
+        if len(basin_crs_values) > 1:
+            raise GoldHydroFeatureError(
+                "silver_hydro_basin_polygon must contain at most one crs_epsg value; "
+                f"found {sorted(basin_crs_values)}."
+            )
 
-    basin_crs_epsg = basin_crs_values.pop()
+        basin_crs_epsg = basin_crs_values.pop() if basin_crs_values else DISPLAY_CRS_EPSG
+    else:
+        basin_crs_epsg = DISPLAY_CRS_EPSG
 
     grid = grid.reset_index(drop=True)
+
     grid_geometries = shapely.from_wkt(grid["analysis_geometry_wkt"].astype(str).to_numpy())
+    grid_area_sq_km_values = np.asarray(
+        shapely.area(grid_geometries) / 1_000_000,
+        dtype=float,
+    )
+
+    grid_cell_key_values = grid["grid_cell_key"].astype(str).to_numpy()
+    grid_system_values = grid["grid_system"].astype(str).to_numpy()
+    grid_level_values = grid["grid_level"].astype(str).to_numpy()
+    grid_version_values = grid["grid_version"].astype(str).to_numpy()
+    province_key_values = grid["province_key"].astype(str).to_numpy()
+
     tree = STRtree(grid_geometries)
 
-    rows: list[dict[str, Any]] = []
+    mapping_frames: list[pd.DataFrame] = []
+    basin_count = len(basin)
 
-    for basin_row in basin.itertuples(index=False):
+    print(
+        "[INFO] building hydro basin-grid intersections | "
+        f"basins={basin_count} grids={len(grid)}"
+    )
+
+    current_row_count = 0
+
+    for basin_index, basin_row in enumerate(
+        basin.itertuples(index=False),
+        start=1,
+    ):
+        if basin_index == 1 or basin_index % 25 == 0 or basin_index == basin_count:
+            print(
+                "[INFO] basin-grid intersection progress | "
+                f"{basin_index}/{basin_count} rows={current_row_count}"
+            )
+
         basin_geometry = shapely.from_wkt(str(basin_row.geometry_wkt))
         basin_geometry = _project_geometry_if_needed(
             geometry=basin_geometry,
@@ -673,45 +709,85 @@ def _build_basin_grid_mapping(
         if basin_geometry.is_empty:
             continue
 
-        candidate_indices = tree.query(basin_geometry, predicate="intersects")
+        if not basin_geometry.is_valid:
+            basin_geometry = shapely.make_valid(basin_geometry)
 
-        for candidate_index in candidate_indices:
-            index = int(candidate_index)
-            grid_geometry = grid_geometries[index]
-            intersection = basin_geometry.intersection(grid_geometry)
+        candidate_indices = tree.query(
+            basin_geometry,
+            predicate="intersects",
+        )
 
-            if intersection.is_empty:
-                continue
+        if len(candidate_indices) == 0:
+            continue
 
-            intersection_area_sq_km = intersection.area / 1_000_000
+        candidate_indices = np.asarray(candidate_indices, dtype=int)
+        candidate_geometries = grid_geometries[candidate_indices]
 
-            if intersection_area_sq_km <= 0:
-                continue
+        intersections = shapely.intersection(
+            candidate_geometries,
+            basin_geometry,
+        )
+        intersection_area_sq_km_values = np.asarray(
+            shapely.area(intersections) / 1_000_000,
+            dtype=float,
+        )
 
-            grid_area_sq_km = grid_geometry.area / 1_000_000
+        valid_mask = intersection_area_sq_km_values > 0
 
-            if grid_area_sq_km <= 0:
-                continue
+        if not bool(valid_mask.any()):
+            continue
 
-            grid_row = grid.iloc[index]
-            grid_intersection_ratio = min(intersection_area_sq_km / grid_area_sq_km, 1.0)
+        valid_indices = candidate_indices[valid_mask]
+        valid_intersection_area_sq_km_values = intersection_area_sq_km_values[valid_mask]
+        valid_grid_area_sq_km_values = grid_area_sq_km_values[valid_indices]
 
-            rows.append(
-                {
-                    "station_id_norm": str(basin_row.station_id_norm),
-                    "province_key": str(grid_row["province_key"]),
-                    "grid_cell_key": str(grid_row["grid_cell_key"]),
-                    "grid_system": str(grid_row["grid_system"]),
-                    "grid_level": str(grid_row["grid_level"]),
-                    "grid_version": str(grid_row["grid_version"]),
-                    "hydro_spatial_assignment_method": HYDRO_SPATIAL_METHOD_BASIN,
-                    "hydro_basin_intersection_area_sq_km": float(intersection_area_sq_km),
-                    "hydro_basin_grid_coverage_ratio": float(grid_intersection_ratio),
-                    "spatial_weight": float(grid_intersection_ratio),
-                }
-            )
+        positive_grid_area_mask = valid_grid_area_sq_km_values > 0
 
-    return pd.DataFrame(rows, columns=mapping_columns)
+        if not bool(positive_grid_area_mask.any()):
+            continue
+
+        valid_indices = valid_indices[positive_grid_area_mask]
+        valid_intersection_area_sq_km_values = valid_intersection_area_sq_km_values[
+            positive_grid_area_mask
+        ]
+        valid_grid_area_sq_km_values = valid_grid_area_sq_km_values[positive_grid_area_mask]
+
+        grid_intersection_ratio_values = np.minimum(
+            valid_intersection_area_sq_km_values / valid_grid_area_sq_km_values,
+            1.0,
+        )
+
+        frame = pd.DataFrame(
+            {
+                "station_id_norm": str(basin_row.station_id_norm),
+                "province_key": province_key_values[valid_indices],
+                "grid_cell_key": grid_cell_key_values[valid_indices],
+                "grid_system": grid_system_values[valid_indices],
+                "grid_level": grid_level_values[valid_indices],
+                "grid_version": grid_version_values[valid_indices],
+                "hydro_spatial_assignment_method": HYDRO_SPATIAL_METHOD_BASIN,
+                "hydro_basin_intersection_area_sq_km": valid_intersection_area_sq_km_values.astype(
+                    float
+                ),
+                "hydro_basin_grid_coverage_ratio": grid_intersection_ratio_values.astype(float),
+                "spatial_weight": grid_intersection_ratio_values.astype(float),
+            }
+        )
+
+        current_row_count += len(frame)
+        mapping_frames.append(frame)
+
+    if mapping_frames:
+        result = pd.concat(
+            mapping_frames,
+            ignore_index=True,
+        )
+    else:
+        result = pd.DataFrame(columns=mapping_columns)
+
+    print("[INFO] completed hydro basin-grid intersections | " f"rows={len(result)}")
+
+    return result[mapping_columns]
 
 
 def _project_geometry_if_needed(
@@ -928,9 +1004,9 @@ def _build_grid_month_hydro_values(
 
     mapped = station_month.merge(
         spatial_mapping,
-        on=["station_id_norm", "province_key"],
+        on="station_id_norm",
         how="inner",
-        suffixes=("", "_mapping"),
+        suffixes=("_station", ""),
     )
 
     if mapped.empty:
@@ -942,16 +1018,100 @@ def _build_grid_month_hydro_values(
         errors="coerce",
     ).fillna(1.0)
 
+    group_keys = [
+        *GRID_MONTH_IDENTITY_COLUMNS,
+        "measurement_type",
+    ]
+
+    weighted_columns = [
+        "mean_measurement_value",
+        "median_measurement_value",
+        "p95_measurement_value",
+        "measurement_completeness_ratio",
+    ]
+
+    mapped["_w"] = mapped["spatial_weight"].astype(float)
+
+    for column in weighted_columns:
+        value = pd.to_numeric(
+            mapped[column],
+            errors="coerce",
+        )
+        valid_weight = mapped["_w"].where(
+            value.notna() & mapped["_w"].gt(0),
+            0.0,
+        )
+
+        mapped[f"_wv_{column}"] = value.fillna(0.0) * valid_weight
+        mapped[f"_ws_{column}"] = valid_weight
+
     grouped = (
         mapped.groupby(
-            [
-                *GRID_MONTH_IDENTITY_COLUMNS,
-                "measurement_type",
-            ],
+            group_keys,
             dropna=False,
         )
-        .apply(_aggregate_grid_month_measurement)
+        .agg(
+            station_count=("station_id", "nunique"),
+            daily_record_count=("daily_record_count", "sum"),
+            observation_day_count=("observation_day_count", "sum"),
+            measurement_observation_count=("measurement_observation_count", "sum"),
+            min_measurement_value=("min_measurement_value", "min"),
+            max_measurement_value=("max_measurement_value", "max"),
+            zero_day_count=("flow_zero_day_count", "sum"),
+            negative_value_count=("negative_value_count", "sum"),
+            _wv_mean_measurement_value=("_wv_mean_measurement_value", "sum"),
+            _ws_mean_measurement_value=("_ws_mean_measurement_value", "sum"),
+            _wv_median_measurement_value=("_wv_median_measurement_value", "sum"),
+            _ws_median_measurement_value=("_ws_median_measurement_value", "sum"),
+            _wv_p95_measurement_value=("_wv_p95_measurement_value", "sum"),
+            _ws_p95_measurement_value=("_ws_p95_measurement_value", "sum"),
+            _wv_measurement_completeness_ratio=(
+                "_wv_measurement_completeness_ratio",
+                "sum",
+            ),
+            _ws_measurement_completeness_ratio=(
+                "_ws_measurement_completeness_ratio",
+                "sum",
+            ),
+        )
         .reset_index()
+    )
+
+    weighted_output_columns = {
+        "mean_measurement_value": (
+            "_wv_mean_measurement_value",
+            "_ws_mean_measurement_value",
+        ),
+        "median_measurement_value": (
+            "_wv_median_measurement_value",
+            "_ws_median_measurement_value",
+        ),
+        "p95_measurement_value": (
+            "_wv_p95_measurement_value",
+            "_ws_p95_measurement_value",
+        ),
+        "measurement_completeness_ratio": (
+            "_wv_measurement_completeness_ratio",
+            "_ws_measurement_completeness_ratio",
+        ),
+    }
+
+    for output_column, (
+        weighted_value_column,
+        weight_sum_column,
+    ) in weighted_output_columns.items():
+        grouped[output_column] = np.where(
+            grouped[weight_sum_column].gt(0),
+            grouped[weighted_value_column] / grouped[weight_sum_column],
+            np.nan,
+        )
+
+    grouped = grouped.drop(
+        columns=[
+            column
+            for column in grouped.columns
+            if column.startswith("_wv_") or column.startswith("_ws_")
+        ]
     )
 
     if grouped.empty:
@@ -1100,8 +1260,17 @@ def _fill_count_columns(result: pd.DataFrame) -> None:
     ]
 
     for column in count_columns:
-        if column in result.columns:
-            result[column] = result[column].fillna(0).astype("int64")
+        if column not in result.columns:
+            result[column] = 0
+
+        result[column] = (
+            pd.to_numeric(
+                result[column],
+                errors="coerce",
+            )
+            .fillna(0)
+            .astype("int64")
+        )
 
 
 def _build_hydro_data_completeness_score(result: pd.DataFrame) -> pd.Series:
@@ -1148,3 +1317,14 @@ def _build_hydro_quality_flag(result: pd.DataFrame) -> pd.Series:
     quality.loc[point_mask & quality.eq("high")] = "medium"
 
     return quality
+
+
+def _require_columns(
+    dataframe: pd.DataFrame,
+    required_columns: set[str],
+    table_name: str,
+) -> None:
+    missing_columns = required_columns - set(dataframe.columns)
+
+    if missing_columns:
+        raise GoldHydroFeatureError(f"{table_name} is missing columns: {sorted(missing_columns)}")

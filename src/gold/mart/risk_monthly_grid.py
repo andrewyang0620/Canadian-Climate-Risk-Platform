@@ -1,6 +1,5 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-from functools import reduce
 from pathlib import Path
 from typing import Any
 
@@ -10,12 +9,15 @@ from src.gold.common.io import latest_table_parquet
 
 
 EXPECTED_GRID_SYSTEMS = {"ab_10km", "bc_10km"}
-EXPECTED_HYDRO_MEASUREMENT_TYPES = {"flow", "level"}
 
 REFERENCE_MONTH_START = "2016-01"
 REFERENCE_MONTH_END = "2025-12"
+EXPECTED_MONTH_COUNT = 120
 
 MART_TABLE_NAME = "gold_grid_month_risk_feature_mart"
+
+NO_CLIMATE_COVERAGE_METHOD = "no_station_within_radius"
+NO_HYDRO_COVERAGE_METHOD = "no_hydro_coverage"
 
 
 class GoldRiskMartError(Exception):
@@ -44,50 +46,30 @@ GRID_IDENTITY_COLUMNS = [
 
 
 CLIMATE_RENAME_MAP = {
-    "station_count": "climate_station_count",
     "daily_record_count": "climate_daily_record_count",
     "temperature_observation_count": "climate_temperature_observation_count",
     "precipitation_observation_count": "climate_precipitation_observation_count",
-    "nearest_station_distance_km": "climate_nearest_station_distance_km",
-    "mean_station_distance_km": "climate_mean_station_distance_km",
+    "mean_temp_c": "climate_mean_temp_c",
+    "min_temp_c": "climate_min_temp_c",
+    "max_temp_c": "climate_max_temp_c",
+    "observed_min_temp_c": "climate_observed_min_temp_c",
+    "observed_max_temp_c": "climate_observed_max_temp_c",
+    "total_precip_mm": "climate_total_precip_mm",
+    "total_rain_mm": "climate_total_rain_mm",
+    "total_snow": "climate_total_snow",
+    "precipitation_days": "climate_precipitation_days",
+    "heavy_precipitation_days": "climate_heavy_precipitation_days",
+    "extreme_heat_days": "climate_extreme_heat_days",
+    "extreme_cold_days": "climate_extreme_cold_days",
+    "freeze_thaw_days": "climate_freeze_thaw_days",
+    "temperature_completeness_ratio": "climate_temperature_completeness_ratio",
+    "precipitation_completeness_ratio": "climate_precipitation_completeness_ratio",
 }
 
 
-HYDRO_VALUE_COLUMNS = [
-    "station_count",
-    "daily_record_count",
-    "observation_day_count",
-    "measurement_observation_count",
-    "mean_measurement_value",
-    "min_measurement_value",
-    "max_measurement_value",
-    "median_measurement_value",
-    "p95_measurement_value",
-    "mean_measurement_completeness_ratio",
-    "flow_zero_day_count",
-    "negative_value_count",
-    "nearest_station_distance_km",
-    "mean_station_distance_km",
-    "hydro_feature_quality_flag",
-]
-
-
-HYDRO_COLUMN_SUFFIX_MAP = {
-    "station_count": "station_count",
-    "daily_record_count": "daily_record_count",
-    "observation_day_count": "observation_day_count",
-    "measurement_observation_count": "measurement_observation_count",
-    "mean_measurement_value": "mean_measurement_value",
-    "min_measurement_value": "min_measurement_value",
-    "max_measurement_value": "max_measurement_value",
-    "median_measurement_value": "median_measurement_value",
-    "p95_measurement_value": "p95_measurement_value",
-    "mean_measurement_completeness_ratio": ("mean_measurement_completeness_ratio"),
-    "flow_zero_day_count": "zero_day_count",
-    "negative_value_count": "negative_value_count",
-    "nearest_station_distance_km": "nearest_station_distance_km",
-    "mean_station_distance_km": "mean_station_distance_km",
-    "hydro_feature_quality_flag": "feature_quality_flag",
+WILDFIRE_RENAME_MAP = {
+    "crs_epsg": "wildfire_crs_epsg",
+    "grid_analysis_area_sq_km": "wildfire_grid_analysis_area_sq_km",
 }
 
 
@@ -125,6 +107,10 @@ def read_gold_risk_mart_inputs(
             table_name="gold_grid_month_hydro_feature",
             gold_root=gold_root,
         ),
+        "wildfire_grid_month": read_gold_table(
+            table_name="gold_grid_month_wildfire_perimeter_feature",
+            gold_root=gold_root,
+        ),
     }
 
 
@@ -134,11 +120,14 @@ def build_gold_grid_month_risk_feature_mart(
     municipality_bridge: pd.DataFrame,
     climate_grid_month: pd.DataFrame,
     hydro_grid_month: pd.DataFrame,
+    wildfire_grid_month: pd.DataFrame,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     skeleton = build_grid_month_skeleton(grid)
     primary_municipality = build_primary_municipality_lookup(municipality_bridge)
+
     climate_features = prepare_climate_grid_month_features(climate_grid_month)
-    hydro_features = pivot_hydro_grid_month_features(hydro_grid_month)
+    hydro_features = prepare_hydro_grid_month_features(hydro_grid_month)
+    wildfire_features = prepare_wildfire_grid_month_features(wildfire_grid_month)
 
     mart = skeleton.merge(
         primary_municipality,
@@ -176,9 +165,31 @@ def build_gold_grid_month_risk_feature_mart(
         step_name="hydro feature join",
     )
 
-    mart["has_climate_feature"] = mart["climate_station_count"].notna()
-    mart["has_hydro_flow_feature"] = mart["flow_station_count"].notna()
-    mart["has_hydro_level_feature"] = mart["level_station_count"].notna()
+    mart = mart.merge(
+        wildfire_features,
+        on=["grid_cell_key", "reference_month"],
+        how="left",
+        validate="one_to_one",
+    )
+    _assert_row_count_unchanged(
+        before=skeleton,
+        after=mart,
+        step_name="wildfire perimeter feature join",
+    )
+
+    mart["has_climate_feature"] = mart["climate_mapping_method"].notna() & mart[
+        "climate_mapping_method"
+    ].ne(NO_CLIMATE_COVERAGE_METHOD)
+    mart["has_hydro_spatial_coverage"] = mart["hydro_spatial_assignment_method"].notna() & mart[
+        "hydro_spatial_assignment_method"
+    ].ne(NO_HYDRO_COVERAGE_METHOD)
+    mart["has_hydro_flow_feature"] = mart["flow_mean_measurement_value"].notna()
+    mart["has_hydro_level_feature"] = mart["level_mean_measurement_value"].notna()
+    mart["has_hydro_feature"] = mart["has_hydro_flow_feature"] | mart["has_hydro_level_feature"]
+    mart["has_wildfire_perimeter_feature"] = mart["wildfire_perimeter_count"].notna()
+    mart["has_wildfire_observed_perimeter_overlap"] = mart[
+        "wildfire_has_observed_perimeter_overlap"
+    ].eq(True)
 
     mart = mart.sort_values(
         [
@@ -223,14 +234,10 @@ def build_grid_month_skeleton(grid: pd.DataFrame) -> pd.DataFrame:
         }
     )
 
-    grid_10km["_join_key"] = 1
-    reference_months["_join_key"] = 1
-
-    skeleton = (
-        grid_10km.merge(reference_months, on="_join_key", how="inner")
-        .drop(columns=["_join_key"])
-        .reset_index(drop=True)
-    )
+    skeleton = grid_10km.merge(
+        reference_months,
+        how="cross",
+    ).reset_index(drop=True)
 
     skeleton["grid_month_risk_feature_key"] = (
         skeleton["grid_cell_key"].astype(str) + "__" + skeleton["reference_month"].astype(str)
@@ -269,7 +276,7 @@ def build_primary_municipality_lookup(
 
     if primary.empty:
         raise GoldRiskMartError(
-            "gold_grid_municipality_bridge contains no primary " "municipality rows."
+            "gold_grid_municipality_bridge contains no primary municipality rows."
         )
 
     primary = primary.sort_values(
@@ -296,8 +303,8 @@ def build_primary_municipality_lookup(
             "municipality_key": "primary_municipality_key",
             "municipality_name": "primary_municipality_name",
             "municipality_type": "primary_municipality_type",
-            "grid_coverage_ratio": ("primary_municipality_grid_coverage_ratio"),
-            "municipality_coverage_ratio": ("primary_municipality_coverage_ratio"),
+            "grid_coverage_ratio": "primary_municipality_grid_coverage_ratio",
+            "municipality_coverage_ratio": "primary_municipality_coverage_ratio",
         }
     )
 
@@ -306,9 +313,15 @@ def prepare_climate_grid_month_features(
     climate_grid_month: pd.DataFrame,
 ) -> pd.DataFrame:
     required_columns = {
+        "grid_month_climate_feature_key",
         "grid_cell_key",
         "reference_month",
-        "station_count",
+        "climate_mapping_method",
+        "climate_station_count",
+        "climate_nearest_station_distance_km",
+        "climate_mean_station_distance_km",
+        "climate_max_station_distance_km",
+        "climate_idw_confidence_score",
         "daily_record_count",
         "temperature_observation_count",
         "precipitation_observation_count",
@@ -325,35 +338,31 @@ def prepare_climate_grid_month_features(
         "extreme_heat_days",
         "extreme_cold_days",
         "freeze_thaw_days",
-        "nearest_station_distance_km",
-        "mean_station_distance_km",
         "temperature_completeness_ratio",
         "precipitation_completeness_ratio",
         "climate_data_completeness_score",
         "climate_feature_quality_flag",
-        "grid_month_climate_feature_key",
     }
     _require_columns(
         climate_grid_month,
         required_columns,
         "gold_grid_month_climate_feature",
     )
-
-    duplicate_count = int(
-        climate_grid_month[["grid_cell_key", "reference_month"]].duplicated().sum()
+    _assert_unique_grid_month(
+        climate_grid_month,
+        table_name="gold_grid_month_climate_feature",
     )
 
-    if duplicate_count > 0:
-        raise GoldRiskMartError(
-            "gold_grid_month_climate_feature contains duplicate "
-            "grid_cell_key × reference_month rows: "
-            f"{duplicate_count}."
-        )
-
     columns = [
+        "grid_month_climate_feature_key",
         "grid_cell_key",
         "reference_month",
-        "station_count",
+        "climate_mapping_method",
+        "climate_station_count",
+        "climate_nearest_station_distance_km",
+        "climate_mean_station_distance_km",
+        "climate_max_station_distance_km",
+        "climate_idw_confidence_score",
         "daily_record_count",
         "temperature_observation_count",
         "precipitation_observation_count",
@@ -370,99 +379,168 @@ def prepare_climate_grid_month_features(
         "extreme_heat_days",
         "extreme_cold_days",
         "freeze_thaw_days",
-        "nearest_station_distance_km",
-        "mean_station_distance_km",
         "temperature_completeness_ratio",
         "precipitation_completeness_ratio",
         "climate_data_completeness_score",
         "climate_feature_quality_flag",
-        "grid_month_climate_feature_key",
     ]
 
     return climate_grid_month[columns].rename(columns=CLIMATE_RENAME_MAP)
 
 
-def pivot_hydro_grid_month_features(
+def prepare_hydro_grid_month_features(
     hydro_grid_month: pd.DataFrame,
 ) -> pd.DataFrame:
     required_columns = {
+        "grid_month_hydro_feature_key",
         "grid_cell_key",
         "reference_month",
-        "measurement_type",
-        *HYDRO_VALUE_COLUMNS,
+        "hydro_spatial_assignment_method",
+        "hydro_station_count",
+        "hydro_basin_station_count",
+        "hydro_point_station_count",
+        "hydro_basin_intersection_area_sq_km",
+        "hydro_basin_grid_coverage_ratio",
+        "flow_station_count",
+        "flow_daily_record_count",
+        "flow_observation_day_count",
+        "flow_measurement_observation_count",
+        "flow_mean_measurement_value",
+        "flow_min_measurement_value",
+        "flow_max_measurement_value",
+        "flow_median_measurement_value",
+        "flow_p95_measurement_value",
+        "flow_measurement_completeness_ratio",
+        "flow_zero_day_count",
+        "flow_negative_value_count",
+        "level_station_count",
+        "level_daily_record_count",
+        "level_observation_day_count",
+        "level_measurement_observation_count",
+        "level_mean_measurement_value",
+        "level_min_measurement_value",
+        "level_max_measurement_value",
+        "level_median_measurement_value",
+        "level_p95_measurement_value",
+        "level_measurement_completeness_ratio",
+        "level_negative_value_count",
+        "hydro_data_completeness_score",
+        "hydro_feature_quality_flag",
     }
     _require_columns(
         hydro_grid_month,
         required_columns,
         "gold_grid_month_hydro_feature",
     )
+    _assert_unique_grid_month(
+        hydro_grid_month,
+        table_name="gold_grid_month_hydro_feature",
+    )
 
-    measurement_types = set(hydro_grid_month["measurement_type"].dropna().astype(str).unique())
-    unexpected_types = measurement_types - EXPECTED_HYDRO_MEASUREMENT_TYPES
-
-    if unexpected_types:
-        raise GoldRiskMartError(
-            "gold_grid_month_hydro_feature contains unexpected "
-            f"measurement_type values: {sorted(unexpected_types)}."
-        )
-
-    duplicate_count = int(
-        hydro_grid_month[
-            [
-                "grid_cell_key",
-                "reference_month",
-                "measurement_type",
-            ]
+    return hydro_grid_month[
+        [
+            "grid_month_hydro_feature_key",
+            "grid_cell_key",
+            "reference_month",
+            "hydro_spatial_assignment_method",
+            "hydro_station_count",
+            "hydro_basin_station_count",
+            "hydro_point_station_count",
+            "hydro_basin_intersection_area_sq_km",
+            "hydro_basin_grid_coverage_ratio",
+            "flow_station_count",
+            "flow_daily_record_count",
+            "flow_observation_day_count",
+            "flow_measurement_observation_count",
+            "flow_mean_measurement_value",
+            "flow_min_measurement_value",
+            "flow_max_measurement_value",
+            "flow_median_measurement_value",
+            "flow_p95_measurement_value",
+            "flow_measurement_completeness_ratio",
+            "flow_zero_day_count",
+            "flow_negative_value_count",
+            "level_station_count",
+            "level_daily_record_count",
+            "level_observation_day_count",
+            "level_measurement_observation_count",
+            "level_mean_measurement_value",
+            "level_min_measurement_value",
+            "level_max_measurement_value",
+            "level_median_measurement_value",
+            "level_p95_measurement_value",
+            "level_measurement_completeness_ratio",
+            "level_negative_value_count",
+            "hydro_data_completeness_score",
+            "hydro_feature_quality_flag",
         ]
-        .duplicated()
-        .sum()
+    ]
+
+
+def prepare_wildfire_grid_month_features(
+    wildfire_grid_month: pd.DataFrame,
+) -> pd.DataFrame:
+    required_columns = {
+        "wildfire_grid_month_key",
+        "grid_cell_key",
+        "reference_month",
+        "crs_epsg",
+        "grid_analysis_area_sq_km",
+        "wildfire_perimeter_count",
+        "wildfire_intersection_area_sq_km",
+        "wildfire_intersection_area_ha",
+        "wildfire_intersection_area_ratio_of_grid",
+        "wildfire_max_source_size_ha",
+        "wildfire_max_calculated_size_ha",
+        "wildfire_cause_n_polygon_count",
+        "wildfire_cause_h_polygon_count",
+        "wildfire_cause_u_polygon_count",
+        "wildfire_cause_prescribed_burn_polygon_count",
+        "wildfire_cause_other_polygon_count",
+        "wildfire_has_observed_perimeter_overlap",
+        "wildfire_temporal_assignment_method",
+    }
+    _require_columns(
+        wildfire_grid_month,
+        required_columns,
+        "gold_grid_month_wildfire_perimeter_feature",
+    )
+    _assert_unique_grid_month(
+        wildfire_grid_month,
+        table_name="gold_grid_month_wildfire_perimeter_feature",
     )
 
-    if duplicate_count > 0:
-        raise GoldRiskMartError(
-            "gold_grid_month_hydro_feature contains duplicate "
-            "grid_cell_key × reference_month × measurement_type rows: "
-            f"{duplicate_count}."
-        )
+    columns = [
+        "wildfire_grid_month_key",
+        "grid_cell_key",
+        "reference_month",
+        "crs_epsg",
+        "grid_analysis_area_sq_km",
+        "wildfire_perimeter_count",
+        "wildfire_intersection_area_sq_km",
+        "wildfire_intersection_area_ha",
+        "wildfire_intersection_area_ratio_of_grid",
+        "wildfire_max_source_size_ha",
+        "wildfire_max_calculated_size_ha",
+        "wildfire_cause_n_polygon_count",
+        "wildfire_cause_h_polygon_count",
+        "wildfire_cause_u_polygon_count",
+        "wildfire_cause_prescribed_burn_polygon_count",
+        "wildfire_cause_other_polygon_count",
+        "wildfire_has_observed_perimeter_overlap",
+        "wildfire_temporal_assignment_method",
+    ]
 
-    feature_frames = []
-
-    for measurement_type in sorted(EXPECTED_HYDRO_MEASUREMENT_TYPES):
-        subset = hydro_grid_month[hydro_grid_month["measurement_type"] == measurement_type].copy()
-
-        if subset.empty:
-            continue
-
-        rename_map = {
-            column: f"{measurement_type}_{suffix}"
-            for column, suffix in HYDRO_COLUMN_SUFFIX_MAP.items()
-        }
-
-        feature_frames.append(
-            subset[
-                [
-                    "grid_cell_key",
-                    "reference_month",
-                    *HYDRO_VALUE_COLUMNS,
-                ]
-            ].rename(columns=rename_map)
-        )
-
-    if not feature_frames:
-        return pd.DataFrame(columns=["grid_cell_key", "reference_month"])
-
-    return reduce(
-        lambda left, right: left.merge(
-            right,
-            on=["grid_cell_key", "reference_month"],
-            how="outer",
-            validate="one_to_one",
-        ),
-        feature_frames,
-    )
+    return wildfire_grid_month[columns].rename(columns=WILDFIRE_RENAME_MAP)
 
 
 def summarize_risk_mart(mart: pd.DataFrame) -> dict[str, Any]:
+    climate_covered = mart["has_climate_feature"]
+    hydro_covered = mart["has_hydro_spatial_coverage"]
+    hydro_available = mart["has_hydro_feature"]
+    wildfire_joined = mart["has_wildfire_perimeter_feature"]
+    wildfire_overlap = mart["has_wildfire_observed_perimeter_overlap"]
+
     return {
         "row_count": int(len(mart)),
         "grid_cell_count": int(mart["grid_cell_key"].nunique()),
@@ -470,17 +548,31 @@ def summarize_risk_mart(mart: pd.DataFrame) -> dict[str, Any]:
         "minimum_month": str(mart["reference_month"].min()),
         "maximum_month": str(mart["reference_month"].max()),
         "grid_systems": sorted(mart["grid_system"].dropna().unique().tolist()),
-        "climate_grid_month_count": int(mart["has_climate_feature"].sum()),
-        "hydro_flow_grid_month_count": int(mart["has_hydro_flow_feature"].sum()),
-        "hydro_level_grid_month_count": int(mart["has_hydro_level_feature"].sum()),
+        "climate_covered_grid_month_count": int(climate_covered.sum()),
+        "hydro_spatial_coverage_grid_month_count": int(hydro_covered.sum()),
+        "hydro_available_grid_month_count": int(hydro_available.sum()),
+        "hydro_flow_available_grid_month_count": int(mart["has_hydro_flow_feature"].sum()),
+        "hydro_level_available_grid_month_count": int(mart["has_hydro_level_feature"].sum()),
+        "wildfire_joined_grid_month_count": int(wildfire_joined.sum()),
+        "wildfire_overlap_grid_month_count": int(wildfire_overlap.sum()),
         "grid_cells_with_climate_feature": int(
-            mart.loc[mart["has_climate_feature"], "grid_cell_key"].nunique()
+            mart.loc[climate_covered, "grid_cell_key"].nunique()
         ),
-        "grid_cells_with_hydro_flow_feature": int(
-            mart.loc[mart["has_hydro_flow_feature"], "grid_cell_key"].nunique()
+        "grid_cells_with_hydro_spatial_coverage": int(
+            mart.loc[hydro_covered, "grid_cell_key"].nunique()
         ),
-        "grid_cells_with_hydro_level_feature": int(
-            mart.loc[mart["has_hydro_level_feature"], "grid_cell_key"].nunique()
+        "grid_cells_with_hydro_available_feature": int(
+            mart.loc[hydro_available, "grid_cell_key"].nunique()
+        ),
+        "grid_cells_with_wildfire_overlap": int(
+            mart.loc[wildfire_overlap, "grid_cell_key"].nunique()
+        ),
+        "climate_mapping_method_counts": _value_counts(mart["climate_mapping_method"]),
+        "hydro_spatial_assignment_method_counts": _value_counts(
+            mart["hydro_spatial_assignment_method"]
+        ),
+        "wildfire_temporal_assignment_method_counts": _value_counts(
+            mart["wildfire_temporal_assignment_method"]
         ),
     }
 
@@ -497,6 +589,20 @@ def _assert_row_count_unchanged(
         )
 
 
+def _assert_unique_grid_month(
+    dataframe: pd.DataFrame,
+    *,
+    table_name: str,
+) -> None:
+    duplicate_count = int(dataframe[["grid_cell_key", "reference_month"]].duplicated().sum())
+
+    if duplicate_count > 0:
+        raise GoldRiskMartError(
+            f"{table_name} contains duplicate grid_cell_key × reference_month "
+            f"rows: {duplicate_count}."
+        )
+
+
 def _require_columns(
     dataframe: pd.DataFrame,
     required_columns: set[str],
@@ -506,3 +612,9 @@ def _require_columns(
 
     if missing_columns:
         raise GoldRiskMartError(f"{table_name} is missing columns: {sorted(missing_columns)}")
+
+
+def _value_counts(series: pd.Series) -> dict[str, int]:
+    return {
+        str(key): int(value) for key, value in series.value_counts(dropna=False).to_dict().items()
+    }

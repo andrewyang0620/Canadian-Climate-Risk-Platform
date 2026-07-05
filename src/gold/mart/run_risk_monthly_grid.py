@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from datetime import date
@@ -35,6 +35,7 @@ def run_gold_grid_month_risk_feature_mart(
         municipality_bridge=inputs["municipality_bridge"],
         climate_grid_month=inputs["climate_grid_month"],
         hydro_grid_month=inputs["hydro_grid_month"],
+        wildfire_grid_month=inputs["wildfire_grid_month"],
     )
 
     output_path = (
@@ -65,6 +66,7 @@ def run_gold_grid_month_risk_feature_mart(
             "gold_grid_municipality_bridge",
             "gold_grid_month_climate_feature",
             "gold_grid_month_hydro_feature",
+            "gold_grid_month_wildfire_perimeter_feature",
         ],
     }
 

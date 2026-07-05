@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
@@ -187,9 +187,9 @@ def build_gold_grid_month_risk_feature_mart(
     mart["has_hydro_level_feature"] = mart["level_mean_measurement_value"].notna()
     mart["has_hydro_feature"] = mart["has_hydro_flow_feature"] | mart["has_hydro_level_feature"]
     mart["has_wildfire_perimeter_feature"] = mart["wildfire_perimeter_count"].notna()
-    mart["has_wildfire_observed_perimeter_overlap"] = (
-        mart["wildfire_has_observed_perimeter_overlap"].fillna(False).astype(bool)
-    )
+    mart["has_wildfire_observed_perimeter_overlap"] = mart[
+        "wildfire_has_observed_perimeter_overlap"
+    ].eq(True)
 
     mart = mart.sort_values(
         [

@@ -278,9 +278,7 @@ def _add_key_check(
 ) -> None:
     null_count = int(mart["grid_month_risk_feature_key"].isna().sum())
     duplicate_count = int(mart["grid_month_risk_feature_key"].duplicated().sum())
-    grain_duplicate_count = int(
-        mart[["grid_cell_key", "reference_month"]].duplicated().sum()
-    )
+    grain_duplicate_count = int(mart[["grid_cell_key", "reference_month"]].duplicated().sum())
 
     report.add_check(
         name="gold_risk_mart_key_valid",
@@ -386,9 +384,7 @@ def _add_primary_municipality_check(
         details={
             "primary_municipality_null_rows": primary_null_rows,
             "municipality_match_count_invalid_rows": match_count_invalid_rows,
-            "primary_municipality_count": int(
-                mart["primary_municipality_key"].nunique()
-            ),
+            "primary_municipality_count": int(mart["primary_municipality_key"].nunique()),
         },
     )
 
@@ -515,9 +511,7 @@ def _add_hydro_method_and_semantics_checks(
     mart: pd.DataFrame,
     hydro_grid_month: pd.DataFrame,
 ) -> None:
-    actual_methods = set(
-        mart["hydro_spatial_assignment_method"].dropna().astype(str).unique()
-    )
+    actual_methods = set(mart["hydro_spatial_assignment_method"].dropna().astype(str).unique())
     invalid_methods = sorted(actual_methods - EXPECTED_HYDRO_SPATIAL_METHODS)
 
     source_counts = _value_counts(hydro_grid_month["hydro_spatial_assignment_method"])
@@ -634,9 +628,7 @@ def _add_wildfire_method_and_semantics_checks(
     mart: pd.DataFrame,
     wildfire_grid_month: pd.DataFrame,
 ) -> None:
-    actual_methods = set(
-        mart["wildfire_temporal_assignment_method"].dropna().astype(str).unique()
-    )
+    actual_methods = set(mart["wildfire_temporal_assignment_method"].dropna().astype(str).unique())
     invalid_methods = sorted(actual_methods - EXPECTED_WILDFIRE_TEMPORAL_METHODS)
 
     source_counts = _value_counts(wildfire_grid_month["wildfire_temporal_assignment_method"])
@@ -1017,6 +1009,5 @@ def _require_columns(
 
 def _value_counts(series: pd.Series) -> dict[str, int]:
     return {
-        str(key): int(value)
-        for key, value in series.value_counts(dropna=False).to_dict().items()
+        str(key): int(value) for key, value in series.value_counts(dropna=False).to_dict().items()
     }

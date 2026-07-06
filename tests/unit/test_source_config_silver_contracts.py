@@ -17,6 +17,8 @@ EXPECTED_PRIMARY_SILVER_OUTPUTS = {
     "vancouver_property_parcels": "silver_property_parcel",
     "vancouver_property_tax": "silver_property_tax_assessment",
     "wildfire_history": "silver_wildfire_event",
+    "wildfire_perimeter_polygons": "silver_wildfire_perimeter_polygon",
+    "national_hydrometric_basin_polygons": "silver_hydro_basin_polygon",
 }
 
 
@@ -65,8 +67,12 @@ EXPECTED_SILVER_OUTPUTS = {
     "vancouver_property_tax": {
         "silver_property_tax_assessment",
     },
-    "wildfire_history": {
-        "silver_wildfire_event",
+    "wildfire_history": {"silver_wildfire_event"},
+    "wildfire_perimeter_polygons": {"silver_wildfire_perimeter_polygon"},
+    "national_hydrometric_basin_polygons": {
+        "silver_hydro_basin_polygon",
+        "silver_hydro_basin_pour_point",
+        "silver_hydro_basin_station_point",
     },
 }
 

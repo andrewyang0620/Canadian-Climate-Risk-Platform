@@ -253,6 +253,113 @@ def download_wildfire_history(
     return manifest_record
 
 
+def download_wildfire_perimeter_polygons(
+    *,
+    output_root: str | Path = "lakehouse/bronze",
+    manifest_path: str | Path = "lakehouse/bronze/_manifests/bronze_runs.jsonl",
+) -> dict[str, Any]:
+    config = load_project_config("source_config.yml")
+    source = config["sources"]["wildfire_perimeter_polygons"]
+
+    download_cfg = source.get("wildfire_perimeter_download")
+    if not download_cfg:
+        raise NationalCoreIngestionError(
+            "wildfire_perimeter_polygons.wildfire_perimeter_download is missing from source_config.yml"
+        )
+
+    run_id = str(uuid.uuid4())
+    extract_timestamp = utc_now_iso()
+    extract_date = utc_today()
+
+    source_name = "wildfire_perimeter_polygons"
+    base_dir = Path(output_root) / source_name / f"extract_date={extract_date}" / f"run_id={run_id}"
+    raw_dir = base_dir / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+
+    raw_path = raw_dir / "NFDB_poly_raw.zip"
+
+    http = HttpDownloader()
+    result = http.get(download_cfg["url"])
+    raw_path.write_bytes(result.content)
+
+    raw_content = raw_path.read_bytes()
+    raw_checksum = compute_bytes_sha256(raw_content)
+    raw_size = raw_path.stat().st_size
+
+    metadata = {
+        "run_id": run_id,
+        "source_name": source_name,
+        "display_name": source["display_name"],
+        "source_group": source["source_group"],
+        "provider": source["provider"],
+        "source_url": source["source_url"],
+        "extract_timestamp": extract_timestamp,
+        "extract_date": extract_date,
+        "raw_file_path": raw_path.as_posix(),
+        "file_name": raw_path.name,
+        "file_size_bytes": raw_size,
+        "file_checksum": raw_checksum,
+        "checksum_algorithm": "sha256",
+        "ingestion_method": "direct_zip_download",
+        "row_count": None,
+        "schema_hash": None,
+        "source_period_start": None,
+        "source_period_end": None,
+        "target_bronze_table": source["target_bronze_table"],
+        "target_silver_table": source["target_silver_table"],
+        "target_silver_tables": source.get(
+            "target_silver_tables",
+            [source["target_silver_table"]],
+        ),
+        "load_status": "success",
+        "extra_metadata": {
+            "dataset_name": download_cfg.get("dataset_name"),
+            "download_url": download_cfg["url"],
+            "download_filename": download_cfg.get("filename"),
+            "download_status_code": result.status_code,
+            "download_content_type": result.content_type,
+            "download_size_bytes": result.size_bytes,
+            "download_checksum": result.checksum,
+            "download_final_url": result.final_url,
+            "source_version": download_cfg.get("source_version"),
+            "format": download_cfg.get("format"),
+            "expected_shapefiles": download_cfg.get("expected_shapefiles", []),
+            "metadata_files_in_zip": download_cfg.get("metadata_files_in_zip", []),
+            "profile_summary": source.get("wildfire_perimeter_contract", {}).get(
+                "profile_summary",
+                {},
+            ),
+            "key_profile": source.get("wildfire_perimeter_contract", {}).get(
+                "key_profile",
+                {},
+            ),
+            "note": (
+                "NFDB_poly is a wildfire perimeter polygon source. It is separate "
+                "from NFDB point wildfire history and must not be treated as a direct "
+                "replacement for silver_wildfire_event."
+            ),
+        },
+    }
+
+    metadata_path = base_dir / "metadata.json"
+    write_json(metadata_path, metadata)
+
+    manifest_record = {
+        **metadata,
+        "metadata_path": metadata_path.as_posix(),
+        "manifest_record_created_at": utc_now_iso(),
+    }
+
+    append_jsonl(Path(manifest_path), manifest_record)
+
+    print(
+        f"[OK] downloaded wildfire_perimeter_polygons -> {raw_path} | "
+        f"size_bytes={raw_size} | run_id={run_id}"
+    )
+
+    return manifest_record
+
+
 def download_hydat_archive(
     *,
     output_root: str | Path = "lakehouse/bronze",
@@ -340,6 +447,179 @@ def download_hydat_archive(
 
     print(
         f"[OK] downloaded hydat_archive -> {raw_path} | " f"size_bytes={raw_size} | run_id={run_id}"
+    )
+
+    return manifest_record
+
+
+def download_national_hydrometric_basin_polygons(
+    *,
+    output_root: str | Path = "lakehouse/bronze",
+    manifest_path: str | Path = "lakehouse/bronze/_manifests/bronze_runs.jsonl",
+    chunks: list[str] | None = None,
+) -> dict[str, Any]:
+    config = load_project_config("source_config.yml")
+    source = config["sources"]["national_hydrometric_basin_polygons"]
+
+    download_cfg = source.get("download") or {}
+    base_url = str(download_cfg.get("base_url") or "").rstrip("/")
+    if not base_url.startswith("http"):
+        raise NationalCoreIngestionError(
+            "national_hydrometric_basin_polygons.download.base_url is missing or invalid."
+        )
+
+    root_url = str(source["source_url"]).rstrip("/")
+
+    selected_chunks = chunks or [
+        str(value) for value in download_cfg.get("chunks_for_project_scope", [])
+    ]
+    if not selected_chunks:
+        raise NationalCoreIngestionError(
+            "national_hydrometric_basin_polygons.download.chunks_for_project_scope is missing."
+        )
+
+    reference_files = [str(value) for value in download_cfg.get("reference_files", [])]
+
+    run_id = str(uuid.uuid4())
+    extract_timestamp = utc_now_iso()
+    extract_date = utc_today()
+
+    source_name = "national_hydrometric_basin_polygons"
+    base_dir = Path(output_root) / source_name / f"extract_date={extract_date}" / f"run_id={run_id}"
+    raw_dir = base_dir / "raw"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+
+    package_path = raw_dir / "national_hydrometric_basin_polygons_raw_package.zip"
+
+    http = HttpDownloader()
+    downloaded_members: list[dict[str, Any]] = []
+
+    with zipfile.ZipFile(package_path, mode="w", compression=zipfile.ZIP_DEFLATED) as out_zip:
+        for filename in selected_chunks:
+            url = f"{base_url}/{filename}"
+            result = http.get(url)
+
+            member_path = f"geojson/{filename}"
+            out_zip.writestr(member_path, result.content)
+
+            downloaded_members.append(
+                {
+                    "download_name": filename,
+                    "file_role": "geojson_chunk",
+                    "url": url,
+                    "filename": filename,
+                    "package_member_path": member_path,
+                    "download_status_code": result.status_code,
+                    "download_content_type": result.content_type,
+                    "download_size_bytes": result.size_bytes,
+                    "download_checksum": result.checksum,
+                    "download_final_url": result.final_url,
+                }
+            )
+
+        for filename in reference_files:
+            url = f"{root_url}/{filename}"
+            result = http.get(url)
+
+            member_path = f"reference/{filename}"
+            out_zip.writestr(member_path, result.content)
+
+            downloaded_members.append(
+                {
+                    "download_name": filename,
+                    "file_role": "reference_file",
+                    "url": url,
+                    "filename": filename,
+                    "package_member_path": member_path,
+                    "download_status_code": result.status_code,
+                    "download_content_type": result.content_type,
+                    "download_size_bytes": result.size_bytes,
+                    "download_checksum": result.checksum,
+                    "download_final_url": result.final_url,
+                }
+            )
+
+        out_zip.writestr(
+            "manifest.json",
+            json.dumps(
+                {
+                    "source_name": source_name,
+                    "display_name": source["display_name"],
+                    "extract_timestamp": extract_timestamp,
+                    "chunks": selected_chunks,
+                    "reference_files": reference_files,
+                    "downloaded_member_count": len(downloaded_members),
+                    "downloads": downloaded_members,
+                    "note": (
+                        "Raw package contains Hydro basin polygon GeoJSON chunk zips "
+                        "plus source reference files. Silver standardization extracts "
+                        "DrainageBasin, PourPoint, and Station layers."
+                    ),
+                },
+                indent=2,
+                sort_keys=True,
+            ),
+        )
+
+    package_content = package_path.read_bytes()
+    package_checksum = compute_bytes_sha256(package_content)
+    package_size = package_path.stat().st_size
+
+    metadata = {
+        "run_id": run_id,
+        "source_name": source_name,
+        "display_name": source["display_name"],
+        "source_group": source["source_group"],
+        "provider": source["provider"],
+        "source_url": source["source_url"],
+        "extract_timestamp": extract_timestamp,
+        "extract_date": extract_date,
+        "raw_file_path": package_path.as_posix(),
+        "file_name": package_path.name,
+        "file_size_bytes": package_size,
+        "file_checksum": package_checksum,
+        "checksum_algorithm": "sha256",
+        "ingestion_method": "direct_geojson_zip_download",
+        "row_count": len(downloaded_members),
+        "schema_hash": None,
+        "source_period_start": None,
+        "source_period_end": None,
+        "target_bronze_table": source["target_bronze_table"],
+        "target_silver_table": source["target_silver_table"],
+        "target_silver_tables": source.get(
+            "target_silver_tables",
+            [source["target_silver_table"]],
+        ),
+        "load_status": "success",
+        "extra_metadata": {
+            "raw_package_type": "combined_hydro_basin_geojson_zip_package",
+            "downloaded_member_count": len(downloaded_members),
+            "selected_chunks": selected_chunks,
+            "reference_files": reference_files,
+            "is_partial_project_scope_download": set(selected_chunks)
+            != set(download_cfg.get("chunks_for_project_scope", [])),
+            "downloads": downloaded_members,
+            "note": (
+                "Hydro basin polygons are spatial footprint/allocation data. "
+                "They complement HYDAT observations and do not replace hydro measurements."
+            ),
+        },
+    }
+
+    metadata_path = base_dir / "metadata.json"
+    write_json(metadata_path, metadata)
+
+    manifest_record = {
+        **metadata,
+        "metadata_path": metadata_path.as_posix(),
+        "manifest_record_created_at": utc_now_iso(),
+    }
+
+    append_jsonl(Path(manifest_path), manifest_record)
+
+    print(
+        f"[OK] downloaded national_hydrometric_basin_polygons -> {package_path} | "
+        f"members={len(downloaded_members)} | size_bytes={package_size} | run_id={run_id}"
     )
 
     return manifest_record
@@ -1088,6 +1368,12 @@ def parse_args() -> argparse.Namespace:
     )
 
     parser.add_argument(
+        "--download-wildfire-perimeter-polygons",
+        action="store_true",
+        help="Download Canadian National Fire Database fire perimeter polygon data into Bronze.",
+    )
+
+    parser.add_argument(
         "--download-hydat-archive",
         action="store_true",
         help="Download HYDAT SQLite archive into Bronze.",
@@ -1111,6 +1397,22 @@ def parse_args() -> argparse.Namespace:
         help="Download ECCC climate-daily observations for BC + Alberta into Bronze.",
     )
 
+    parser.add_argument(
+        "--download-national-hydrometric-basin-polygons",
+        action="store_true",
+        help="Download National Hydrometric Network Basin Polygon GeoJSON chunks into Bronze.",
+    )
+
+    parser.add_argument(
+        "--hydro-basin-chunks",
+        nargs="+",
+        default=None,
+        help=(
+            "Optional subset of Hydro basin GeoJSON chunk zip filenames, "
+            "for example MDA_ADP_11.zip."
+        ),
+    )
+
     return parser.parse_args()
 
 
@@ -1123,6 +1425,10 @@ def main() -> None:
 
     if args.download_wildfire_history:
         download_wildfire_history()
+        return
+
+    if args.download_wildfire_perimeter_polygons:
+        download_wildfire_perimeter_polygons()
         return
 
     if args.download_hydat_archive:
@@ -1141,10 +1447,15 @@ def main() -> None:
         download_eccc_historical_climate_bc_ab()
         return
 
+    if args.download_national_hydrometric_basin_polygons:
+        download_national_hydrometric_basin_polygons(chunks=args.hydro_basin_chunks)
+        return
+
     raise SystemExit(
         "No action selected. Use --download-census-boundaries, "
-        "--download-wildfire-history, --download-hydat-archive, or "
-        "--download-eccc-historical-climate-bc-ab."
+        "--download-wildfire-history, --download-wildfire-perimeter-polygons, "
+        "--download-hydat-archive, --download-eccc-historical-climate-bc-ab, or "
+        "--download-national-hydrometric-basin-polygons."
     )
 
 

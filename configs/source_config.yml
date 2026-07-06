@@ -61,9 +61,8 @@ sources:
         min_temperature: min_temp_c
         mean_temperature: mean_temp_c
         total_precipitation: total_precip_mm
-      note: Bronze stores GeoJSON features as JSONL.GZ. Exact raw property names are
-        confirmed through profiling; Silver standardization maps available ECCC fields
-        into stable climate measurement columns.
+      note: Bronze stores GeoJSON features as JSONL.GZ. Exact raw property names are confirmed through
+        profiling; Silver standardization maps available ECCC fields into stable climate measurement columns.
       required_measurements:
       - temperature
       - precipitation
@@ -98,10 +97,9 @@ sources:
       - AB
       page_limit: 5000
       partition_by: year
-      note: Bronze downloads all ECCC climate-daily GeoJSON items in the BC/Alberta
-        bounding box for 2016-2025 using OGC API pagination. If province fields are
-        available in item properties, records are filtered to BC/AB; otherwise the
-        bounding box is used as the spatial scope.
+      note: Bronze downloads all ECCC climate-daily GeoJSON items in the BC/Alberta bounding box for 2016-2025
+        using OGC API pagination. If province fields are available in item properties, records are filtered
+        to BC/AB; otherwise the bounding box is used as the spatial scope.
     coordinate_contract:
       required_for_spatial_overlay: true
       candidate_latitude_fields: []
@@ -140,9 +138,9 @@ sources:
       downstream_standard_names:
         discharge: discharge_cms
         water_level: water_level_m
-      note: 'Real-time hydrometric data must produce at least one standardized water
-        measurement after Silver processing. Raw API field names may differ, so this
-        requirement is enforced after source-specific standardization.
+      note: 'Real-time hydrometric data must produce at least one standardized water measurement after
+        Silver processing. Raw API field names may differ, so this requirement is enforced after source-specific
+        standardization.
 
         '
     validation_checks:
@@ -169,7 +167,8 @@ sources:
       target_provinces:
       - BC
       - AB
-      note: Bronze downloads recent ECCC hydrometric realtime GeoJSON items in the BC/Alberta bounding box using GeoMet OGC API pagination.
+      note: Bronze downloads recent ECCC hydrometric realtime GeoJSON items in the BC/Alberta bounding
+        box using GeoMet OGC API pagination.
   hydat_archive:
     display_name: HYDAT Historical Hydrometric Archive
     source_group: national
@@ -207,10 +206,9 @@ sources:
       - STATIONS
       - DLY_FLOWS
       - DLY_LEVELS
-      note: HYDAT Bronze stores the raw SQLite archive. Internal profiling confirms
-        STATIONS, DLY_FLOWS, and DLY_LEVELS. DLY_FLOWS and DLY_LEVELS store daily
-        values in monthly rows using FLOW1..FLOW31 and LEVEL1..LEVEL31 columns; Silver
-        processing will unpivot these into daily hydrometric observations.
+      note: HYDAT Bronze stores the raw SQLite archive. Internal profiling confirms STATIONS, DLY_FLOWS,
+        and DLY_LEVELS. DLY_FLOWS and DLY_LEVELS store daily values in monthly rows using FLOW1..FLOW31
+        and LEVEL1..LEVEL31 columns; Silver processing will unpivot these into daily hydrometric observations.
       optional_tables:
       - ANNUAL_STATISTICS
       - ANNUAL_INSTANT_PEAKS
@@ -231,9 +229,8 @@ sources:
       url: http://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/Hydat_sqlite3_20260417.zip
       filename: Hydat_sqlite3_20260417.zip
       format: zip_sqlite
-      note: HYDAT SQLite archive containing historical Water Survey of Canada daily/monthly
-        flow and water-level observations. Used for hydrometric baseline and flood
-        signal features.
+      note: HYDAT SQLite archive containing historical Water Survey of Canada daily/monthly flow and water-level
+        observations. Used for hydrometric baseline and flood signal features.
   wildfire_history:
     display_name: Canadian National Fire Database Fire Point Data
     source_group: national
@@ -273,9 +270,8 @@ sources:
       filename: NFDB_point.zip
       format: zip_shapefile
       source_version: current_version
-      note: Canadian National Fire Database fire point shapefile. Used for wildfire
-        event proximity/count features. Polygon fire perimeter data is larger and
-        can be added later as a burned-area extension.
+      note: Canadian National Fire Database fire point shapefile. Used for wildfire event proximity/count
+        features. Polygon fire perimeter data is larger and can be added later as a burned-area extension.
     wildfire_event_contract:
       required_for_downstream_features: true
       candidate_event_id_fields:
@@ -296,9 +292,8 @@ sources:
       - AREA_HA
       - area_ha
       validation_rule: geometry_required_at_bronze_event_fields_validated_after_silver_extraction
-      note: Bronze profiling verifies the shapefile package contains geometry. DBF
-        attribute fields are validated during Silver extraction when the shapefile
-        is read into a geospatial dataframe.
+      note: Bronze profiling verifies the shapefile package contains geometry. DBF attribute fields are
+        validated during Silver extraction when the shapefile is read into a geospatial dataframe.
   statcan_building_permits:
     display_name: Statistics Canada Building Permits
     source_group: national
@@ -337,9 +332,8 @@ sources:
         municipality_key: municipality_key
         municipality_name: municipality_name
         province: province
-      note: 'Statistics Canada building permit geography must be standardized to the
-        municipality/CSD boundary table before municipality-month priority marts can
-        be built.
+      note: 'Statistics Canada building permit geography must be standardized to the municipality/CSD
+        boundary table before municipality-month priority marts can be built.
 
         '
     validation_checks:
@@ -396,9 +390,9 @@ sources:
         - province
         - geometry
       validation_rule: both_province_and_municipality_boundaries_required_after_silver_standardization
-      note: Bronze stores the raw 2021 Statistics Canada province and census subdivision
-        boundary zip files as a combined raw package. Silver standardization must
-        extract both province and CSD/municipality boundary outputs.
+      note: Bronze stores the raw 2021 Statistics Canada province and census subdivision boundary zip
+        files as a combined raw package. Silver standardization must extract both province and CSD/municipality
+        boundary outputs.
     validation_checks:
     - schema_hash
     - row_count
@@ -472,9 +466,9 @@ sources:
       - manual_location_lookup_table
       - text_to_municipality_standardization
       validation_rule: event_start_date_and_place_or_geometry_required
-      note: CDD raw fields use uppercase source names. EVENT_START_DATE is the event
-        date source, PLACE is the free-text location field, GEOG_OBJ may provide point
-        geometry, and PROVINCES_AFFECTED provides province-level geography.
+      note: CDD raw fields use uppercase source names. EVENT_START_DATE is the event date source, PLACE
+        is the free-text location field, GEOG_OBJ may provide point geometry, and PROVINCES_AFFECTED provides
+        province-level geography.
     validation_checks:
     - schema_hash
     - row_count
@@ -516,8 +510,8 @@ sources:
       - site_id
       - legal_description
       validation_rule: at_least_one_candidate_id_present
-      note: 'The parcel source must provide a stable parcel identity for downstream
-        joins, but the exact raw field name should be confirmed during Silver profiling.
+      note: 'The parcel source must provide a stable parcel identity for downstream joins, but the exact
+        raw field name should be confirmed during Silver profiling.
 
         '
     validation_checks:
@@ -571,9 +565,9 @@ sources:
       - lot
       - block
       validation_rule: pid_or_folio_required_for_parcel_join
-      note: 'The exact Vancouver property tax join key should be confirmed during
-        Silver profiling. The contract records candidate keys instead of prematurely
-        forcing a raw field name that may not exist in the source export.
+      note: 'The exact Vancouver property tax join key should be confirmed during Silver profiling. The
+        contract records candidate keys instead of prematurely forcing a raw field name that may not exist
+        in the source export.
 
         '
     validation_checks:
@@ -647,8 +641,8 @@ sources:
       - geom
       - geo_point_2d
       validation_rule: geometry_or_point_field_required_after_silver_standardization
-      note: Vancouver building permits provide address plus geom / geo_point_2d rather
-        than explicit latitude and longitude columns.
+      note: Vancouver building permits provide address plus geom / geo_point_2d rather than explicit latitude
+        and longitude columns.
   vancouver_floodplain:
     display_name: Vancouver Designated Floodplain
     source_group: municipal
@@ -714,8 +708,8 @@ sources:
       candidate_geometry_fields:
       - multipolygon
       validation_rule: multipolygon_required_after_silver_standardization
-      note: Calgary property assessment provides a raw multipolygon WKT-style geometry
-        field rather than separate latitude and longitude columns.
+      note: Calgary property assessment provides a raw multipolygon WKT-style geometry field rather than
+        separate latitude and longitude columns.
     validation_checks:
     - schema_hash
     - row_count
@@ -739,8 +733,8 @@ sources:
       - cpid
       - unique_key
       validation_rule: at_least_one_candidate_id_present
-      note: Calgary property assessment raw source provides roll_number, cpid, and
-        unique_key rather than a generic property_id field.
+      note: Calgary property assessment raw source provides roll_number, cpid, and unique_key rather than
+        a generic property_id field.
   calgary_flood_hazard:
     display_name: Calgary Regulatory Flood Map Bylaw Flood Hazard
     source_group: municipal
@@ -789,10 +783,9 @@ sources:
       - flood_cd
       expected_geometry_type: MultiPolygon
       validation_rule: multipolygon_geometry_and_flood_category_required
-      note: Calgary flood hazard source uses the Regulatory Flood Map Bylaw dataset
-        tp6q-x2v7. It provides MultiPolygon geometries and flood category attributes
-        such as description and flood_cd, making it suitable for property-level flood
-        exposure overlay.
+      note: Calgary flood hazard source uses the Regulatory Flood Map Bylaw dataset tp6q-x2v7. It provides
+        MultiPolygon geometries and flood category attributes such as description and flood_cd, making
+        it suitable for property-level flood exposure overlay.
   calgary_building_permits:
     display_name: Calgary Building Permits
     source_group: municipal
@@ -917,3 +910,316 @@ sources:
       - locationswkt
       - locationsgeojson
       validation_rule: coordinate_pair_or_geometry_field_required_after_silver_standardization
+  national_hydrometric_basin_polygons:
+    display_name: National Hydrometric Network Basin Polygons
+    source_group: national
+    provider: Environment and Climate Change Canada / Water Survey of Canada
+    source_url: https://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/HydrometricNetworkBasinPolygons/
+    access_method: direct_geojson_zip_download
+    expected_frequency: periodic
+    file_format: geojson_zip
+    spatial_grain: hydrometric_basin_polygon_package
+    temporal_grain: static_or_periodic
+    time_window:
+      start_year: null
+      end_year: null
+    target_bronze_table: bronze_hydro_basin_polygon
+    target_silver_table: silver_hydro_basin_polygon
+    target_silver_tables:
+    - silver_hydro_basin_polygon
+    - silver_hydro_basin_pour_point
+    - silver_hydro_basin_station_point
+    downstream_use:
+    - hydro_basin_grid_intersection
+    - hydrometric_spatial_allocation
+    - grid_month_hazard_exposure
+    required_fields:
+    - StationNum
+    - geometry
+    validation_checks:
+    - schema_hash
+    - row_count
+    - geometry_validity
+    - crs_check
+    post_silver_validation_checks:
+    - hydro_basin_station_id_presence
+    - hydro_basin_geometry_presence
+    - hydro_basin_geometry_validity
+    - hydro_basin_layer_station_id_alignment
+    - hydro_basin_station_join_coverage
+    - hydro_basin_ab_bc_station_coverage
+    - crs_check
+    redistribution: public
+    download:
+      base_url: https://collaboration.cmc.ec.gc.ca/cmc/hydrometrics/www/HydrometricNetworkBasinPolygons/geojson/
+      chunks_for_project_scope:
+      - MDA_ADP_05.zip
+      - MDA_ADP_06.zip
+      - MDA_ADP_07.zip
+      - MDA_ADP_08.zip
+      - MDA_ADP_09.zip
+      - MDA_ADP_10.zip
+      - MDA_ADP_11.zip
+      reference_files:
+      - Included_stations.txt
+      - UpdatedStationList.xlsx
+      note: Project-scope chunks were selected from local silver_hydro_station drainage prefixes 05, 06,
+        07, 08, 09, 10, and 11. Source probe confirmed each chunk contains DrainageBasin, PourPoint, and
+        Station GeoJSON layers.
+    basin_polygon_contract:
+      required_for_downstream_features: true
+      confirmed_source_layers:
+        drainage_basin:
+          filename_pattern: MDA_ADP_*_DrainageBasin_BassinDeDrainage.geojson
+          target_silver_table: silver_hydro_basin_polygon
+          geometry_type: Polygon
+          source_crs: EPSG:4326
+          confirmed_fields:
+            station_id: StationNum
+            station_name: NameNom
+            status_en: Status
+            status_fr: Etat
+            basin_area_sq_km: Area_km2
+            basin_area_sq_km_fr: Aire_km2
+            remark_en: Remark
+            remark_fr: Remarque
+            source_version: Version
+            source_revision_date: Date_rev
+            shape_length_m: Shape_Leng
+            shape_area_sq_m: Shape_Area
+        pour_point:
+          filename_pattern: MDA_ADP_*_PourPoint_PointExutoire.geojson
+          target_silver_table: silver_hydro_basin_pour_point
+          geometry_type: Point
+          source_crs: EPSG:4326
+          confirmed_fields:
+            station_id: StationNum
+            station_name: NameNom
+            status_en: Status
+            status_fr: Etat
+            province_or_territory: ProvTerr
+        station_point:
+          filename_pattern: MDA_ADP_*_Station.geojson
+          target_silver_table: silver_hydro_basin_station_point
+          geometry_type: Point
+          source_crs: EPSG:4326
+          confirmed_fields:
+            station_id: StationNum
+            station_name: NameNom
+            status_en: Status
+            status_fr: Etat
+            province_or_territory: ProvTerr
+            hydat_version: HYDAT_ver
+      confirmed_join_key:
+        source_field: StationNum
+        silver_hydro_station_field: station_id
+        silver_hydro_daily_field: station_id
+      initial_reference_join_audit:
+        silver_hydro_station_count: 3428
+        included_stations_match_count: 3210
+        included_stations_match_rate: 0.936406
+        updated_station_list_match_count: 3206
+        updated_station_list_match_rate: 0.935239
+        note: Unmatched local hydro stations are concentrated in AB drainage prefix 05 and include many
+          irrigation canal, drain, reservoir, and artificial water-management stations.
+      mda_adp_11_layer_probe:
+        drainage_basin_feature_count: 166
+        pour_point_feature_count: 166
+        station_point_feature_count: 166
+        cross_layer_station_id_intersection_count: 166
+        silver_hydro_station_match_count: 43
+        note: MDA_ADP_11 was used as a small schema probe. Its three layers share the same StationNum
+          set.
+      validation_rule: StationNum and valid geometry are required after Silver standardization. The three
+        source layers must preserve station-id alignment. Join coverage against existing hydro Silver
+        tables must be reported, not assumed.
+      full_project_scope_audit:
+        silver_hydro_basin_polygon_rows: 5071
+        silver_hydro_basin_pour_point_rows: 5071
+        silver_hydro_basin_station_point_rows: 5071
+        mda_adp_region_counts:
+          '05': 1740
+          '06': 164
+          '07': 476
+          08: 2180
+          09: 87
+          '10': 258
+          '11': 166
+        geometry_original_valid_count: 3498
+        geometry_original_invalid_count: 1573
+        geometry_repaired_count: 1573
+        geometry_final_valid_count: 5071
+        geometry_type_counts:
+          Polygon: 5024
+          MultiPolygon: 47
+        existing_silver_hydro_station_join_audit:
+          silver_hydro_station_count: 3428
+          polygon_station_id_count: 5071
+          match_count: 3212
+          match_rate: 0.936989
+          unmatched_silver_hydro_station_count: 216
+          province_match_summary:
+            AB:
+              station_count: 1104
+              matched_count: 962
+              unmatched_count: 142
+              match_rate: 0.871377
+            BC:
+              station_count: 2324
+              matched_count: 2250
+              unmatched_count: 74
+              match_rate: 0.968158
+        interpretation: Hydro basin polygons provide spatial footprint/allocation data. They do not replace
+          HYDAT daily flow/level observations. Existing hydro measurements remain the measurement source;
+          basin polygons improve grid-level spatial allocation.
+  wildfire_perimeter_polygons:
+    display_name: Canadian National Fire Database Fire Polygon Data
+    source_group: national
+    provider: Natural Resources Canada / Canadian Forest Service
+    source_url: https://cwfis.cfs.nrcan.gc.ca/downloads/nfdb/fire_poly/current_version/
+    access_method: direct_zip_download
+    expected_frequency: periodic
+    file_format: zip_shapefile
+    spatial_grain: wildfire_perimeter_polygon
+    temporal_grain: event
+    time_window:
+      start_year: 1972
+      end_year: 2024
+    target_bronze_table: bronze_wildfire_perimeter_polygon
+    target_silver_table: silver_wildfire_perimeter_polygon
+    downstream_use:
+    - wildfire_burned_area_features
+    - wildfire_grid_intersection_features
+    - grid_month_hazard_exposure
+    required_fields:
+    - geometry
+    validation_checks:
+    - schema_hash
+    - row_count
+    - geometry_validity
+    - event_date_range
+    post_silver_validation_checks:
+    - wildfire_perimeter_required_columns
+    - wildfire_perimeter_key_uniqueness
+    - wildfire_perimeter_year_presence
+    - wildfire_perimeter_geometry_validity
+    - wildfire_perimeter_bc_ab_filter
+    - crs_check
+    redistribution: public
+    wildfire_perimeter_download:
+      dataset_name: NFDB_poly
+      url: https://cwfis.cfs.nrcan.gc.ca/downloads/nfdb/fire_poly/current_version/NFDB_poly.zip
+      filename: NFDB_poly.zip
+      format: zip_shapefile
+      source_version: current_version
+      metadata_files_in_zip:
+      - NFDB_Poly_metadata_NAP_ISO_19115_2003.xml
+      - NFDB_Poly_metadata_NAP_ISO_19115_2003_EN.pdf
+      - NFDB_Poly_metadata_NAP_ISO_19115_2003_FR.pdf
+      - NFDB_poly_shapefile_metadata.pdf
+      - NFDB_poly_update_log.txt
+      expected_shapefiles:
+      - NFDB_poly_1972to2020_20250630.shp
+      - NFDB_poly_2021to2024_20250630.shp
+      note: Canadian National Fire Database fire perimeter polygon shapefile package. The package contains
+        two polygon shapefiles covering 1972-2020 and 2021-2024. Silver standardization filters to BC/AB
+        and 2016-2025.
+    wildfire_perimeter_contract:
+      required_for_downstream_features: true
+      silver_table: silver_wildfire_perimeter_polygon
+      silver_grain: one NFDB polygon perimeter record filtered to BC/AB across available source history
+      primary_key: wildfire_perimeter_key
+      primary_key_rule: wildfire_perimeter_key = 'nfdb_poly__' + cfs_ref_id + '__' + source_file_stem
+        + '__record_' + source_record_number
+      natural_source_key: CFS_REF_ID
+      source_crs: NAD_1983_Lambert_Conformal_Conic
+      candidate_event_id_fields:
+      - CFS_REF_ID
+      - FIRE_ID
+      - SOURCE_KEY
+      candidate_year_fields:
+      - YEAR
+      candidate_date_fields:
+      - REP_DATE
+      - OUT_DATE
+      - POLY_DATE
+      - ACQ_DATE
+      candidate_size_fields:
+      - SIZE_HA
+      - CALC_HA
+      candidate_agency_fields:
+      - SRC_AGENCY
+      candidate_cause_fields:
+      - CAUSE
+      profile_summary:
+        raw_total_rows: 48571
+        raw_bc_ab_rows: 14527
+        raw_2016_2025_rows: 13426
+        source_shapefiles:
+          NFDB_poly_1972to2020_20250630.shp:
+            row_count: 41210
+            shape_type: POLYGONZ
+            year_min: -9999
+            year_max: 2020
+            bc_ab_2016_2025_count: 2249
+          NFDB_poly_2021to2024_20250630.shp:
+            row_count: 7361
+            shape_type: POLYGONZ
+            year_min: 2021
+            year_max: 2024
+            bc_ab_2016_2025_count: 2805
+        year_counts_2016_2025_all_canada:
+          2016: 1021
+          2017: 1601
+          2018: 1833
+          2019: 924
+          2020: 686
+          2021: 1823
+          2022: 1360
+          2023: 2200
+          2024: 1978
+          2025: 0
+        silver_scope_year_province_counts:
+          AB:
+            2016: 185
+            2017: 140
+            2018: 196
+            2019: 171
+            2020: 45
+            2021: 193
+            2022: 212
+            2023: 226
+            2024: 245
+          BC:
+            2016: 219
+            2017: 344
+            2018: 675
+            2019: 160
+            2020: 114
+            2021: 438
+            2022: 380
+            2023: 676
+            2024: 435
+        silver_scope_bc_ab_rows: 14527
+        gold_feature_window_bc_ab_2016_2025_rows: 5054
+      key_profile:
+        filtered_scope_rows: 5054
+        cfs_ref_id_non_empty_rows: 5054
+        cfs_ref_id_unique_count: 5054
+        cfs_ref_id_duplicate_rows: 0
+        fire_id_unique_count: 4811
+        fire_id_duplicate_rows: 243
+        src_agency_year_fire_id_unique_count: 5054
+        src_agency_year_fire_id_duplicate_rows: 0
+        note: CFS_REF_ID is unique in the BC/AB 2016-2025 feature window, but full-history Silver uses
+          a lineage-safe primary key to avoid assuming global CFS_REF_ID uniqueness.
+      join_policy: Do not assume CFS_REF_ID, FIRE_ID, SOURCE_KEY, nfdb_fire_id, or existing silver_wildfire_event
+        keys are equivalent. Join keys against point wildfire events must be proven with match-rate profiling
+        before downstream use.
+      validation_rule: Silver must read both NFDB polygon shapefiles, filter to BC/AB, preserve historical
+        years, require non-null CFS_REF_ID and fire_year, and audit geometry repairs. The 2016-2025 modeling
+        window is applied downstream in Gold.
+    downstream_feature_window:
+      start_year: 2016
+      end_year: 2025
+      note: Feature/modeling window belongs in Gold or mart layers, not Silver.

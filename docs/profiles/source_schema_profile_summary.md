@@ -1,0 +1,287 @@
+# Source Schema Profile Summary
+
+Generated at: `2026-05-12T00:12:42+00:00`
+
+This summary is generated from local Bronze raw files. It verifies raw schema, candidate join keys, coordinate fields, measurement fields, and downstream source contracts before Silver standardization.
+
+## Summary
+
+- Profiled sources: `15`
+- Missing Bronze runs: `0`
+- Raw files missing: `0`
+- Profile failures: `0`
+
+## Sources
+
+| Source | Status | File Type | Rows / Features | Columns | Contract Notes |
+|---|---:|---:|---:|---:|---|
+| `eccc_historical_climate` | `profiled` | `jsonl_gzip` | `171108` | `40` | `required_fields:True` `coordinate_contract:True` `climate_measurement_contract:True` |
+| `hydat_archive` | `profiled` | `zip_archive` | `` | `1` | `required_fields:True` `measurement_contract:None` |
+| `wildfire_history` | `profiled` | `zip_archive` | `` | `1` | `required_fields:True` |
+| `census_boundaries` | `profiled` | `zip_archive` | `` | `1` | `required_fields:True` |
+| `canadian_disaster_database` | `profiled` | `excel` | `1490` | `25` | `required_fields:True` `location_mapping_contract:True` |
+| `vancouver_property_parcels` | `profiled` | `geojson` | `99726` | `6` | `required_fields:True` `identity_contract:True` |
+| `vancouver_property_tax` | `profiled` | `csv` | `1552486` | `30` | `required_fields:True` `join_contract:True` |
+| `vancouver_building_permits` | `profiled` | `csv` | `50610` | `20` | `required_fields:True` `join_contract:True` `coordinate_contract:True` |
+| `vancouver_floodplain` | `profiled` | `geojson` | `8` | `7` | `required_fields:True` |
+| `calgary_property_assessment` | `profiled` | `csv` | `604955` | `22` | `required_fields:True` `identity_contract:True` `coordinate_contract:True` |
+| `calgary_flood_hazard` | `profiled` | `geojson` | `1144` | `4` | `required_fields:True` |
+| `calgary_building_permits` | `profiled` | `csv` | `490102` | `30` | `required_fields:True` `join_contract:True` `coordinate_contract:True` |
+| `calgary_development_permits` | `profiled` | `csv` | `190399` | `35` | `required_fields:True` `join_contract:True` `coordinate_contract:True` |
+| `national_hydrometric_basin_polygons` | `profiled` | `zip_geojson_package` | `5071 per layer` | `varies` | `required_fields:True` `geometry_contract:True` `layer_alignment:True` `station_join_contract:True` |
+| `wildfire_perimeter_polygons` | `profiled` | `zip_shapefile` | `48571` | `varies` | `required_fields:True` `geometry_contract:True` `bc_ab_filter:True` `key_contract:True` |
+
+## Notes
+
+- `required_fields` are checked against profiled raw columns.
+- Candidate contracts are checked by case-insensitive normalized field matching.
+- Large CSV row counts are exact only when profiling is run with `--count-rows`.
+- This file should be reviewed before implementing Silver standardization logic.
+
+## Polygon/Basin Profiling Notes
+
+The two area-based source upgrades are now registered and profiled. Remaining work is downstream allocation and join-policy validation, not raw-schema discovery.
+
+Hydro basin polygons use `StationNum` as the source station identifier and standardize it to `station_id`. The profile confirms layer alignment across basin polygons, pour points, and station points, plus measured coverage against existing Hydro Silver station records.
+
+Wildfire perimeter polygons preserve `CFS_REF_ID` as a natural source identifier and use a lineage-safe Silver primary key. Do not assume that `CFS_REF_ID`, `FIRE_ID`, `SOURCE_KEY`, `NFDBFIREID`, or current `silver_wildfire_event.nfdb_fire_id` values are equivalent without a separate match-rate audit.
+
+## National Hydrometric Network Basin Polygons profile
+
+Schema probe confirmed that each project-scope MDA_ADP GeoJSON chunk contains three aligned layers:
+
+1. `DrainageBasin_BassinDeDrainage`
+   - geometry: Polygon / MultiPolygon after repair
+   - target Silver table: `silver_hydro_basin_polygon`
+   - key field: `StationNum`
+   - standardized key: `station_id`
+   - area fields: `Area_km2`, `Aire_km2`
+   - revision fields: `Version`, `Date_rev`
+
+2. `PourPoint_PointExutoire`
+   - geometry: Point
+   - target Silver table: `silver_hydro_basin_pour_point`
+   - key field: `StationNum`
+   - province field: `ProvTerr`
+
+3. `Station`
+   - geometry: Point
+   - target Silver table: `silver_hydro_basin_station_point`
+   - key field: `StationNum`
+   - province field: `ProvTerr`
+   - HYDAT version field: `HYDAT_ver`
+
+Full project-scope profile:
+
+- total station IDs across each layer: 5,071
+- layer alignment: polygon, pour point, and station point station ID sets are identical
+- MDA_ADP region counts:
+  - 05: 1,740
+  - 06: 164
+  - 07: 476
+  - 08: 2,180
+  - 09: 87
+  - 10: 258
+  - 11: 166
+- existing `silver_hydro_station` match count: 3,212
+- existing `silver_hydro_station` unmatched count: 216
+
+Station ID note: the source includes standard WSC station IDs such as `11AA001` and extended/test or auxiliary IDs such as `08HDX03` and `08HDX05`. Silver validation accepts both forms while preserving the source station identifier.
+
+## Wildfire perimeter polygon source profile - NFDB_poly
+
+Source package:
+
+- `NFDB_poly.zip`
+- raw size observed in Bronze: 778,498,701 bytes
+- source shapefiles:
+  - `NFDB_poly_1972to2020_20250630.shp`
+  - `NFDB_poly_2021to2024_20250630.shp`
+
+Raw profile:
+
+- total raw polygon rows: 48,571
+- 1972-2020 shapefile rows: 41,210
+- 2021-2024 shapefile rows: 7,361
+
+BC/AB Silver profile:
+
+- total Silver rows: 14,527
+- AB rows: 4,805
+- BC rows: 9,722
+- year range: 1972-2024
+- 2016-2025 downstream feature-window rows: 5,054
+
+Source-file contribution after BC/AB Silver filter:
+
+- `NFDB_poly_1972to2020_20250630.shp`: 11,722 rows
+- `NFDB_poly_2021to2024_20250630.shp`: 2,805 rows
+
+Silver fields preserve:
+
+- source identifiers: `cfs_ref_id`, `source_fire_id`, `source_key`
+- temporal fields: `fire_year`, `fire_month`, `fire_day`, `report_date`, `out_date`, `polygon_date`, `acquired_date`
+- size fields: `source_size_ha`, `calculated_size_ha`
+- cause and mapping fields: `fire_cause`, `prescribed`, `map_source`, `map_method`
+- geometry audit fields: `geometry_original_is_valid`, `geometry_was_repaired`, `geometry_is_valid`
+- lineage fields: `source_file`, `source_record_number`, `source_name`, `source_layer`
+
+Validation result:
+
+- required columns: passed
+- non-empty table: passed
+- primary key uniqueness: 14,527 / 14,527
+- null or blank `cfs_ref_id`: 0
+- province filter: AB/BC only
+- fire year presence: passed
+- geometry repaired count: 143
+- invalid geometry after repair: 0
+- geometry types: Polygon, MultiPolygon
+- source CRS: `NAD_1983_Lambert_Conformal_Conic`
+
+Key policy:
+`wildfire_perimeter_key` is a lineage-safe Silver primary key. `CFS_REF_ID` is preserved as a natural source identifier, but polygon keys must not be assumed equivalent to existing `silver_wildfire_event` point-event keys without separate join profiling.
+
+## Gold wildfire perimeter grid-month feature profile
+ 
+Gold table:
+ 
+```text
+gold_grid_month_wildfire_perimeter_feature
+```
+ 
+Input source:
+ 
+```text
+silver_wildfire_perimeter_polygon
+```
+ 
+Feature window:
+ 
+```text
+2016-01 through 2025-12
+```
+ 
+Spatial scope:
+ 
+```text
+ab_10km, bc_10km
+```
+ 
+Validated output profile:
+ 
+```text
+row_count: 1,980,960
+grid_cell_count: 16,508
+month_count: 120
+nonzero_grid_month_count: 8,242
+observed perimeter grid-month coverage: 0.416%
+```
+ 
+Temporal source quality:
+ 
+```text
+feature-window polygons: 5,054
+monthly-assignable polygons: 4,939
+missing/invalid fire_month polygons: 115
+monthly-assignable rate: 97.7246%
+```
+ 
+Area checks:
+ 
+```text
+total_intersection_area_ha: 11,625,500.8334
+max_intersection_area_ha: 10,000.0
+max_intersection_area_ratio_of_grid: 1.0
+rows with ratio > 1: 0
+```
+ 
+Cause totals after polygon-grid intersection:
+ 
+```text
+wildfire_cause_n_polygon_count: 6,186
+wildfire_cause_h_polygon_count: 2,023
+wildfire_cause_u_polygon_count: 700
+wildfire_cause_prescribed_burn_polygon_count: 0
+wildfire_cause_other_polygon_count: 0
+```
+ 
+Important semantics:
+ 
+- Zero wildfire metrics mean no observed NFDB polygon perimeter overlap for that grid-month.
+- Zero does not mean zero physical wildfire risk.
+- `wildfire_intersection_area_ha` is additive across grid cells and months.
+- `wildfire_max_source_size_ha` and `wildfire_max_calculated_size_ha` are non-additive
+  reference metrics.
+- The table intentionally excludes total source-size sum fields to avoid cross-grid
+  double counting.
+
+
+## Gold climate monthly feature v2 profile
+
+Gold tables:
+
+```text
+gold_climate_station_month_feature
+gold_grid_month_climate_feature
+```
+
+Climate v2 upgrades `gold_grid_month_climate_feature` from sparse station-grid aggregation to a complete AB/BC 10km grid-month skeleton with direct station mapping and IDW interpolation.
+
+Validated station-month output:
+
+```text
+station_month_rows: 56,160
+station_count: 620
+month_count: 120
+province scope: AB, BC
+reference_month range: 2016-01 through 2025-12
+```
+
+Validated grid-month output:
+
+```text
+row_count: 1,980,960
+grid_cell_count: 16,508
+month_count: 120
+AB 10km grids: 6,630
+BC 10km grids: 9,878
+reference_month range: 2016-01 through 2025-12
+```
+
+Mapping method distribution:
+
+```text
+idw_interpolated:                  1,786,619
+no_station_within_radius:            146,617
+direct_station_in_cell:               40,941
+direct_station_average_in_cell:        6,783
+```
+
+Climate value coverage:
+
+```text
+91.62%
+```
+
+Quality flag distribution:
+
+```text
+medium:   1,393,187
+low:        193,200
+high:       164,066
+null:       146,617
+direct:      47,724
+very_low:    36,166
+```
+
+Important semantics:
+
+- `climate_mapping_method` explains how the grid-month climate value was produced.
+- `direct_station_in_cell` uses one station directly inside the grid.
+- `direct_station_average_in_cell` uses simple average across 2+ direct stations inside the grid.
+- `idw_interpolated` uses inverse-distance weighting from stations within 150km.
+- `no_station_within_radius` keeps climate values null.
+- Climate no-data rows must not be filled with zero.
+- `climate_feature_quality_flag` is null for `no_station_within_radius`.
+- Direct rows use `climate_feature_quality_flag = direct`.

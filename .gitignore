@@ -26,6 +26,7 @@ docker-compose.override.yml
 
 # Local lakehouse / warehouse outputs
 data/
+!docs/data/
 lakehouse/
 warehouse/
 spark-warehouse/
@@ -66,3 +67,7 @@ override.tf.json
 *_override.tf
 *_override.tf.json
 .terraform.lock.hcl
+
+# Project documentation
+SUMMARY.md
+SUMMARY_project_completion_roadmap.md

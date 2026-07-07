@@ -38,12 +38,7 @@ def main() -> None:
         location_mapping=location_mapping,
     )
 
-    output_dir = (
-        GOLD_ROOT
-        / TABLE_NAME
-        / f"extract_date={extract_date}"
-        / f"run_id={run_id}"
-    )
+    output_dir = GOLD_ROOT / TABLE_NAME / f"extract_date={extract_date}" / f"run_id={run_id}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = output_dir / f"{TABLE_NAME}.parquet"

@@ -219,9 +219,7 @@ def build_gold_disaster_event_reference(
 
     result = pd.DataFrame(
         {
-            "disaster_event_reference_key": [
-                f"disaster_event_ref__{key}" for key in source_key
-            ],
+            "disaster_event_reference_key": [f"disaster_event_ref__{key}" for key in source_key],
             "source_disaster_event_key": source_key,
             "source_row_number": source.index.astype("int64"),
             "source_name": _optional_string_series(source, source_name_col),
@@ -241,12 +239,8 @@ def build_gold_disaster_event_reference(
             "normalized_event_type": event_type,
             "normalized_event_subtype": event_subtype,
             "disaster_domain": disaster_domain,
-            "is_wildfire_domain_relevant": [
-                domain == "wildfire" for domain in disaster_domain
-            ],
-            "is_flood_domain_relevant": [
-                domain == "flood" for domain in disaster_domain
-            ],
+            "is_wildfire_domain_relevant": [domain == "wildfire" for domain in disaster_domain],
+            "is_flood_domain_relevant": [domain == "flood" for domain in disaster_domain],
             "is_climate_domain_relevant": [
                 domain in {"severe_storm_or_climate", "climate_extreme"}
                 for domain in disaster_domain
@@ -266,8 +260,7 @@ def build_gold_disaster_event_reference(
             "location_tier": [row["location_tier"] for row in mapping_rows],
             "mapped_geo_level": [row["mapped_geo_level"] for row in mapping_rows],
             "mapped_geo_codes_json": [
-                json.dumps(row["mapped_geo_codes"], ensure_ascii=False)
-                for row in mapping_rows
+                json.dumps(row["mapped_geo_codes"], ensure_ascii=False) for row in mapping_rows
             ],
             "mapping_method": [row["mapping_method"] for row in mapping_rows],
             "mapping_confidence": [row["mapping_confidence"] for row in mapping_rows],
@@ -275,8 +268,7 @@ def build_gold_disaster_event_reference(
                 bool(row["is_grid_backtest_eligible"]) for row in mapping_rows
             ],
             "is_province_month_backtest_eligible": [
-                bool(row["is_province_month_backtest_eligible"])
-                for row in mapping_rows
+                bool(row["is_province_month_backtest_eligible"]) for row in mapping_rows
             ],
         }
     )
@@ -500,12 +492,20 @@ def _lookup_location_mapping(
     raw_key = None if pd.isna(location_text) else str(location_text)
     normalized_key = location_text_normalized
 
+    normalized_locations = {
+        _normalize_location_text(key): value
+        for key, value in locations.items()
+        if _normalize_location_text(key) is not None
+    }
+
     config = None
 
-    for key in [raw_key, normalized_key]:
-        if key is not None and key in locations:
-            config = locations[key]
-            break
+    if raw_key is not None and raw_key in locations:
+        config = locations[raw_key]
+    elif normalized_key is not None and normalized_key in locations:
+        config = locations[normalized_key]
+    elif normalized_key is not None and normalized_key in normalized_locations:
+        config = normalized_locations[normalized_key]
 
     if config is None:
         return _default_unmapped_location(location_text_normalized, province_key)
@@ -640,9 +640,7 @@ def _require_unique_reference_key(dataframe: pd.DataFrame) -> None:
         raise GoldDisasterReferenceError("disaster_event_reference_key contains nulls.")
 
     if dataframe["disaster_event_reference_key"].duplicated().any():
-        raise GoldDisasterReferenceError(
-            "disaster_event_reference_key contains duplicates."
-        )
+        raise GoldDisasterReferenceError("disaster_event_reference_key contains duplicates.")
 
 
 def _build_summary(
@@ -687,23 +685,18 @@ def _build_summary(
         "ab_bc_event_count": int(dataframe["is_ab_bc_scope"].sum()),
         "domain_relevant_event_count": int(dataframe["is_domain_relevant"].sum()),
         "backtest_eligible_event_count": int(dataframe["is_backtest_eligible"].sum()),
-        "grid_backtest_eligible_event_count": int(
-            dataframe["is_grid_backtest_eligible"].sum()
-        ),
+        "grid_backtest_eligible_event_count": int(dataframe["is_grid_backtest_eligible"].sum()),
         "province_month_backtest_eligible_event_count": int(
             dataframe["is_province_month_backtest_eligible"].sum()
         ),
-        "unique_location_count": int(
-            dataframe["location_text_normalized"].nunique(dropna=True)
-        ),
+        "unique_location_count": int(dataframe["location_text_normalized"].nunique(dropna=True)),
         "top_locations": _top_value_counts(dataframe["location_text"], limit=30),
     }
 
 
 def _value_counts(series: pd.Series) -> dict[str, int]:
     return {
-        str(key): int(value)
-        for key, value in series.value_counts(dropna=False).to_dict().items()
+        str(key): int(value) for key, value in series.value_counts(dropna=False).to_dict().items()
     }
 
 

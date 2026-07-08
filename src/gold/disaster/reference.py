@@ -516,9 +516,7 @@ def _lookup_location_mapping(
         mapped_geo_codes = []
 
     if not isinstance(mapped_geo_codes, list):
-        raise GoldDisasterReferenceError(
-            f"mapped_geo_codes must be a list for location: {raw_key}"
-        )
+        raise GoldDisasterReferenceError(f"mapped_geo_codes must be a list for location: {raw_key}")
 
     return {
         "location_tier": config.get("location_tier", "unknown"),
@@ -526,9 +524,7 @@ def _lookup_location_mapping(
         "mapped_geo_codes": [str(value) for value in mapped_geo_codes],
         "mapping_method": config.get("mapping_method", "manual"),
         "mapping_confidence": config.get("mapping_confidence", "unknown"),
-        "is_grid_backtest_eligible": bool(
-            config.get("is_grid_backtest_eligible", False)
-        ),
+        "is_grid_backtest_eligible": bool(config.get("is_grid_backtest_eligible", False)),
         "is_province_month_backtest_eligible": bool(
             config.get("is_province_month_backtest_eligible", True)
         ),
@@ -686,6 +682,23 @@ def _build_summary(
         "domain_relevant_event_count": int(dataframe["is_domain_relevant"].sum()),
         "backtest_eligible_event_count": int(dataframe["is_backtest_eligible"].sum()),
         "grid_backtest_eligible_event_count": int(dataframe["is_grid_backtest_eligible"].sum()),
+        "all_grid_backtest_eligible_event_count": int(dataframe["is_grid_backtest_eligible"].sum()),
+        "backtest_window_grid_eligible_event_count": int(
+            (
+                dataframe["is_backtest_window"]
+                & dataframe["is_ab_bc_scope"]
+                & dataframe["is_domain_relevant"]
+                & dataframe["is_grid_backtest_eligible"]
+            ).sum()
+        ),
+        "backtest_window_province_month_eligible_event_count": int(
+            (
+                dataframe["is_backtest_window"]
+                & dataframe["is_ab_bc_scope"]
+                & dataframe["is_domain_relevant"]
+                & dataframe["is_province_month_backtest_eligible"]
+            ).sum()
+        ),
         "province_month_backtest_eligible_event_count": int(
             dataframe["is_province_month_backtest_eligible"].sum()
         ),

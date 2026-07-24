@@ -63,17 +63,10 @@ def _build_from_shapefile(
     rows: list[dict[str, Any]] = []
 
     try:
-        fields = [
-            field[0]
-            for field in reader.fields
-            if field[0].upper() != "DELETIONFLAG"
-        ]
+        fields = [field[0] for field in reader.fields if field[0].upper() != "DELETIONFLAG"]
 
         for shape_record in reader.iterShapeRecords():
-            attrs = {
-                field.upper(): value
-                for field, value in zip(fields, shape_record.record)
-            }
+            attrs = {field.upper(): value for field, value in zip(fields, shape_record.record)}
 
             census_division_key = _as_str(_get_attr(attrs, "CDUID"))
             if census_division_key is None:
@@ -105,9 +98,7 @@ def _build_from_shapefile(
                     "province_key": province_key,
                     "land_area_sq_km": land_area_sq_km,
                     "geometry_area_m2": (
-                        land_area_sq_km * 1_000_000
-                        if land_area_sq_km is not None
-                        else None
+                        land_area_sq_km * 1_000_000 if land_area_sq_km is not None else None
                     ),
                     "geometry_crs_epsg": EXPECTED_EPSG,
                     "geometry_wkt": geometry_wkt,
@@ -122,13 +113,9 @@ def _build_from_shapefile(
     result = pd.DataFrame(rows)
 
     if result.empty:
-        raise GoldDisasterCDSpatialReferenceError(
-            "No AB/BC Census Division records found."
-        )
+        raise GoldDisasterCDSpatialReferenceError("No AB/BC Census Division records found.")
 
-    result = result.sort_values(
-        ["province_key", "census_division_key"]
-    ).reset_index(drop=True)
+    result = result.sort_values(["province_key", "census_division_key"]).reset_index(drop=True)
 
     _validate_basic_result(result)
 
@@ -157,9 +144,7 @@ def _extract_boundary_zip(source_path: Path, temp_dir: Path) -> BoundaryInput:
     shp_files = list(temp_dir.rglob("*.shp"))
 
     if not shp_files:
-        raise GoldDisasterCDSpatialReferenceError(
-            f"No .shp file found inside zip: {source_path}"
-        )
+        raise GoldDisasterCDSpatialReferenceError(f"No .shp file found inside zip: {source_path}")
 
     shp_path = shp_files[0]
     prj_path = shp_path.with_suffix(".prj")
@@ -198,9 +183,7 @@ def _shape_to_wkt(shape: Any) -> str:
         polygons = ", ".join(_polygon_to_wkt(polygon) for polygon in coordinates)
         return f"MULTIPOLYGON ({polygons})"
 
-    raise GoldDisasterCDSpatialReferenceError(
-        f"Unsupported geometry type: {geometry_type}"
-    )
+    raise GoldDisasterCDSpatialReferenceError(f"Unsupported geometry type: {geometry_type}")
 
 
 def _polygon_to_wkt(polygon_coordinates: Any) -> str:
@@ -257,18 +240,12 @@ def _validate_basic_result(dataframe: pd.DataFrame) -> None:
         raise GoldDisasterCDSpatialReferenceError("Output table is empty.")
 
     if dataframe["census_division_key"].isna().any():
-        raise GoldDisasterCDSpatialReferenceError(
-            "census_division_key contains nulls."
-        )
+        raise GoldDisasterCDSpatialReferenceError("census_division_key contains nulls.")
 
     if dataframe["census_division_key"].duplicated().any():
-        raise GoldDisasterCDSpatialReferenceError(
-            "census_division_key contains duplicates."
-        )
+        raise GoldDisasterCDSpatialReferenceError("census_division_key contains duplicates.")
 
-    invalid_provinces = (
-        set(dataframe["province_key"].dropna().astype(str)) - {"AB", "BC"}
-    )
+    invalid_provinces = set(dataframe["province_key"].dropna().astype(str)) - {"AB", "BC"}
     if invalid_provinces:
         raise GoldDisasterCDSpatialReferenceError(
             f"Invalid province_key values: {sorted(invalid_provinces)}"
@@ -278,15 +255,12 @@ def _validate_basic_result(dataframe: pd.DataFrame) -> None:
         raise GoldDisasterCDSpatialReferenceError("geometry_wkt contains nulls.")
 
     if not (dataframe["geometry_area_m2"] > 0).all():
-        raise GoldDisasterCDSpatialReferenceError(
-            "geometry_area_m2 must be positive."
-        )
+        raise GoldDisasterCDSpatialReferenceError("geometry_area_m2 must be positive.")
 
 
 def _value_counts(series: pd.Series) -> dict[str, int]:
     return {
-        str(key): int(value)
-        for key, value in series.value_counts(dropna=False).to_dict().items()
+        str(key): int(value) for key, value in series.value_counts(dropna=False).to_dict().items()
     }
 
 

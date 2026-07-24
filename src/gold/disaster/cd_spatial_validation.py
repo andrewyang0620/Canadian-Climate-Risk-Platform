@@ -109,8 +109,8 @@ def _check_province_values(
     if invalid:
         failures.append(f"Invalid province_key values: {invalid}")
 
-    expected_from_key = dataframe["census_division_key"].astype(str).str[:2].map(
-        {"48": "AB", "59": "BC"}
+    expected_from_key = (
+        dataframe["census_division_key"].astype(str).str[:2].map({"48": "AB", "59": "BC"})
     )
 
     if not dataframe["province_key"].astype(str).eq(expected_from_key).all():
@@ -224,10 +224,7 @@ def _check_known_mapping_support(
     missing = sorted(required_cd_keys - observed)
 
     if missing:
-        failures.append(
-            "Missing CD keys required by disaster location mapping v1: "
-            f"{missing}"
-        )
+        failures.append("Missing CD keys required by disaster location mapping v1: " f"{missing}")
 
     checks.append("known_disaster_mapping_cd_keys_present")
 
@@ -250,8 +247,7 @@ def _build_report(dataframe: pd.DataFrame, checks: list[str]) -> dict[str, Any]:
 
 def _value_counts(series: pd.Series) -> dict[str, int]:
     return {
-        str(key): int(value)
-        for key, value in series.value_counts(dropna=False).to_dict().items()
+        str(key): int(value) for key, value in series.value_counts(dropna=False).to_dict().items()
     }
 
 

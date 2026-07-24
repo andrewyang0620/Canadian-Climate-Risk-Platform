@@ -14,9 +14,7 @@ from src.gold.disaster.cd_spatial_reference import (
 
 GOLD_ROOT = Path("lakehouse/gold")
 TABLE_NAME = "gold_disaster_cd_spatial_reference"
-DEFAULT_SOURCE_DIR = Path(
-    "lakehouse/bronze/census_boundaries/census_division_boundary_2021"
-)
+DEFAULT_SOURCE_DIR = Path("lakehouse/bronze/census_boundaries/census_division_boundary_2021")
 
 
 def main() -> None:
@@ -41,12 +39,7 @@ def main() -> None:
         source_path=source_path,
     )
 
-    output_dir = (
-        GOLD_ROOT
-        / TABLE_NAME
-        / f"extract_date={extract_date}"
-        / f"run_id={run_id}"
-    )
+    output_dir = GOLD_ROOT / TABLE_NAME / f"extract_date={extract_date}" / f"run_id={run_id}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     output_path = output_dir / f"{TABLE_NAME}.parquet"
@@ -100,8 +93,7 @@ def _latest_boundary_file(source_dir: Path) -> Path:
 
     if not candidates:
         raise FileNotFoundError(
-            f"No boundary files found in {source_dir}. "
-            "Expected .zip or .shp."
+            f"No boundary files found in {source_dir}. " "Expected .zip or .shp."
         )
 
     return max(candidates, key=lambda path: path.stat().st_mtime)

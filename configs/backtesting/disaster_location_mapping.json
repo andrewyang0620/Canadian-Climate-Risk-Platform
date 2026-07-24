@@ -52,11 +52,13 @@
       "is_province_month_backtest_eligible": true
     },
     "Prairie Provinces": {
-      "province_key": null,
-      "location_tier": "cross_province_region",
-      "mapped_geo_level": "UNMAPPED_CROSS_PROVINCE",
-      "mapped_geo_codes": [],
-      "mapping_method": "manual_cross_province_scope",
+      "province_key": "AB",
+      "location_tier": "province_or_region",
+      "mapped_geo_level": "PROVINCE",
+      "mapped_geo_codes": [
+        "48"
+      ],
+      "mapping_method": "manual_ab_scope_substitute",
       "mapping_confidence": "low_for_grid",
       "is_grid_backtest_eligible": false,
       "is_province_month_backtest_eligible": true
@@ -102,20 +104,44 @@
     },
     "Southern BC and Vancouver Island": {
       "province_key": "BC",
-      "location_tier": "large_region",
-      "mapped_geo_level": "UNMAPPED_LARGE_REGION",
-      "mapped_geo_codes": [],
-      "mapping_method": "manual_large_region_scope",
-      "mapping_confidence": "low_for_grid",
-      "is_grid_backtest_eligible": false,
+      "location_tier": "region",
+      "mapped_geo_level": "CD_GROUP",
+      "mapped_geo_codes": [
+        "5901",
+        "5903",
+        "5905",
+        "5907",
+        "5909",
+        "5915",
+        "5917",
+        "5919",
+        "5921",
+        "5923",
+        "5924",
+        "5926",
+        "5927",
+        "5929",
+        "5931",
+        "5933",
+        "5935",
+        "5937",
+        "5939",
+        "5943"
+      ],
+      "mapping_method": "manual_large_region_cd_group",
+      "mapping_confidence": "medium",
+      "is_grid_backtest_eligible": true,
       "is_province_month_backtest_eligible": true
     },
     "British Columbia, Alberta, Saskatchewan": {
       "province_key": null,
       "location_tier": "cross_province_region",
-      "mapped_geo_level": "UNMAPPED_CROSS_PROVINCE",
-      "mapped_geo_codes": [],
-      "mapping_method": "manual_cross_province_scope",
+      "mapped_geo_level": "PROVINCE_GROUP",
+      "mapped_geo_codes": [
+        "59",
+        "48"
+      ],
+      "mapping_method": "manual_ab_bc_scope_substitute",
       "mapping_confidence": "low_for_grid",
       "is_grid_backtest_eligible": false,
       "is_province_month_backtest_eligible": true
@@ -134,21 +160,50 @@
     },
     "Southern British Columbia": {
       "province_key": "BC",
-      "location_tier": "large_region",
-      "mapped_geo_level": "UNMAPPED_LARGE_REGION",
-      "mapped_geo_codes": [],
-      "mapping_method": "manual_large_region_scope",
-      "mapping_confidence": "low_for_grid",
-      "is_grid_backtest_eligible": false,
+      "location_tier": "region",
+      "mapped_geo_level": "CD_GROUP",
+      "mapped_geo_codes": [
+        "5901",
+        "5903",
+        "5905",
+        "5907",
+        "5909",
+        "5915",
+        "5927",
+        "5929",
+        "5931",
+        "5933",
+        "5935",
+        "5937",
+        "5939"
+      ],
+      "mapping_method": "manual_large_region_cd_group",
+      "mapping_confidence": "medium",
+      "is_grid_backtest_eligible": true,
       "is_province_month_backtest_eligible": true
     },
     "Southern British Columbia and Alberta": {
       "province_key": null,
       "location_tier": "cross_province_region",
-      "mapped_geo_level": "UNMAPPED_CROSS_PROVINCE",
-      "mapped_geo_codes": [],
-      "mapping_method": "manual_cross_province_scope",
-      "mapping_confidence": "low_for_grid",
+      "mapped_geo_level": "MIXED_PROVINCE_CD_GROUP",
+      "mapped_geo_codes": [
+        "48",
+        "5901",
+        "5903",
+        "5905",
+        "5907",
+        "5909",
+        "5915",
+        "5927",
+        "5929",
+        "5931",
+        "5933",
+        "5935",
+        "5937",
+        "5939"
+      ],
+      "mapping_method": "manual_ab_province_bc_southern_cd_group_substitute",
+      "mapping_confidence": "medium",
       "is_grid_backtest_eligible": false,
       "is_province_month_backtest_eligible": true
     },
@@ -165,11 +220,13 @@
       "is_province_month_backtest_eligible": true
     },
     "Alberta, Saskatchewan, Manitoba and Ontario": {
-      "province_key": null,
-      "location_tier": "cross_province_region",
-      "mapped_geo_level": "UNMAPPED_CROSS_PROVINCE",
-      "mapped_geo_codes": [],
-      "mapping_method": "manual_cross_province_scope",
+      "province_key": "AB",
+      "location_tier": "province_or_region",
+      "mapped_geo_level": "PROVINCE",
+      "mapped_geo_codes": [
+        "48"
+      ],
+      "mapping_method": "manual_ab_scope_substitute",
       "mapping_confidence": "low_for_grid",
       "is_grid_backtest_eligible": false,
       "is_province_month_backtest_eligible": true
@@ -183,7 +240,8 @@
         "4802",
         "4803",
         "4804",
-        "4805"
+        "4805",
+        "4806"
       ],
       "mapping_method": "manual_regional_cd_group",
       "mapping_confidence": "medium",
@@ -191,23 +249,28 @@
       "is_province_month_backtest_eligible": true
     },
     "Alberta and Saskatchewan": {
-      "province_key": null,
-      "location_tier": "cross_province_region",
-      "mapped_geo_level": "UNMAPPED_CROSS_PROVINCE",
-      "mapped_geo_codes": [],
-      "mapping_method": "manual_cross_province_scope",
+      "province_key": "AB",
+      "location_tier": "province_or_region",
+      "mapped_geo_level": "PROVINCE",
+      "mapped_geo_codes": [
+        "48"
+      ],
+      "mapping_method": "manual_ab_scope_substitute",
       "mapping_confidence": "low_for_grid",
       "is_grid_backtest_eligible": false,
       "is_province_month_backtest_eligible": true
     },
     "Paul First Nation, AB": {
       "province_key": "AB",
-      "location_tier": "unmapped_locality",
-      "mapped_geo_level": "UNMAPPED_LOCALITY",
-      "mapped_geo_codes": [],
-      "mapping_method": "manual_deferred_low_confidence",
-      "mapping_confidence": "unmapped",
-      "is_grid_backtest_eligible": false,
+      "location_tier": "locality_region",
+      "mapped_geo_level": "CSD",
+      "mapped_geo_codes": [
+        "4811806",
+        "4811807"
+      ],
+      "mapping_method": "manual_exact_bridge_match",
+      "mapping_confidence": "medium",
+      "is_grid_backtest_eligible": true,
       "is_province_month_backtest_eligible": true
     },
     "Spruce Grove, Alberta": {

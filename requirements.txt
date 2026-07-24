@@ -21,3 +21,4 @@ snowflake-sqlalchemy
 dbt-snowflake
 apache-sedona
 openpyxlpyshp
+shapefile

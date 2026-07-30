@@ -287,6 +287,12 @@ def build_gold_disaster_event_reference(
         inclusive="both",
     )
     result["is_ab_bc_scope"] = result["province_key"].isin(AB_BC_PROVINCES)
+    result["is_grid_backtest_eligible"] = (
+        result["is_grid_backtest_eligible"].fillna(False).astype(bool)
+        & result["is_backtest_window"].fillna(False).astype(bool)
+        & result["is_ab_bc_scope"].fillna(False).astype(bool)
+        & result["is_domain_relevant"].fillna(False).astype(bool)
+    )
     result["is_backtest_eligible"] = (
         result["is_backtest_window"]
         & result["is_ab_bc_scope"]

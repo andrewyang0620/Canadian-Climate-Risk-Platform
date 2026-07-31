@@ -40,7 +40,9 @@ Reason:
 - Full disaster source has 1,311 rows.
 - 2016-2025 backtesting window has 74 rows.
 - Province-month eligible backtesting subset has 68 rows.
-- Grid-level eligible subset under mapping v1 has 52 rows.
+- Grid-level eligible subset under mapping v1 has 36 rows.
+- These 36 event-month records expand to 113 event-CD scope rows in `gold_disaster_event_cd_scope_reference`.
+- The 113 event-CD scope rows cover 31 unique Census Divisions.
 - Expanding sparse disaster records into the full grid-month skeleton would create mostly false/null labels and misleading spatial precision.
 
 ## Source Inputs
@@ -163,7 +165,7 @@ is_domain_relevant = disaster_domain in wildfire / flood / severe_storm_or_clima
 | `mapped_geo_codes_json` | JSON list of mapped CSD/CD/CD_GROUP/province codes |
 | `mapping_method` | Manual mapping method |
 | `mapping_confidence` | Mapping confidence |
-| `is_grid_backtest_eligible` | Whether event can be used for grid-level backtesting |
+| `is_grid_backtest_eligible` | True when the event is eligible for grid-level backtesting within the active AB/BC backtesting scope |
 | `is_province_month_backtest_eligible` | Whether event can be used for province-month validation |
 
 Allowed `mapping_confidence` values:
@@ -180,10 +182,16 @@ Grid-level eligible rows must satisfy:
 
 ```text
 is_grid_backtest_eligible = true
+is_backtest_window = true
+is_ab_bc_scope = true
+is_domain_relevant = true
 mapped_geo_level in CSD / CD / CD_GROUP
 mapped_geo_codes_json is a non-empty JSON list
-location_tier is not province / cross_province_region / large_region / unmapped / province_or_region
 ```
+
+`is_grid_backtest_eligible` is not an all-history spatial mapping flag.
+
+It represents grid-level eligibility inside the active 2016-2025 AB/BC domain-relevant backtesting scope.
 
 Province-wide, cross-province, national, and overly broad regional events are not eligible for grid-level validation.
 
@@ -235,7 +243,18 @@ province_counts:
 
 backtest_window_event_count = 74
 backtest_eligible_event_count = 68
-grid_backtest_eligible_event_count = 52
+grid_backtest_eligible_event_count = 36
+backtest_window_grid_eligible_event_count = 36
+backtest_window_province_month_eligible_event_count = 68
+```
+
+Grid-level eligible subset:
+
+```text
+grid-level eligible event-month rows = 36
+unique grid-level eligible locations = 17
+event-CD scope rows after expansion = 113
+unique Census Divisions after expansion = 31
 ```
 
 Domain distribution:
@@ -252,9 +271,9 @@ Mapping confidence distribution from mapping v1:
 
 ```text
 low = 515
-unmapped = 425
-low_for_grid = 319
-medium = 33
+unmapped = 424
+low_for_grid = 310
+medium = 43
 high = 19
 ```
 
@@ -300,31 +319,27 @@ Prairie Provinces
 
 This table does not perform grid intersection.
 
-Backtesting scripts should dynamically compute affected grids by combining:
+Backtesting preparation now uses the following Gold reference chain:
 
 ```text
 gold_disaster_event_reference
-configs/backtesting/disaster_location_mapping.json
-StatCan Census Division / Census Subdivision spatial reference
-gold_grid_cell
-gold_grid_month_risk_score
-```
-
-The intended backtesting flow is:
-
-```text
-gold_disaster_event_reference
-        ↓ filter is_backtest_eligible
-event location mapping
+        ↓ filter grid-level eligible events
+gold_disaster_event_cd_scope_reference
+        ↓ resolve event scope to Census Division rows
+gold_disaster_cd_spatial_reference
+        ↓ provide CD geometry
+CD polygon × grid_cell intersection
         ↓
-CD / CSD / CD_GROUP spatial reference
-        ↓
-dynamic affected-grid calculation
+affected grid-months
         ↓
 risk score validation
 ```
 
-No affected-grid list is persisted into this Gold table.
+`gold_disaster_event_reference` remains the full disaster event reference table.
+
+`gold_disaster_event_cd_scope_reference` is the narrowed grid-level scope resolver.
+
+No affected-grid list is persisted into `gold_disaster_event_reference`.
 
 ## Relationship to Risk Feature Mart
 
@@ -416,17 +431,41 @@ This table is considered complete when:
 ```text
 python -m src.gold.disaster.run_reference
 python -m src.gold.disaster.validate_reference
+
+python -m src.gold.disaster.run_cd_spatial_reference
+python -m src.gold.disaster.validate_cd_spatial_reference
+
+python -m src.gold.disaster.run_event_cd_scope
+python -m src.gold.disaster.validate_event_cd_scope
+
 pytest tests/unit -q
 ```
 
-all pass successfully.
+Expected stable high-level results:
+
+```text
+gold_disaster_event_reference:
+  row_count = 1,311
+  backtest_eligible_event_count = 68
+  grid_backtest_eligible_event_count = 36
+
+gold_disaster_cd_spatial_reference:
+  row_count = 48
+  BC = 29
+  AB = 19
+
+gold_disaster_event_cd_scope_reference:
+  row_count = 113
+  unique_event_count = 36
+  unique_census_division_count = 31
+```
 
 The generated metadata must show:
 
 ```text
 row_count > 0
-backtest_eligible_event_count > 0
-grid_backtest_eligible_event_count > 0
+backtest_eligible_event_count = 68
+grid_backtest_eligible_event_count = 36
 ```
 
 ## Ownership

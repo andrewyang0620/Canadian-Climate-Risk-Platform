@@ -6,11 +6,16 @@
 
 ## Status
 
-Production Gold reference table for disaster-event backtesting and BI context.
+Production Gold reference table for disaster-event normalization,
+spatial eligibility, backtesting preparation, and BI context.
 
-This table replaces the previously planned `gold_grid_month_disaster_event_label` design.
+This table is the event-level foundation of the completed A3 disaster
+label pipeline.
 
-The grid-month disaster label table is intentionally not built because the disaster source is sparse and many event locations are province-level, cross-province, national, or broad regional descriptions. Expanding these events into the full grid-month skeleton would create misleading spatial precision.
+It remains at event-month grain and is not itself expanded to the
+grid-month skeleton. Only the grid-eligible subset flows through
+downstream spatial resolution tables to produce
+`gold_grid_month_disaster_event_label`.
 
 ## Purpose
 
@@ -27,12 +32,14 @@ It must not be joined into the risk feature mart as a predictive feature because
 
 ## Grain
 
-One row represents one disaster event-month record from `silver_disaster_event_month`.
+The full 1,311-row historical reference set is not expanded directly.
 
-The table is not expanded to:
+Only the 36 grid-eligible event-month rows are passed downstream through:
 
 ```text
-grid_cell_key × reference_month
+36 event-month rows, 113 event-CD rows, 36681 event-grid rows, 1337148 observable grid-month label rows
+
+The final label table preserves mapping-quality and overlap indicators so approximate spatial assignments remain auditable.
 ```
 
 Reason:
@@ -315,24 +322,22 @@ Prairie Provinces
   -> not grid-level eligible
 ```
 
-## Relationship to Backtesting
-
-This table does not perform grid intersection.
-
-Backtesting preparation now uses the following Gold reference chain:
+## Relationship to the Disaster Label Pipeline
 
 ```text
 gold_disaster_event_reference
-        ↓ filter grid-level eligible events
+        ↓ filter 36 grid-eligible event-month rows
 gold_disaster_event_cd_scope_reference
-        ↓ resolve event scope to Census Division rows
+        ↓ 113 event-CD rows
 gold_disaster_cd_spatial_reference
-        ↓ provide CD geometry
-CD polygon × grid_cell intersection
-        ↓
-affected grid-months
-        ↓
-risk score validation
+        +
+gold_grid_cell
+        ↓ positive-area polygon intersection
+gold_disaster_event_grid_scope
+        ↓ 36,681 event-grid rows
+gold_grid_month_disaster_event_label
+        ↓ 1,337,148 observable grid-month rows
+B3 risk-score backtesting
 ```
 
 `gold_disaster_event_reference` remains the full disaster event reference table.
@@ -360,14 +365,19 @@ They are not upstream explanatory features.
 
 ## Non-Goals
 
-This table does not:
+This table itself does not:
 
-- Create `gold_grid_month_disaster_event_label`.
-- Create `gold_grid_month_disaster_feature`.
-- Expand disaster events into the full grid-month skeleton.
-- Store final affected grid-cell lists.
-- Claim authoritative disaster perimeter boundaries.
-- Replace official disaster perimeter or event footprint data.
+- Store event-grid assignments.
+- Store the complete grid-month label skeleton.
+- Perform polygon intersection.
+- Calculate backtesting metrics.
+- Act as a predictive feature.
+
+Those responsibilities belong to:
+
+- `gold_disaster_event_grid_scope`
+- `gold_grid_month_disaster_event_label`
+- downstream B3 backtesting
 
 ## Validation Rules
 
@@ -438,6 +448,12 @@ python -m src.gold.disaster.validate_cd_spatial_reference
 python -m src.gold.disaster.run_event_cd_scope
 python -m src.gold.disaster.validate_event_cd_scope
 
+python -m src.gold.disaster.run_event_grid_scope
+python -m src.gold.disaster.validate_event_grid_scope
+
+python -m src.gold.disaster.run_grid_month_label
+python -m src.gold.disaster.validate_grid_month_label
+
 pytest tests/unit -q
 ```
 
@@ -458,6 +474,18 @@ gold_disaster_event_cd_scope_reference:
   row_count = 113
   unique_event_count = 36
   unique_census_division_count = 31
+
+gold_disaster_event_grid_scope:
+  row_count = 36,681
+  unique_event_count = 36
+  unique_grid_cell_count = 9,379
+
+gold_grid_month_disaster_event_label:
+  row_count = 1,337,148
+  grid_count = 16,508
+  month_count = 81
+  positive_label_row_count = 36,051
+  total_disaster_event_assignments = 36,681
 ```
 
 The generated metadata must show:

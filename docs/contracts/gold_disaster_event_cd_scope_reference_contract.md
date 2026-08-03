@@ -6,14 +6,9 @@
 
 ## Status
 
-Gold intermediate reference table for disaster grid-level backtesting preparation.
+Gold intermediate spatial-scope reference table in the completed A3 disaster-event label pipeline.
 
-This table is built after:
-
-- `gold_disaster_event_reference`
-- `gold_disaster_cd_spatial_reference`
-
-It resolves grid-eligible disaster event-month records into Census Division scope rows.
+It resolves grid-eligible event-month records into normalized Census Division scope before event-to-grid spatial intersection.
 
 ## Purpose
 
@@ -23,11 +18,11 @@ It converts event-level manual location mapping into normalized Census Division 
 
 This table does not perform grid intersection.
 
-This table does not calculate affected grid cells.
+This table does not perform grid intersection or calculate affected grid cells.
 
-This table does not validate risk scores.
+Those responsibilities are implemented downstream in `gold_disaster_event_grid_scope`.
 
-Those steps belong to downstream B3 backtesting.
+Risk-score evaluation metrics remain part of B3.
 
 ## Grain
 
@@ -233,22 +228,22 @@ Validation enforces:
 - CSD rows use `csd_parent_cd`.
 - Non-CSD rows use `direct_cd`.
 
-## Relationship to Backtesting
+## Relationship to the Disaster Label Pipeline
 
-This table is the immediate input to B3 grid-level backtesting.
-
-Expected downstream flow:
+This table is an intermediate A3 input to event-grid spatial assignment.
 
 ```text
 gold_disaster_event_cd_scope_reference
+        +
+gold_disaster_cd_spatial_reference
+        +
+gold_grid_cell
         ↓
-join to gold_disaster_cd_spatial_reference
+gold_disaster_event_grid_scope
         ↓
-CD polygon × grid_cell intersection
+gold_grid_month_disaster_event_label
         ↓
-affected grid-months
-        ↓
-risk score validation
+B3 risk-score backtesting
 ```
 
 ## Relationship to Other Disaster Tables

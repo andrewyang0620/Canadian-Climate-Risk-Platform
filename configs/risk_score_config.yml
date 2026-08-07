@@ -1,115 +1,153 @@
-﻿score_versions:
-  current: v0.1.0
+﻿domain_weights:
+  climate: 0.35
+  hydro: 0.35
+  wildfire: 0.30
 
-grid_priority_score:
-  name: Grid-Level Climate-Hazard Exposure Priority Score
-  grain: grid_month
-  score_range:
-    min: 0
-    max: 100
-  components:
-    flood_signal_score:
+climate:
+  normalization: province_calendar_month_zero_preserving_positive_percentile
+
+  signals:
+    extreme_heat_days:
+      field: climate_extreme_heat_days
       weight: 0.30
-      inputs:
-        - water_level_percentile
-        - nearest_hydro_station_km
-        - hydro_station_count_75km
 
-    wildfire_exposure_score:
+    heavy_precipitation_days:
+      field: climate_heavy_precipitation_days
       weight: 0.25
-      inputs:
-        - wildfire_count_25km
-        - wildfire_count_50km
-        - nearest_wildfire_km
 
-    weather_extreme_score:
-      weight: 0.25
-      inputs:
-        - precip_percentile
-        - heat_anomaly_score
+    freeze_thaw_days:
+      field: climate_freeze_thaw_days
+      weight: 0.15
 
-    development_exposure_score:
-      weight: 0.20
-      inputs:
-        - permit_value_monthly
-        - permit_unit_count_monthly
+    extreme_cold_days:
+      field: climate_extreme_cold_days
+      weight: 0.15
 
-  baselines:
-    - equal_weight
-    - hazard_only
-    - validation_calibrated
+    total_precip_mm:
+      field: climate_total_precip_mm
+      weight: 0.15
 
-  priority_tiers:
-    high:
-      min_score: 80
-      max_score: 100
-    medium:
-      min_score: 50
-      max_score: 79.999
-    low:
-      min_score: 0
-      max_score: 49.999
+  quality:
+    mapping_method_field: climate_mapping_method
+    idw_confidence_field: climate_idw_confidence_score
+    completeness_field: climate_data_completeness_score
 
-coverage_confidence:
-  rule: report_separately_not_hidden_inside_score
-  score_range:
-    min: 0
-    max: 100
+    direct_mapping_methods:
+      - direct_station_in_cell
+      - direct_station_average_in_cell
 
-vancouver_parcel_exposure_score:
-  name: Vancouver Parcel Exposure Screening Score
-  grain: parcel_year
-  score_range:
-    min: 0
-    max: 100
-  components:
-    floodplain_overlap_component:
-      weight: 0.45
-    property_value_exposure_component:
-      weight: 0.35
-    permit_activity_component:
-      weight: 0.20
-  priority_tiers:
-    high:
-      min_score: 80
-      max_score: 100
-    medium:
-      min_score: 50
-      max_score: 79.999
-    low:
-      min_score: 0
-      max_score: 49.999
+    no_coverage_method: no_station_within_radius
 
-calgary_property_flood_exposure_score:
-  name: Calgary Property Flood Exposure Screening Score
-  grain: property_year
-  score_range:
-    min: 0
-    max: 100
-  components:
-    regulatory_flood_zone_component:
-      weight: 0.50
-    assessed_value_exposure_component:
+hydro:
+  minimum_history_years: 5
+
+  signals:
+    flow_p95:
+      field: flow_p95_measurement_value
       weight: 0.30
-    building_or_development_activity_component:
-      weight: 0.20
-  priority_tiers:
-    high:
-      min_score: 80
-      max_score: 100
-    medium:
-      min_score: 50
-      max_score: 79.999
-    low:
-      min_score: 0
-      max_score: 49.999
+      normalization: grid_calendar_month_historical_percentile
 
-validation_metrics:
-  - event_capture_at_top_10_pct
-  - lift_at_top_10_pct
-  - precision_at_k
-  - recall_at_k
-  - pr_auc
-  - spearman_rank_stability
-  - jaccard_top_k_stability
-  - weight_sensitivity
+    flow_variability:
+      max_field: flow_max_measurement_value
+      min_field: flow_min_measurement_value
+      weight: 0.15
+      normalization: grid_calendar_month_historical_percentile
+
+    flow_zero_observation_ratio:
+      numerator_field: flow_zero_day_count
+      denominator_field: flow_observation_day_count
+      weight: 0.15
+      normalization: none
+
+    level_p95:
+      field: level_p95_measurement_value
+      weight: 0.25
+      normalization: grid_calendar_month_historical_percentile
+
+    level_variability:
+      max_field: level_max_measurement_value
+      min_field: level_min_measurement_value
+      weight: 0.15
+      normalization: grid_calendar_month_historical_percentile
+
+  availability:
+    domain_flag: has_hydro_feature
+    flow_flag: has_hydro_flow_feature
+    level_flag: has_hydro_level_feature
+
+  quality:
+    assignment_method_field: hydro_spatial_assignment_method
+    basin_coverage_field: hydro_basin_grid_coverage_ratio
+    completeness_field: hydro_data_completeness_score
+    basin_method: basin_polygon_intersection
+    point_method: station_point_in_cell
+    point_quality_factor: 0.70
+
+wildfire:
+  field: wildfire_intersection_area_ratio_of_grid
+  normalization: province_zero_preserving_positive_percentile
+  quality: 1.0
+
+missing_data:
+  renormalize_available_signal_weights: true
+  renormalize_available_domain_weights: true
+  fill_missing_with_zero: false
+
+composite:
+  minimum_available_domains: 2
+
+confidence:
+  renormalize_missing_domains: false
+
+ranking:
+  group_by:
+    - province_key
+    - reference_month
+
+  minimum_boundary_coverage_ratio: 0.01
+
+priority_tiers:
+  very_high: 0.90
+  high: 0.75
+  elevated: 0.50
+  moderate: 0.25
+
+backtesting:
+  label_start: 2016-01
+  label_end: 2022-09
+  top_k_fraction: 0.10
+
+  metrics:
+    - event_capture_at_10
+    - capture_lift_at_10
+    - precision_at_10
+    - precision_lift_at_10
+    - pr_auc
+    - spearman_rank_correlation
+    - jaccard_top_10
+
+sensitivity:
+  baseline:
+    climate: 0.35
+    hydro: 0.35
+    wildfire: 0.30
+
+  equal:
+    climate: 0.333333
+    hydro: 0.333333
+    wildfire: 0.333334
+
+  climate_heavy:
+    climate: 0.45
+    hydro: 0.30
+    wildfire: 0.25
+
+  hydro_heavy:
+    climate: 0.30
+    hydro: 0.45
+    wildfire: 0.25
+
+  wildfire_heavy:
+    climate: 0.30
+    hydro: 0.30
+    wildfire: 0.40

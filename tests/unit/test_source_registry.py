@@ -85,13 +85,36 @@ def test_spatial_config_loads_required_crs():
     assert config["grids"]["city_grid_1km"]["resolution_m"] == 1000
 
 
-def test_risk_score_config_score_range():
+def test_risk_score_config_loads():
     config = load_project_config("risk_score_config.yml")
 
-    grid_score = config["grid_priority_score"]
-    assert grid_score["score_range"]["min"] == 0
-    assert grid_score["score_range"]["max"] == 100
-    assert "coverage_confidence" in config
+    assert config["domain_weights"] == {
+        "climate": 0.35,
+        "hydro": 0.35,
+        "wildfire": 0.30,
+    }
+
+    assert config["climate"]["normalization"] == (
+        "province_calendar_month_zero_preserving_positive_percentile"
+    )
+
+    assert config["hydro"]["minimum_history_years"] == 5
+
+    assert config["wildfire"]["normalization"] == (
+        "province_zero_preserving_positive_percentile"
+    )
+
+    assert config["composite"]["minimum_available_domains"] == 2
+    assert config["confidence"]["renormalize_missing_domains"] is False
+
+    assert config["ranking"]["minimum_boundary_coverage_ratio"] == 0.01
+
+    assert config["priority_tiers"] == {
+        "very_high": 0.90,
+        "high": 0.75,
+        "elevated": 0.50,
+        "moderate": 0.25,
+    }
 
 
 def test_dq_thresholds_load():

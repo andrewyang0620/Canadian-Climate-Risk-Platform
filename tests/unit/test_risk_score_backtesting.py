@@ -2,8 +2,11 @@ import pandas as pd
 import pytest
 
 from src.backtesting.risk_score import (
+    build_domain_event_month_metrics,
     build_event_month_metrics,
+    build_source_event_domain_metrics,
     build_source_event_metrics,
+    summarize_domain_source_events,
     summarize_source_events,
 )
 
@@ -361,3 +364,355 @@ def test_source_event_summary_counts_independent_events():
         "wildfire": 1,
         "flood": 1,
     }
+  
+    
+def _domain_event_scope() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "disaster_event_reference_key": [
+                "flood_a",
+                "flood_a",
+            ],
+            "source_disaster_event_key": [
+                "2000_AB_2021-07",
+                "2000_AB_2021-07",
+            ],
+            "reference_month": [
+                "2021-07",
+                "2021-07",
+            ],
+            "province_key": [
+                "AB",
+                "AB",
+            ],
+            "disaster_domain": [
+                "flood",
+                "flood",
+            ],
+            "location_text": [
+                "Example flood",
+                "Example flood",
+            ],
+            "location_tier": [
+                "regional",
+                "regional",
+            ],
+            "grid_cell_key": [
+                "grid_a",
+                "grid_b",
+            ],
+        }
+    )
+
+
+def _domain_labels() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "grid_cell_key": [
+                "grid_a",
+                "grid_b",
+                "grid_c",
+                "grid_d",
+                "grid_e",
+            ],
+            "reference_month": [
+                "2021-07",
+            ] * 5,
+            "disaster_event_occurred": [
+                True,
+                True,
+                False,
+                False,
+                False,
+            ],
+        }
+    )
+
+
+def _domain_scores() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "grid_cell_key": [
+                "grid_a",
+                "grid_b",
+                "grid_c",
+                "grid_d",
+                "grid_e",
+            ],
+            "reference_month": [
+                "2021-07",
+            ] * 5,
+            "province_key": [
+                "AB",
+            ] * 5,
+            "boundary_coverage_ratio": [
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                0.005,
+            ],
+            "ranking_eligible": [
+                False,
+                True,
+                True,
+                True,
+                True,
+            ],
+            "climate_sub_score": [
+                0.1,
+                0.2,
+                0.8,
+                0.9,
+                0.7,
+            ],
+            "hydro_sub_score": [
+                0.9,
+                0.8,
+                0.6,
+                0.2,
+                1.0,
+            ],
+            "wildfire_sub_score": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ],
+        }
+    )
+
+
+def test_domain_metrics_use_matching_domain_score():
+    result = build_domain_event_month_metrics(
+        event_scope=_domain_event_scope(),
+        labels=_domain_labels(),
+        scores=_domain_scores(),
+    )
+
+    row = result.iloc[0]
+
+    assert row[
+        "domain_score_column"
+    ] == "hydro_sub_score"
+
+    assert row[
+        "event_domain_auc"
+    ] == pytest.approx(1.0)
+
+    assert row[
+        "domain_score_gap"
+    ] > 0
+
+
+def test_domain_metrics_do_not_require_composite_ranking():
+    result = build_domain_event_month_metrics(
+        event_scope=_domain_event_scope(),
+        labels=_domain_labels(),
+        scores=_domain_scores(),
+    )
+
+    row = result.iloc[0]
+
+    # grid_a is not composite ranking eligible,
+    # but it has a valid Hydro score and boundary coverage.
+    assert row[
+        "affected_domain_score_count"
+    ] == 2
+
+    assert row[
+        "affected_domain_score_coverage"
+    ] == pytest.approx(1.0)
+
+
+def test_domain_metrics_respect_boundary_threshold():
+    result = build_domain_event_month_metrics(
+        event_scope=_domain_event_scope(),
+        labels=_domain_labels(),
+        scores=_domain_scores(),
+    )
+
+    row = result.iloc[0]
+
+    # grid_e has Hydro score 1.0 but is a boundary sliver,
+    # so it is not part of the domain control universe.
+    assert row[
+        "control_domain_score_count"
+    ] == 2
+
+
+def test_domain_metrics_track_missing_domain_coverage():
+    scores = _domain_scores()
+
+    scores.loc[
+        scores["grid_cell_key"].eq(
+            "grid_b"
+        ),
+        "hydro_sub_score",
+    ] = None
+
+    result = build_domain_event_month_metrics(
+        event_scope=_domain_event_scope(),
+        labels=_domain_labels(),
+        scores=scores,
+    )
+
+    row = result.iloc[0]
+
+    assert row[
+        "affected_domain_score_count"
+    ] == 1
+
+    assert row[
+        "affected_domain_score_coverage"
+    ] == pytest.approx(0.5)
+
+
+def test_source_event_domain_metrics_aggregate_months():
+    event_month_metrics = pd.DataFrame(
+        {
+            "source_event_id": [
+                "2000",
+                "2000",
+                "3000",
+            ],
+            "reference_month": [
+                "2021-06",
+                "2021-07",
+                "2021-08",
+            ],
+            "province_key": [
+                "AB",
+                "AB",
+                "BC",
+            ],
+            "disaster_domain": [
+                "flood",
+                "flood",
+                "wildfire",
+            ],
+            "domain_score_column": [
+                "hydro_sub_score",
+                "hydro_sub_score",
+                "wildfire_sub_score",
+            ],
+            "location_text": [
+                "Example flood",
+                "Example flood",
+                "Example fire",
+            ],
+            "location_tier": [
+                "regional",
+                "regional",
+                "municipal",
+            ],
+            "affected_domain_score_coverage": [
+                0.8,
+                1.0,
+                1.0,
+            ],
+            "event_domain_auc": [
+                0.6,
+                0.8,
+                0.9,
+            ],
+            "domain_score_gap": [
+                0.1,
+                0.2,
+                0.3,
+            ],
+            "mean_affected_domain_percentile": [
+                0.6,
+                0.8,
+                0.9,
+            ],
+        }
+    )
+
+    result = build_source_event_domain_metrics(
+        event_month_metrics
+    )
+
+    flood = result[
+        result["source_event_id"].eq(
+            "2000"
+        )
+    ].iloc[0]
+
+    assert flood[
+        "event_month_count"
+    ] == 2
+
+    assert flood[
+        "mean_event_domain_auc"
+    ] == pytest.approx(0.7)
+
+    assert flood[
+        "mean_affected_domain_score_coverage"
+    ] == pytest.approx(0.9)
+
+    assert flood[
+        "minimum_affected_domain_score_coverage"
+    ] == pytest.approx(0.8)
+
+
+def test_domain_summary_is_grouped_by_disaster_domain():
+    source_events = pd.DataFrame(
+        {
+            "source_event_id": [
+                "2000",
+                "3000",
+                "4000",
+            ],
+            "event_month_count": [
+                2,
+                1,
+                1,
+            ],
+            "disaster_domain": [
+                "flood",
+                "wildfire",
+                "wildfire",
+            ],
+            "mean_event_domain_auc": [
+                0.7,
+                0.8,
+                0.6,
+            ],
+            "mean_domain_score_gap": [
+                0.1,
+                0.2,
+                0.1,
+            ],
+            "mean_affected_domain_score_coverage": [
+                0.9,
+                1.0,
+                1.0,
+            ],
+        }
+    )
+
+    summary = summarize_domain_source_events(
+        source_events
+    )
+
+    assert summary[
+        "source_event_count"
+    ] == 3
+
+    assert summary[
+        "event_month_count"
+    ] == 4
+
+    assert summary[
+        "domains"
+    ]["wildfire"][
+        "source_event_count"
+    ] == 2
+
+    assert summary[
+        "domains"
+    ]["wildfire"][
+        "mean_event_domain_auc"
+    ] == pytest.approx(0.7)

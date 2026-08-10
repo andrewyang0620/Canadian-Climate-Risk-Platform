@@ -121,10 +121,7 @@ backtesting:
     - event_capture_at_10
     - capture_lift_at_10
     - precision_at_10
-    - precision_lift_at_10
-    - pr_auc
-    - spearman_rank_correlation
-    - jaccard_top_10
+    - event_auc
 
 sensitivity:
   baseline:

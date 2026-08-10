@@ -188,7 +188,7 @@ def run_risk_score_backtest(
         scores=scores,
         weight_scenarios=scoring_config[
             "sensitivity"
-        ]["scenarios"],
+        ],
         top_k_fraction=top_k_fraction,
         minimum_available_domains=(
             minimum_available_domains

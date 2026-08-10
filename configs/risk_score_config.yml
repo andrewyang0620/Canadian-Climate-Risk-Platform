@@ -116,6 +116,7 @@ backtesting:
   label_start: 2016-01
   label_end: 2022-09
   top_k_fraction: 0.10
+  low_overlap_threshold: 0.05
 
   metrics:
     - event_capture_at_10

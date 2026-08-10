@@ -4,8 +4,12 @@ import pytest
 from src.backtesting.sensitivity import (
     LABEL_QUALITY_SCENARIOS,
     build_label_quality_sensitivity,
+    build_rank_stability_metrics,
+    build_weight_scenario_scores,
+    build_weight_sensitivity,
     summarize_domain_label_quality_sensitivity,
     summarize_label_quality_sensitivity,
+    summarize_weight_sensitivity,
 )
 
 
@@ -533,3 +537,412 @@ def test_sensitivity_returns_all_result_tables():
         "domain_event_month_metrics",
         "source_event_domain_metrics",
     }
+    
+    
+def _weight_scores() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "grid_cell_key": [
+                "grid_a",
+                "grid_b",
+                "grid_c",
+                "grid_d",
+                "grid_e",
+                "grid_f",
+            ],
+            "reference_month": [
+                "2021-07",
+            ] * 6,
+            "province_key": [
+                "AB",
+            ] * 6,
+            "boundary_coverage_ratio": [
+                1.0,
+            ] * 6,
+            "ranking_eligible": [
+                True,
+            ] * 6,
+            "composite_risk_score": [
+                0.34,
+                0.31,
+                0.63,
+                0.56,
+                0.40,
+                0.30,
+            ],
+            "priority_percentile": [
+                0.50,
+                0.3333333333,
+                1.00,
+                0.8333333333,
+                0.6666666667,
+                0.1666666667,
+            ],
+            "climate_sub_score": [
+                0.10,
+                0.10,
+                0.90,
+                0.80,
+                0.50,
+                0.30,
+            ],
+            "hydro_sub_score": [
+                0.10,
+                0.10,
+                0.90,
+                0.80,
+                0.50,
+                0.30,
+            ],
+            "wildfire_sub_score": [
+                0.90,
+                0.80,
+                0.00,
+                0.00,
+                0.20,
+                0.20,
+            ],
+        }
+    )
+
+
+def _weight_event_scope() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "disaster_event_reference_key": [
+                "event_fire",
+                "event_fire",
+            ],
+            "source_disaster_event_key": [
+                "100_AB_2021-07",
+                "100_AB_2021-07",
+            ],
+            "reference_month": [
+                "2021-07",
+                "2021-07",
+            ],
+            "province_key": [
+                "AB",
+                "AB",
+            ],
+            "disaster_domain": [
+                "wildfire",
+                "wildfire",
+            ],
+            "location_text": [
+                "Example fire",
+                "Example fire",
+            ],
+            "location_tier": [
+                "regional",
+                "regional",
+            ],
+            "grid_cell_key": [
+                "grid_a",
+                "grid_b",
+            ],
+        }
+    )
+
+
+def _weight_labels() -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "grid_cell_key": [
+                "grid_a",
+                "grid_b",
+                "grid_c",
+                "grid_d",
+                "grid_e",
+                "grid_f",
+            ],
+            "reference_month": [
+                "2021-07",
+            ] * 6,
+            "disaster_event_occurred": [
+                True,
+                True,
+                False,
+                False,
+                False,
+                False,
+            ],
+        }
+    )
+    
+def test_weight_scenario_renormalizes_available_domains():
+    scores = _weight_scores()
+
+    scores.loc[
+        scores["grid_cell_key"].eq("grid_a"),
+        "climate_sub_score",
+    ] = None
+
+    result = build_weight_scenario_scores(
+        scores,
+        domain_weights={
+            "climate": 0.35,
+            "hydro": 0.35,
+            "wildfire": 0.30,
+        },
+    )
+
+    row = result[
+        result["grid_cell_key"].eq("grid_a")
+    ].iloc[0]
+
+    expected = (
+        0.35 * 0.10
+        + 0.30 * 0.90
+    ) / 0.65
+
+    assert row[
+        "composite_risk_score"
+    ] == pytest.approx(expected)
+
+
+def test_weight_scenario_keeps_two_domain_minimum():
+    scores = _weight_scores()
+
+    scores.loc[
+        scores["grid_cell_key"].eq("grid_a"),
+        [
+            "climate_sub_score",
+            "hydro_sub_score",
+        ],
+    ] = None
+
+    result = build_weight_scenario_scores(
+        scores,
+        domain_weights={
+            "climate": 0.35,
+            "hydro": 0.35,
+            "wildfire": 0.30,
+        },
+    )
+
+    row = result[
+        result["grid_cell_key"].eq("grid_a")
+    ].iloc[0]
+
+    assert pd.isna(
+        row["composite_risk_score"]
+    )
+
+    assert not row[
+        "ranking_eligible"
+    ]
+
+
+def test_weight_scenario_rebuilds_province_month_ranking():
+    result = build_weight_scenario_scores(
+        _weight_scores(),
+        domain_weights={
+            "climate": 0.10,
+            "hydro": 0.10,
+            "wildfire": 0.80,
+        },
+    )
+
+    top_grid = (
+        result
+        .sort_values(
+            "priority_percentile",
+            ascending=False,
+        )
+        .iloc[0]
+    )
+
+    assert top_grid[
+        "grid_cell_key"
+    ] == "grid_a"
+
+    assert top_grid[
+        "priority_percentile"
+    ] == pytest.approx(1.0)
+
+
+def test_baseline_rank_stability_is_one():
+    scores = _weight_scores()
+
+    baseline = build_weight_scenario_scores(
+        scores,
+        domain_weights={
+            "climate": 0.35,
+            "hydro": 0.35,
+            "wildfire": 0.30,
+        },
+    )
+
+    scores[
+        "composite_risk_score"
+    ] = baseline[
+        "composite_risk_score"
+    ]
+
+    scores[
+        "ranking_eligible"
+    ] = baseline[
+        "ranking_eligible"
+    ]
+
+    scores[
+        "priority_percentile"
+    ] = baseline[
+        "priority_percentile"
+    ]
+
+    stability = build_rank_stability_metrics(
+        baseline_scores=scores,
+        scenario_scores=baseline,
+    )
+
+    row = stability.iloc[0]
+
+    assert row[
+        "spearman_rank_correlation"
+    ] == pytest.approx(1.0)
+
+    assert row[
+        "top10_jaccard"
+    ] == pytest.approx(1.0)
+    
+
+def test_weight_change_can_change_top10_capture():
+    result = build_weight_sensitivity(
+        event_scope=_weight_event_scope(),
+        labels=_weight_labels(),
+        scores=_weight_scores(),
+        weight_scenarios={
+            "baseline": {
+                "climate": 0.35,
+                "hydro": 0.35,
+                "wildfire": 0.30,
+            },
+            "wildfire_heavy": {
+                "climate": 0.10,
+                "hydro": 0.10,
+                "wildfire": 0.80,
+            },
+        },
+    )
+
+    event_month = result[
+        "event_month_metrics"
+    ]
+
+    baseline = event_month[
+        event_month[
+            "weight_scenario"
+        ].eq("baseline")
+    ].iloc[0]
+
+    wildfire_heavy = event_month[
+        event_month[
+            "weight_scenario"
+        ].eq("wildfire_heavy")
+    ].iloc[0]
+
+    assert baseline[
+        "event_capture_at_10"
+    ] == pytest.approx(0.0)
+
+    assert wildfire_heavy[
+        "event_capture_at_10"
+    ] == pytest.approx(0.5)
+
+
+def test_weight_sensitivity_returns_rank_stability():
+    result = build_weight_sensitivity(
+        event_scope=_weight_event_scope(),
+        labels=_weight_labels(),
+        scores=_weight_scores(),
+        weight_scenarios={
+            "baseline": {
+                "climate": 0.35,
+                "hydro": 0.35,
+                "wildfire": 0.30,
+            },
+            "wildfire_heavy": {
+                "climate": 0.10,
+                "hydro": 0.10,
+                "wildfire": 0.80,
+            },
+        },
+    )
+
+    stability = result[
+        "rank_stability_metrics"
+    ]
+
+    assert set(
+        stability[
+            "weight_scenario"
+        ]
+    ) == {
+        "baseline",
+        "wildfire_heavy",
+    }
+
+    baseline = stability[
+        stability[
+            "weight_scenario"
+        ].eq("baseline")
+    ].iloc[0]
+
+    assert baseline[
+        "spearman_rank_correlation"
+    ] == pytest.approx(1.0)
+
+    assert baseline[
+        "top10_jaccard"
+    ] == pytest.approx(1.0)
+
+
+def test_weight_sensitivity_summary_combines_event_and_rank_metrics():
+    result = build_weight_sensitivity(
+        event_scope=_weight_event_scope(),
+        labels=_weight_labels(),
+        scores=_weight_scores(),
+        weight_scenarios={
+            "baseline": {
+                "climate": 0.35,
+                "hydro": 0.35,
+                "wildfire": 0.30,
+            },
+            "wildfire_heavy": {
+                "climate": 0.10,
+                "hydro": 0.10,
+                "wildfire": 0.80,
+            },
+        },
+    )
+
+    summary = summarize_weight_sensitivity(
+        source_event_metrics=result[
+            "source_event_metrics"
+        ],
+        rank_stability_metrics=result[
+            "rank_stability_metrics"
+        ],
+    )
+
+    assert set(
+        summary[
+            "weight_scenario"
+        ]
+    ) == {
+        "baseline",
+        "wildfire_heavy",
+    }
+
+    assert set(
+        [
+            "mean_event_capture_at_10",
+            "mean_event_auc",
+            "mean_spearman_rank_correlation",
+            "mean_top10_jaccard",
+        ]
+    ).issubset(
+        summary.columns
+    )

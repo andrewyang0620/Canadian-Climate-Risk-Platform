@@ -1,0 +1,338 @@
+{
+  "version": "v1",
+  "description": "Manual disaster location mapping used for backtesting only. This config is not a factual Gold spatial table.",
+  "locations": {
+    "British Columbia": {
+      "province_key": "BC",
+      "location_tier": "province",
+      "mapped_geo_level": "PROVINCE",
+      "mapped_geo_codes": [
+        "59"
+      ],
+      "mapping_method": "manual_province_scope",
+      "mapping_confidence": "low_for_grid",
+      "is_grid_backtest_eligible": false,
+      "is_province_month_backtest_eligible": true,
+      "notes": "Province-wide location. Excluded from grid-level case studies."
+    },
+    "High Level, Alberta": {
+      "province_key": "AB",
+      "location_tier": "region",
+      "mapped_geo_level": "CD",
+      "mapped_geo_codes": [
+        "4817"
+      ],
+      "mapping_method": "manual_nearest_cd_region",
+      "mapping_confidence": "medium",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "Fort McMurray AB": {
+      "province_key": "AB",
+      "location_tier": "municipality_region",
+      "mapped_geo_level": "CSD",
+      "mapped_geo_codes": [
+        "4816037"
+      ],
+      "mapping_method": "manual_parent_municipality",
+      "mapping_confidence": "high",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "Lytton, British Columbia": {
+      "province_key": "BC",
+      "location_tier": "city_region",
+      "mapped_geo_level": "CD",
+      "mapped_geo_codes": [
+        "5933"
+      ],
+      "mapping_method": "manual_nearest_cd_region",
+      "mapping_confidence": "medium",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "Prairie Provinces": {
+      "province_key": "AB",
+      "location_tier": "province_or_region",
+      "mapped_geo_level": "PROVINCE",
+      "mapped_geo_codes": [
+        "48"
+      ],
+      "mapping_method": "manual_ab_scope_substitute",
+      "mapping_confidence": "low_for_grid",
+      "is_grid_backtest_eligible": false,
+      "is_province_month_backtest_eligible": true
+    },
+    "South Coast and Lower Mainland British Columbia": {
+      "province_key": "BC",
+      "location_tier": "region",
+      "mapped_geo_level": "CD_GROUP",
+      "mapped_geo_codes": [
+        "5909",
+        "5915",
+        "5929",
+        "5931"
+      ],
+      "mapping_method": "manual_regional_cd_group",
+      "mapping_confidence": "medium",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "Calgary, Alberta": {
+      "province_key": "AB",
+      "location_tier": "city",
+      "mapped_geo_level": "CSD",
+      "mapped_geo_codes": [
+        "4806016"
+      ],
+      "mapping_method": "manual_exact_bridge_match",
+      "mapping_confidence": "high",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "Regional District of the Central Okanagan, BC": {
+      "province_key": "BC",
+      "location_tier": "regional_district",
+      "mapped_geo_level": "CD",
+      "mapped_geo_codes": [
+        "5935"
+      ],
+      "mapping_method": "manual_exact_cd_region",
+      "mapping_confidence": "high",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "Southern BC and Vancouver Island": {
+      "province_key": "BC",
+      "location_tier": "region",
+      "mapped_geo_level": "CD_GROUP",
+      "mapped_geo_codes": [
+        "5901",
+        "5903",
+        "5905",
+        "5907",
+        "5909",
+        "5915",
+        "5917",
+        "5919",
+        "5921",
+        "5923",
+        "5924",
+        "5926",
+        "5927",
+        "5929",
+        "5931",
+        "5933",
+        "5935",
+        "5937",
+        "5939",
+        "5943"
+      ],
+      "mapping_method": "manual_large_region_cd_group",
+      "mapping_confidence": "medium",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "British Columbia, Alberta, Saskatchewan": {
+      "province_key": null,
+      "location_tier": "cross_province_region",
+      "mapped_geo_level": "PROVINCE_GROUP",
+      "mapped_geo_codes": [
+        "59",
+        "48"
+      ],
+      "mapping_method": "manual_ab_bc_scope_substitute",
+      "mapping_confidence": "low_for_grid",
+      "is_grid_backtest_eligible": false,
+      "is_province_month_backtest_eligible": true
+    },
+    "Fort Vermilion, Alberta": {
+      "province_key": "AB",
+      "location_tier": "region",
+      "mapped_geo_level": "CD",
+      "mapped_geo_codes": [
+        "4817"
+      ],
+      "mapping_method": "manual_nearest_cd_region",
+      "mapping_confidence": "medium",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "Southern British Columbia": {
+      "province_key": "BC",
+      "location_tier": "region",
+      "mapped_geo_level": "CD_GROUP",
+      "mapped_geo_codes": [
+        "5901",
+        "5903",
+        "5905",
+        "5907",
+        "5909",
+        "5915",
+        "5927",
+        "5929",
+        "5931",
+        "5933",
+        "5935",
+        "5937",
+        "5939"
+      ],
+      "mapping_method": "manual_large_region_cd_group",
+      "mapping_confidence": "medium",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "Southern British Columbia and Alberta": {
+      "province_key": null,
+      "location_tier": "cross_province_region",
+      "mapped_geo_level": "MIXED_PROVINCE_CD_GROUP",
+      "mapped_geo_codes": [
+        "48",
+        "5901",
+        "5903",
+        "5905",
+        "5907",
+        "5909",
+        "5915",
+        "5927",
+        "5929",
+        "5931",
+        "5933",
+        "5935",
+        "5937",
+        "5939"
+      ],
+      "mapping_method": "manual_ab_province_bc_southern_cd_group_substitute",
+      "mapping_confidence": "medium",
+      "is_grid_backtest_eligible": false,
+      "is_province_month_backtest_eligible": true
+    },
+    "Regional Municipality of Wood Buffalo": {
+      "province_key": "AB",
+      "location_tier": "municipality_region",
+      "mapped_geo_level": "CSD",
+      "mapped_geo_codes": [
+        "4816037"
+      ],
+      "mapping_method": "manual_exact_bridge_match",
+      "mapping_confidence": "high",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "Alberta, Saskatchewan, Manitoba and Ontario": {
+      "province_key": "AB",
+      "location_tier": "province_or_region",
+      "mapped_geo_level": "PROVINCE",
+      "mapped_geo_codes": [
+        "48"
+      ],
+      "mapping_method": "manual_ab_scope_substitute",
+      "mapping_confidence": "low_for_grid",
+      "is_grid_backtest_eligible": false,
+      "is_province_month_backtest_eligible": true
+    },
+    "Southern Alberta": {
+      "province_key": "AB",
+      "location_tier": "region",
+      "mapped_geo_level": "CD_GROUP",
+      "mapped_geo_codes": [
+        "4801",
+        "4802",
+        "4803",
+        "4804",
+        "4805",
+        "4806"
+      ],
+      "mapping_method": "manual_regional_cd_group",
+      "mapping_confidence": "medium",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "Alberta and Saskatchewan": {
+      "province_key": "AB",
+      "location_tier": "province_or_region",
+      "mapped_geo_level": "PROVINCE",
+      "mapped_geo_codes": [
+        "48"
+      ],
+      "mapping_method": "manual_ab_scope_substitute",
+      "mapping_confidence": "low_for_grid",
+      "is_grid_backtest_eligible": false,
+      "is_province_month_backtest_eligible": true
+    },
+    "Paul First Nation, AB": {
+      "province_key": "AB",
+      "location_tier": "locality_region",
+      "mapped_geo_level": "CSD",
+      "mapped_geo_codes": [
+        "4811806",
+        "4811807"
+      ],
+      "mapping_method": "manual_exact_bridge_match",
+      "mapping_confidence": "medium",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "Spruce Grove, Alberta": {
+      "province_key": "AB",
+      "location_tier": "city_region",
+      "mapped_geo_level": "CD",
+      "mapped_geo_codes": [
+        "4811"
+      ],
+      "mapping_method": "manual_nearest_cd_region",
+      "mapping_confidence": "medium",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "Northeastern British Columbia": {
+      "province_key": "BC",
+      "location_tier": "region",
+      "mapped_geo_level": "CD_GROUP",
+      "mapped_geo_codes": [
+        "5955",
+        "5959"
+      ],
+      "mapping_method": "manual_regional_cd_group",
+      "mapping_confidence": "medium",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "Regional District of Kootenay Boundary, British Columbia": {
+      "province_key": "BC",
+      "location_tier": "regional_district",
+      "mapped_geo_level": "CD",
+      "mapped_geo_codes": [
+        "5905"
+      ],
+      "mapping_method": "manual_exact_cd_region",
+      "mapping_confidence": "high",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "Burns Bog BC": {
+      "province_key": "BC",
+      "location_tier": "locality_region",
+      "mapped_geo_level": "CD",
+      "mapped_geo_codes": [
+        "5915"
+      ],
+      "mapping_method": "manual_nearest_cd_region",
+      "mapping_confidence": "medium",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    },
+    "West Kelowna BC": {
+      "province_key": "BC",
+      "location_tier": "city",
+      "mapped_geo_level": "CSD",
+      "mapped_geo_codes": [
+        "5935029"
+      ],
+      "mapping_method": "manual_exact_bridge_match",
+      "mapping_confidence": "high",
+      "is_grid_backtest_eligible": true,
+      "is_province_month_backtest_eligible": true
+    }
+  }
+}

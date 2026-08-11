@@ -1,0 +1,17 @@
+subscription_id = "00000000-0000-0000-0000-000000000000"
+
+location    = "canadacentral"
+environment = "dev"
+
+project_code           = "ccrisk"
+storage_account_prefix = "ccrisk"
+
+storage_replication_type = "LRS"
+
+grant_current_principal_data_access = true
+
+tags = {
+  owner       = "portfolio"
+  workload    = "climate-risk"
+  cost_center = "personal-project"
+}

@@ -3,30 +3,38 @@
 import pytest
 
 from src.storage import (
+    AzureDataLakeStorageBackend,
     LocalStorageBackend,
-    S3StorageBackend,
     StorageBackendError,
     build_storage_backend_from_env,
 )
 
 
-class FakeS3Client:
+class FakeAzureFileClient:
+    def __init__(self, objects, path):
+        self.objects = objects
+        self.path = path
+        self.content_type = None
+
+    def upload_data(self, data, *, overwrite=False):
+        if hasattr(data, "read"):
+            data = data.read()
+
+        self.objects[self.path] = data
+
+    def exists(self):
+        return self.path in self.objects
+
+    def set_http_headers(self, *, content_settings):
+        self.content_type = content_settings.content_type
+
+
+class FakeAzureFileSystemClient:
     def __init__(self):
         self.objects = {}
 
-    def put_object(self, **kwargs):
-        bucket = kwargs["Bucket"]
-        key = kwargs["Key"]
-        body = kwargs["Body"]
-        self.objects[(bucket, key)] = body
-
-    def upload_file(self, filename, bucket, key, ExtraArgs=None):
-        self.objects[(bucket, key)] = Path(filename).read_bytes()
-
-    def head_object(self, Bucket, Key):
-        if (Bucket, Key) not in self.objects:
-            raise FileNotFoundError(f"Missing object: s3://{Bucket}/{Key}")
-        return {"ContentLength": len(self.objects[(Bucket, Key)])}
+    def get_file_client(self, path):
+        return FakeAzureFileClient(self.objects, path)
 
 
 def test_local_storage_put_text_and_exists(tmp_path):
@@ -47,7 +55,9 @@ def test_local_storage_upload_file(tmp_path):
     backend.upload_file(source, "bronze/raw/source.txt")
 
     assert backend.exists("bronze/raw/source.txt")
-    assert (tmp_path / "lakehouse/bronze/raw/source.txt").read_text(encoding="utf-8") == "payload"
+    assert (
+        tmp_path / "lakehouse/bronze/raw/source.txt"
+    ).read_text(encoding="utf-8") == "payload"
 
 
 def test_local_storage_rejects_unsafe_path(tmp_path):
@@ -60,36 +70,50 @@ def test_local_storage_rejects_unsafe_path(tmp_path):
         backend.put_text("/absolute/path.txt", "bad")
 
 
-def test_s3_storage_put_bytes_and_exists():
-    fake_client = FakeS3Client()
-    backend = S3StorageBackend(
-        bucket="test-bucket",
-        prefix="bronze",
-        s3_client=fake_client,
+def test_azure_storage_put_bytes_and_exists():
+    fake_client = FakeAzureFileSystemClient()
+
+    backend = AzureDataLakeStorageBackend(
+        account_name="climateriskdev",
+        file_system="bronze",
+        file_system_client=fake_client,
     )
 
-    uri = backend.put_bytes("source/file.json", b"{}", content_type="application/json")
+    uri = backend.put_bytes(
+        "source/file.json",
+        b"{}",
+    )
 
-    assert uri == "s3://test-bucket/bronze/source/file.json"
-    assert fake_client.objects[("test-bucket", "bronze/source/file.json")] == b"{}"
+    assert (
+        uri
+        == "abfss://bronze@climateriskdev.dfs.core.windows.net/source/file.json"
+    )
+    assert fake_client.objects["source/file.json"] == b"{}"
     assert backend.exists("source/file.json")
 
 
-def test_s3_storage_upload_file(tmp_path):
-    fake_client = FakeS3Client()
+def test_azure_storage_upload_file(tmp_path):
+    fake_client = FakeAzureFileSystemClient()
+
     source = tmp_path / "payload.csv"
     source.write_text("a,b\n1,2\n", encoding="utf-8")
 
-    backend = S3StorageBackend(
-        bucket="test-bucket",
-        prefix="silver",
-        s3_client=fake_client,
+    backend = AzureDataLakeStorageBackend(
+        account_name="climateriskdev",
+        file_system="silver",
+        file_system_client=fake_client,
     )
 
-    uri = backend.upload_file(source, "tables/payload.csv")
+    uri = backend.upload_file(
+        source,
+        "tables/payload.csv",
+    )
 
-    assert uri == "s3://test-bucket/silver/tables/payload.csv"
-    assert fake_client.objects[("test-bucket", "silver/tables/payload.csv")] == source.read_bytes()
+    assert (
+        uri
+        == "abfss://silver@climateriskdev.dfs.core.windows.net/tables/payload.csv"
+    )
+    assert fake_client.objects["tables/payload.csv"] == source.read_bytes()
 
 
 def test_build_local_storage_backend_from_env(monkeypatch, tmp_path):
@@ -99,10 +123,54 @@ def test_build_local_storage_backend_from_env(monkeypatch, tmp_path):
     backend = build_storage_backend_from_env(zone="bronze")
 
     assert isinstance(backend, LocalStorageBackend)
+
     uri = backend.put_text("test.txt", "ok")
+
     assert uri.endswith("lakehouse/bronze/test.txt")
 
 
-def test_s3_storage_rejects_missing_bucket():
+def test_build_azure_storage_backend_from_env(monkeypatch):
+    fake_client = FakeAzureFileSystemClient()
+
+    monkeypatch.setenv("STORAGE_BACKEND", "azure")
+    monkeypatch.setenv(
+        "AZURE_STORAGE_ACCOUNT_NAME",
+        "climateriskdev",
+    )
+    monkeypatch.setenv(
+        "AZURE_STORAGE_FILE_SYSTEM_BRONZE",
+        "bronze",
+    )
+
+    monkeypatch.setattr(
+        AzureDataLakeStorageBackend,
+        "_build_file_system_client",
+        lambda self: fake_client,
+    )
+
+    backend = build_storage_backend_from_env(zone="bronze")
+
+    assert isinstance(
+        backend,
+        AzureDataLakeStorageBackend,
+    )
+    assert backend.account_name == "climateriskdev"
+    assert backend.file_system == "bronze"
+
+
+def test_azure_storage_rejects_missing_account():
     with pytest.raises(StorageBackendError):
-        S3StorageBackend(bucket="", prefix="bronze", s3_client=FakeS3Client())
+        AzureDataLakeStorageBackend(
+            account_name="",
+            file_system="bronze",
+            file_system_client=FakeAzureFileSystemClient(),
+        )
+
+
+def test_azure_storage_rejects_missing_file_system():
+    with pytest.raises(StorageBackendError):
+        AzureDataLakeStorageBackend(
+            account_name="climateriskdev",
+            file_system="",
+            file_system_client=FakeAzureFileSystemClient(),
+        )

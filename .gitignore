@@ -1,8 +1,3 @@
-# Airflow runtime artifacts
-airflow/logs/
-airflow/plugins/
-airflow/*.pid
-
 # Python
 __pycache__/
 *.py[cod]
@@ -70,4 +65,4 @@ override.tf.json
 
 # Project documentation
 SUMMARY.md
-SUMMARY_project_completion_roadmap.md
+SUMMARY_old.md

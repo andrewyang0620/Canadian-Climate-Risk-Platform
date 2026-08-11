@@ -1,311 +1,557 @@
-# Canadian Climate Risk Data Platform
+# Canadian Climate Risk Platform
 
-![Status](https://img.shields.io/badge/status-in%20development-yellow)
-![AWS](https://img.shields.io/badge/cloud-AWS%20S3-orange)
-![Snowflake](https://img.shields.io/badge/warehouse-Snowflake-29B5E8)
-![Spark](https://img.shields.io/badge/processing-Apache%20Spark-E25A1C)
-![Airflow](https://img.shields.io/badge/orchestration-Airflow-017CEE)
-![dbt](https://img.shields.io/badge/transformation-dbt-FF694B)
-![Power BI](https://img.shields.io/badge/dashboard-Power%20BI-F2C811)
-![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC)
+![Status](https://img.shields.io/badge/status-In%20progress-yellow)
+![Python](https://img.shields.io/badge/Python-3_11-3776AB?logo=python&logoColor=white)
+![Parquet](https://img.shields.io/badge/storage-Parquet-50ABF1)
+![GeoPandas](https://img.shields.io/badge/geospatial-GeoPandas%20%2B%20Shapely-139C5A)
+![Azure Target](https://img.shields.io/badge/cloud%20target-Microsoft%20Azure-0078D4?logo=microsoftazure&logoColor=white)
+![Snowflake](https://img.shields.io/badge/warehouse-Snowflake-29B5E8?logo=snowflake&logoColor=white)
+![dbt](https://img.shields.io/badge/transformation-dbt%20Core-FF694B?logo=dbt&logoColor=white)
+![Power BI](https://img.shields.io/badge/BI-Power%20BI-F2C811?logo=powerbi&logoColor=black)
+![Terraform](https://img.shields.io/badge/IaC-Terraform-7B42BC?logo=terraform&logoColor=white)
 
-> **Status:** In development  
-> This repository is being built as a production-style data engineering portfolio project. The `develop` branch contains active work. The first stable release will be merged into `main` after the full pipeline, Snowflake marts, dashboard evidence, public front-end, and documentation are complete.
+> **Status:** Active development.  
+> The national data-product and risk-scoring core is complete. The project is currently in **Phase C: Azure foundation and GIS productization**. `develop` is the active integration branch.
 
----
+An Azure-oriented geospatial data engineering platform that standardizes public Canadian climate, hydrometric, wildfire, boundary, disaster, and municipal datasets into validated spatial data products for Alberta and British Columbia.
 
-## Project At A Glance
-
-- **One-sentence pitch:** Build a production-style **AWS S3 + Snowflake ELT geospatial data platform** that ingests, validates, profiles, transforms, models, and serves Canadian climate, hydrometric, wildfire, building-permit, disaster-event, floodplain, and municipal property datasets into trusted exposure marts for British Columbia and Alberta.
-- **Architecture:** AWS S3 + PySpark/Sedona + Airflow + Snowflake + dbt Core + Power BI + GitHub Pages public front-end.
-- **Scope:** British Columbia + Alberta province-wide 10km grid, Vancouver/Calgary 1km city grids, Vancouver parcel exposure screening, and Calgary property flood exposure screening.
-- **Data quality:** Source freshness, schema contracts, row-count validation, schema profiling, CRS validation, geometry validation, spatial join audit, dbt tests, and pipeline status JSON.
-- **Validation:** Canadian Disaster Database backtesting, lift/top-K capture, score sensitivity, and rank stability checks.
-- **Front-end demo:** Static public project page with architecture, pipeline-status cards, dashboard screenshots/Power BI embed, validation summary, limitations, and documentation links.
-- **Limitation:** This is a public-data-based exposure screening and prioritization platform. It is not an insurance-grade, legal, engineering-grade, or property appraisal risk model.
+The current national product operates at a **10 km grid × month** grain and includes a retrospective multi-hazard prioritization score built from Climate, Hydro, and Wildfire signals.
 
 ---
 
-## Public Demo Plan
+## Project at a Glance
 
-The project will expose a lightweight public front-end under `public_site/`.
+- **Geographic scope:** Alberta and British Columbia at 10 km national grid resolution, with Vancouver and Calgary city datasets standardized for later city-level extensions.
+- **Time coverage:** January 2016 through December 2025 for the national risk feature and score skeleton.
+- **National analytical grain:** `grid_cell_key × reference_month`.
+- **Core Gold mart:** 16,508 grid cells × 120 months = **1,980,960 grid-month rows**.
+- **Hazard domains:** Climate, Hydro, and Wildfire.
+- **Risk product:** Retrospective multi-hazard prioritization score with domain scores, confidence, provincial monthly percentile ranking, and priority tiers.
+- **Validation:** Historical spatial validation against Canadian Disaster Database events, including domain diagnostics, label-quality sensitivity, and weight robustness.
+- **Current engineering work:** Replacing the legacy AWS/S3 cloud direction with **Azure Data Lake Storage Gen2**, Azure-oriented Terraform, and baseline CI.
+- **Next product work:** National interactive GIS using **MapLibre GL + deck.gl**.
+- **Later serving layer:** Snowflake + dbt analytics marts + Power BI.
+- **Later cloud automation:** Azure Data Factory orchestration and a selective Azure Databricks / PySpark scale-out pilot.
+
+This is a **public-data climate-risk screening and prioritization platform**. It is not a disaster-probability, expected-loss, insurance underwriting, legal property-risk, or engineering-grade hazard model.
+
+---
+
+## Why This Project Exists
+
+Public climate-risk data in Canada is available across federal, provincial, and municipal sources, but the data is fragmented across:
+
+- different APIs and file formats;
+- incompatible temporal grains;
+- inconsistent coordinate reference systems;
+- station observations, polygons, administrative areas, and property records;
+- incomplete spatial coverage;
+- different meanings of zero and missing values;
+- changing source schemas and update patterns.
+
+The platform turns those sources into reproducible, validated spatial data products that can support questions such as:
+
+- Which 10 km grid cells currently rank highest within a province for observed multi-hazard conditions?
+- How much of the ranking is driven by Climate, Hydro, or Wildfire?
+- How reliable is the score when observational coverage is incomplete?
+- Do historically affected disaster areas tend to receive higher rankings than comparable grids?
+- How sensitive are the rankings to alternative domain weights?
+- How does spatial label quality affect measured backtest performance?
+- How can national risk context later be connected to city and parcel-level exposure products without claiming false spatial precision?
+
+---
+
+## Current Architecture
+
+The **implemented analytical core** is local-first and Parquet-based:
 
 ```text
-public_site/
-|
-v
-index.html
-|
-v
-pipeline_status.json
-|
-v
-assets/
-  architecture.png
-  dashboard_overview.png
-  grid_hazard_page.png
-  vancouver_parcel_page.png
-  calgary_property_page.png
-  validation_page.png
-  data_reliability_page.png
+External Public Data Sources
+            |
+            v
+    Python Ingestion
+            |
+            v
+     Bronze Snapshots
+            |
+            v
+  Silver Standardization
+            |
+            v
+Python Geospatial Processing
+pandas / GeoPandas / Shapely
+            |
+            v
+          Gold
+   Spatial + Hazard Domains
+            |
+            v
+gold_grid_month_risk_feature_mart
+            |
+            v
+      Risk Score v1
+            |
+            +----------------------+
+            |                      |
+            v                      v
+ Historical Validation        GIS / BI Products
 ```
 
-The public page is designed to show the project quickly to recruiters and reviewers:
-
-| Section | Purpose |
-|---|---|
-| Hero / pitch | Explain the DE project in one screen |
-| Architecture | Show AWS S3 + Snowflake ELT flow |
-| Pipeline status | Show latest run health from `pipeline_status.json` |
-| Data sources | Summarize source coverage and ingestion status |
-| Data quality | Show freshness, row count, schema, CRS, geometry, and dbt quality |
-| Dashboard preview | Embed Power BI if available; otherwise show screenshots |
-| Validation | Show CDD lift/top-K/sensitivity summary |
-| Limitations | Explain exposure-screening limitations honestly |
-| Links | GitHub repo, docs, dashboard, screenshots, demo video |
-
----
-
-## Business Problem
-
-Western Canada faces overlapping climate, flood, wildfire, hydrometric, infrastructure, and development exposure. Public data exists across federal, provincial, and municipal portals, but it is fragmented across different formats, spatial grains, coordinate systems, update frequencies, and quality levels.
-
-The purpose of this project is to build a reliable data engineering platform that turns fragmented public datasets into curated, validated, and BI-ready geospatial data products.
-
-The intended fictional stakeholder is a municipal or provincial climate resilience analytics team that needs repeatable data products for monitoring areas that may deserve deeper planning review.
-
----
-
-## High-Level Architecture
+The **target cloud architecture** is being implemented from Phase C onward:
 
 ```text
 External Public Sources
-|
-v
-Airflow ingestion DAGs
-|
-v
-Python ingestion layer
-|
-v
-AWS S3 Bronze
-|
-v
-PySpark + Apache Sedona standardization
-|
-v
-AWS S3 Silver
-|
-v
-Snowflake warehouse
-|
-v
-dbt Core transformations and tests
-|
-v
-Gold / Mart tables
-|
-v
-Power BI dashboard + public project page
-|
-v
-pipeline_status.json + screenshots + documentation
+            |
+            v
+Azure Data Factory                  [Phase G]
+            |
+            v
+Azure Data Lake Storage Gen2       [Phase C]
+Bronze / Silver / Gold / Audit
+            |
+            +-------------------------------+
+            |                               |
+            v                               v
+Python Geospatial Pipelines       Azure Databricks / PySpark
+pandas / GeoPandas / Shapely      selective scale-out only [Phase G]
+            |
+            v
+         Snowflake                 [Phase F]
+            |
+            v
+         dbt Core                  [Phase F]
+            |
+       +----+-------------------+
+       |                        |
+       v                        v
+   Power BI               GIS Data Products
+   [Phase F]                    |
+                                v
+                       MapLibre GL + deck.gl
+                              [Phase C]
+                                |
+                                v
+                       Azure Static Web Apps
 ```
+
+The project is **not** being built as a multi-cloud platform. Legacy S3/AWS scaffolding is being removed as Azure becomes the single cloud target.
 
 ---
 
-## Data Platform Layers
+## Platform Layers
 
 ### Bronze — Raw Source Preservation
 
-Bronze stores immutable source snapshots.
+Bronze keeps source snapshots and run metadata close to the original source representation.
 
-Local development path:
+Typical local layout:
 
 ```text
 lakehouse/bronze/
+  <source_name>/
+    extract_date=<date>/
+      run_id=<run_id>/
+        raw/
+        metadata.json
 ```
 
-Cloud target:
+Bronze ingestion includes source-specific metadata such as:
+
+- run ID and extract date;
+- source URL;
+- checksum;
+- file size;
+- row count when available;
+- manifest records;
+- schema and source-specific audit metadata.
+
+Local development remains the default fast iteration path. The cloud storage target is **Azure Data Lake Storage Gen2**.
+
+### Silver — Standardized Source Products
+
+Silver converts source-specific raw data into reusable, typed analytical inputs.
+
+Implemented Silver pipelines cover national/provincial and municipal sources including:
+
+- ECCC daily climate observations;
+- ECCC real-time hydrometric observations;
+- HYDAT historical hydrometric data;
+- hydro basin polygons;
+- wildfire history and perimeter polygons;
+- Canadian Disaster Database events;
+- Census / administrative boundaries;
+- Statistics Canada building permits;
+- Vancouver and Calgary property, flood, building-permit, and development-permit datasets.
+
+Silver processing includes:
+
+- type normalization;
+- date normalization;
+- source-key normalization;
+- CRS standardization;
+- geometry validation;
+- source-specific semantic cleanup;
+- validation runners and audit checks.
+
+City-level datasets are standardized in Silver, but city-level Gold products are intentionally a later phase.
+
+### Gold — Validated Spatial and Analytical Products
+
+Gold contains stable, validated data products consumed by scoring, backtesting, GIS, and later warehouse marts.
+
+The national Gold layer is the most mature part of the project.
+
+#### Spatial Foundation
+
+Core spatial outputs include:
+
+- `gold_grid_cell`
+- `gold_grid_municipality_bridge`
+
+The national risk product uses:
 
 ```text
-s3://<data-lake-bucket>/bronze/
+ab_10km
+bc_10km
 ```
 
-Bronze records:
+City grid systems are maintained separately and are not mixed into the national risk mart.
 
-- raw source file
-- `metadata.json`
-- `bronze_runs.jsonl`
-- checksum
-- row count when available
-- source URL and run ID
-- source-specific extra metadata
+#### Climate Gold
 
-### Silver — Standardized Processing Layer
-
-Silver normalizes raw sources into reusable analytical inputs:
-
-- standardized dates and keys
-- standardized CRS and geometry
-- generated 10km BC/AB grid
-- generated 1km Vancouver/Calgary grid
-- station-grid maps
-- flood/property overlays
-- coverage-confidence features
-
-Target format:
+Primary output:
 
 ```text
-Parquet / GeoParquet on AWS S3
+gold_grid_month_climate_feature
 ```
 
-### Gold — Snowflake + dbt Marts
+Climate features are assigned to the grid using:
 
-Snowflake is the primary analytical warehouse.
+- direct station-in-cell mapping;
+- direct multi-station averaging;
+- inverse distance weighting (IDW);
+- explicit no-coverage state when no suitable station is available.
 
-Planned schemas:
+The feature product retains station-distance diagnostics, mapping method, IDW confidence, completeness metrics, quality flags, and monthly climate indicators such as extreme heat, extreme cold, heavy precipitation, freeze-thaw activity, and precipitation totals.
+
+A grid-month with no climate station/interpolation coverage is **missing**, not zero risk.
+
+#### Hydro Gold
+
+Primary output:
 
 ```text
-BRONZE
-SILVER
-GOLD
-AUDIT
+gold_grid_month_hydro_feature
 ```
 
-dbt owns:
+Hydrometric observations are assigned spatially through:
+
+- basin-polygon intersection as the primary method;
+- station point-in-cell fallback;
+- explicit `no_hydro_coverage` state.
+
+The Hydro product contains flow and level features including station counts, observation counts, summary statistics, p95 values, zero-flow diagnostics, measurement completeness, basin coverage, and quality flags.
+
+Missing hydrometric coverage is kept distinct from observed zero values.
+
+#### Wildfire Gold
+
+Primary output:
 
 ```text
-staging
-|
-v
-intermediate
-|
-v
-marts
+gold_grid_month_wildfire_perimeter_feature
+```
+
+Wildfire uses observed fire perimeter intersection with the 10 km grid.
+
+Unlike Climate and Hydro, Wildfire uses **known-zero semantics**:
+
+> no observed perimeter overlap = confirmed zero overlap for that grid-month.
+
+The product includes perimeter count, intersected area, grid-area overlap ratio, fire-size fields, fire-cause counts, overlap flags, and temporal assignment method.
+
+This null/zero distinction is preserved through the downstream mart and scoring pipeline.
+
+---
+
+## National Risk Feature Mart
+
+Primary output:
+
+```text
+gold_grid_month_risk_feature_mart
+```
+
+This is the national feature contract consumed by Risk Score v1.
+
+It joins only validated Gold-layer inputs:
+
+```text
+gold_grid_cell
+gold_grid_municipality_bridge
+gold_grid_month_climate_feature
+gold_grid_month_hydro_feature
+gold_grid_month_wildfire_perimeter_feature
+```
+
+Current validated shape:
+
+| Metric | Value |
+|---|---:|
+| Grid systems | `ab_10km`, `bc_10km` |
+| Grid cells | 16,508 |
+| Months | 120 |
+| Date range | 2016-01 to 2025-12 |
+| Rows | 1,980,960 |
+| Columns | 107 |
+| Grain | `grid_cell_key × reference_month` |
+
+The mart deliberately preserves different domain semantics:
+
+| Domain | No signal / coverage semantics |
+|---|---|
+| Climate | No observational/interpolation coverage → null feature values |
+| Hydro | No hydrometric coverage → null feature values |
+| Wildfire | Confirmed no perimeter overlap → zero |
+
+This distinction is a core modeling rule: **missing data is not silently converted into low risk**.
+
+Detailed contract:
+
+```text
+docs/contracts/gold_grid_month_risk_feature_mart_contract.md
 ```
 
 ---
 
-## Core Data Products
+## Risk Score v1
 
-### Grid-Level Marts
-
-- `mart_grid_month_hazard_exposure`
-- `mart_grid_month_priority`
-- `mart_municipality_month_priority`
-
-These marts support BC/Alberta grid-level monitoring, monthly prioritization, hazard component analysis, and municipality-level aggregation.
-
-### Property-Context Marts
-
-- `mart_vancouver_parcel_exposure`
-- `mart_calgary_property_flood_exposure`
-
-These marts support city-level property-context screening using public parcel, property assessment, floodplain/flood hazard, and permit data.
-
-### Reliability and Validation Marts
-
-- `mart_data_reliability`
-- `mart_score_validation`
-- `mart_sensitivity_analysis`
-
-These marts make data quality, source freshness, spatial join success, dbt test results, and score validation visible as first-class outputs.
-
----
-
-## Current Implementation Status
-
-### Completed / In Progress
-
-- Project scaffold and local development setup
-- Source registry and source configuration contracts
-- National Bronze ingestion for Canadian Disaster Database
-- Municipal Bronze ingestion for Vancouver and Calgary open data sources
-- OpenDataSoft downloader
-- Socrata downloader
-- Socrata pagination with row-count reconciliation
-- Bronze writer with raw file, metadata, checksum, and manifest records
-- Municipal source availability report
-- Source config contract cleanup
-- Bronze manifest reader
-- Bronze extract audit foundation
-- AWS S3 + Snowflake architecture realignment
-
-### Next Work
+Primary output:
 
 ```text
-source profiling
-|
-v
-S3 storage backend
-|
-v
-Silver standardization
-|
-v
-Snowflake load
-|
-v
-dbt marts
-|
-v
-Airflow DAG orchestration
-|
-v
-Power BI dashboard
-|
-v
-public front-end page
+gold_grid_month_risk_score
+```
+
+The score is a **retrospective monthly multi-hazard prioritization index**. It is not a future-event probability model.
+
+### Domain Scores
+
+The score contains:
+
+```text
+climate_sub_score
+hydro_sub_score
+wildfire_sub_score
+composite_risk_score
+score_confidence
+priority_percentile
+priority_tier
+```
+
+All domain and composite scores use a `[0, 1]` scale.
+
+Baseline domain weights:
+
+| Domain | Weight |
+|---|---:|
+| Climate | 0.35 |
+| Hydro | 0.35 |
+| Wildfire | 0.30 |
+
+### Missing-Data Rules
+
+- Missing domain values are **not** filled with zero.
+- Available domain weights are renormalized when calculating the composite score.
+- At least two domains are required for composite-score eligibility.
+- Score confidence is calculated separately and does not renormalize missing domain weight away.
+
+This means a high score and a high confidence value communicate different information.
+
+### Ranking
+
+Eligible grids are ranked within:
+
+```text
+province_key × reference_month
+```
+
+Ranking requires composite-score eligibility and at least 1% provincial-boundary coverage.
+
+Priority tiers:
+
+```text
+very_high         >= 0.90
+high              >= 0.75
+elevated          >= 0.50
+moderate          >= 0.25
+low               <  0.25
+insufficient_data not ranking eligible
+```
+
+Detailed design and contract:
+
+```text
+docs/architecture/risk_scoring_design.md
+docs/contracts/gold_grid_month_risk_score_contract.md
+configs/risk_score_config.yml
 ```
 
 ---
 
-## Data Quality Strategy
+## Disaster Labels and Historical Validation
 
-Quality is enforced across the full pipeline.
+Disaster-event labels are built separately from scoring inputs to avoid label leakage.
 
-### Source-Level Quality
+Supporting Gold products include event-reference, administrative-scope, grid-scope, and grid-month label tables under:
 
-- source availability checks
-- row counts
-- file size checks
-- checksums
-- schema hash / schema drift detection
-- Socrata row-count reconciliation
-- extract metadata and manifest logging
+```text
+src/gold/disaster/
+```
 
-### Source Profiling
+Primary validation label:
 
-Before Silver implementation, raw files are profiled to detect:
+```text
+gold_grid_month_disaster_event_label
+```
 
-- actual columns
-- sample rows
-- candidate IDs
-- candidate join keys
-- coordinate fields
-- measurement fields
-- contract mismatches
+The backtest asks:
 
-### Geospatial Quality
+> Within the same province and month, are grids associated with recorded disaster events ranked higher than comparable grids without a recorded grid-eligible event?
 
-- coordinate range validation
-- CRS standardization
-- geometry validity checks
-- geometry repair logging
-- spatial join success rate
-- unmatched row audit
-- coverage confidence score
+The validation is **contemporaneous and retrospective**. It does not claim forecasting skill.
 
-### dbt / Warehouse Quality
+### Validation Sample
 
-- `not_null`
-- `unique`
-- `relationships`
-- `accepted_values`
-- custom score range tests
-- no missing lineage tests
-- no invalid priority tier tests
+- 22 underlying disaster events
+- 36 event-month observations
+- 36,681 event-grid assignments
+- 11 Alberta events
+- 11 British Columbia events
+- 7 wildfire events
+- 6 flood events
+- 9 severe-storm / climate events
+
+### Overall Results
+
+| Metric | Mean | Median |
+|---|---:|---:|
+| Event capture @ top 10% | 19.3% | 6.9% |
+| Capture lift @ top 10% | 1.93× | 0.69× |
+| Event AUC | 0.540 | 0.507 |
+
+The result is best interpreted as a **modest positive prioritization signal overall with substantial event-level heterogeneity**.
+
+### Provincial Results
+
+| Province | Events | Mean capture @10 | Mean lift @10 | Mean AUC |
+|---|---:|---:|---:|---:|
+| Alberta | 11 | 2.7% | 0.27× | 0.374 |
+| British Columbia | 11 | 35.8% | 3.58× | 0.706 |
+
+British Columbia shows substantially stronger historical spatial alignment.
+
+Alberta's validation labels are materially coarser at grid level: many events are represented through parent Census Division or broad regional administrative footprints. The validation therefore treats spatial-label precision as an important confounding factor rather than claiming that measured provincial differences are purely model-driven.
+
+### Domain Diagnostics
+
+| Disaster domain | Mean AUC | Median AUC |
+|---|---:|---:|
+| Flood / Hydro | 0.671 | 0.714 |
+| Severe storm / Climate | 0.654 | 0.813 |
+| Wildfire | 0.523 | 0.514 |
+
+Hydro and Climate show materially stronger event-level discrimination than Wildfire.
+
+The Wildfire sub-score measures contemporaneous observed burn-perimeter overlap, while many disaster labels represent broader administrative affected areas. The current result is therefore not presented as predictive wildfire skill.
+
+### Label-Quality Sensitivity
+
+| Scenario | Events | Mean capture @10 | Mean lift @10 | Mean AUC |
+|---|---:|---:|---:|---:|
+| Baseline | 22 | 19.3% | 1.93× | 0.540 |
+| Exclude CSD approximation | 14 | 23.1% | 2.31× | 0.602 |
+
+Because the event sample changes, this is not interpreted causally. It does support spatial-label quality as an important source of validation uncertainty.
+
+### Weight Robustness
+
+Reasonable alternative Climate/Hydro/Wildfire weight scenarios leave the underlying ranking structure largely stable.
+
+Equal weights produce approximately:
+
+```text
+mean province-month Spearman vs baseline: 0.999
+mean top-10 Jaccard vs baseline:           0.974
+```
+
+Sensitivity analysis is used as a robustness check, not as a label-driven weight tuning procedure.
+
+Full report:
+
+```text
+docs/analysis/risk_score_validation.md
+```
+
+---
+
+## Data Quality and Validation
+
+Validation is treated as a first-class data product rather than an end-of-pipeline check.
+
+### Ingestion and Bronze
+
+- source availability;
+- checksums;
+- file size;
+- source row counts when available;
+- extract metadata;
+- run manifests;
+- source-specific audit logging;
+- pagination reconciliation for API sources.
+
+### Silver
+
+- schema and type validation;
+- key and grain validation;
+- CRS validation;
+- geometry validity;
+- coordinate checks;
+- source-specific accepted values;
+- missingness and semantic consistency.
+
+### Gold Spatial / Hazard Products
+
+- deterministic grid skeleton;
+- uniqueness and row-count conservation;
+- spatial coverage checks;
+- method-enum validation;
+- geometry and overlap validation;
+- coverage and quality flags;
+- ratio bounds;
+- explicit null-vs-zero semantics.
+
+### Risk Scoring
+
+- `[0, 1]` score bounds;
+- domain-availability consistency;
+- component-weight accounting;
+- minimum-domain eligibility;
+- confidence consistency;
+- ranking eligibility;
+- priority-tier consistency.
+
+### Backtesting
+
+- same-province / same-month comparison universes;
+- exclusion of other recorded events from controls;
+- event-month first aggregation;
+- source-event second aggregation;
+- domain diagnostics;
+- label-quality sensitivity;
+- domain-weight sensitivity;
+- rank stability.
+
+Contracts are maintained under `docs/contracts/` and unit coverage under `tests/unit/`.
 
 ---
 
@@ -313,172 +559,363 @@ Before Silver implementation, raw files are profiled to detect:
 
 ### National / Provincial
 
-- ECCC Historical Climate Data
-- ECCC Hydrometric Real-Time Data
+- Environment and Climate Change Canada historical climate observations
+- Environment and Climate Change Canada hydrometric observations
 - HYDAT historical hydrometric archive
-- CWFIS / CNFDB wildfire history
+- CWFIS / CNFDB wildfire history and perimeter data
 - Statistics Canada building permits
-- Census / CSD / province boundaries
+- Census / Census Subdivision / Census Division boundaries
 - Canadian Disaster Database
 
 ### Vancouver
 
-- Property parcel polygons
-- Property tax report
-- Issued building permits
-- Designated floodplain
+- property parcels
+- property tax / assessment context
+- issued building permits
+- designated floodplain / flood-hazard data
 
 ### Calgary
 
-- Property assessment
-- Regulatory flood hazard map
-- Building permits
-- Development permits
+- property assessment
+- property tax / assessment context
+- building permits
+- development permits
+- flood-hazard data where suitable spatial coverage is available
+
+Municipal datasets are standardized in Silver today. City-level Gold exposure products are a later phase and will not be presented as complete until their spatial validation is finished.
 
 ---
 
-## Technology Stack
+## Technology Stack and Delivery Status
 
-### Cloud and Storage
+The repository deliberately separates **implemented technology** from **target technology**.
 
-- AWS S3 for Bronze and Silver data lake zones
-- Snowflake for analytical warehouse
+| Layer | Technology | Status |
+|---|---|---|
+| Core processing | Python, pandas, NumPy | Implemented |
+| Local lakehouse | Parquet / PyArrow | Implemented |
+| Spatial processing | GeoPandas, Shapely, pyproj, Fiona | Implemented |
+| Local spatial QA | PostgreSQL / PostGIS | Optional |
+| Storage abstraction | Local filesystem backend | Implemented |
+| Cloud storage | Azure Data Lake Storage Gen2 | Phase C migration |
+| GIS | MapLibre GL + deck.gl | Phase C |
+| Public GIS hosting | Azure Static Web Apps | Phase C |
+| Analytical warehouse | Snowflake on Azure | Phase F |
+| SQL transformation | dbt Core + dbt-snowflake | Scaffold exists; Phase F implementation |
+| Business intelligence | Power BI | Phase F |
+| Distributed processing | Azure Databricks / PySpark | Selective Phase G pilot |
+| Distributed spatial | Apache Sedona | Optional if justified by a real workload |
+| Orchestration | Azure Data Factory | Phase G |
+| Infrastructure as Code | Terraform | Azure migration in progress; Snowflake foundation retained |
+| CI/CD | GitHub Actions | Phase C baseline, expanded later |
 
-### Processing
+### Explicit Non-Goals
 
-- Python ingestion layer
-- PySpark for distributed transformations
-- Apache Sedona for geospatial processing
-- GeoPandas as local fallback
+The final architecture will **not** use:
 
-### Orchestration
+- AWS S3 as the production data lake;
+- Apache Airflow as the production orchestrator;
+- a permanent local Spark cluster;
+- Tableau as the primary BI tool;
+- Kepler.gl or Folium as the final public GIS;
+- multi-cloud deployment purely for technology breadth.
 
-- Apache Airflow
+The project favors a smaller number of technologies with clear responsibilities over duplicated infrastructure.
 
-### Transformation
+---
 
-- dbt Core with Snowflake adapter
+## Current Project Status
 
-### Visualization and Public Evidence
+### Phase A — National Gold Closure
 
-- Power BI dashboard
-- GitHub Pages static front-end
-- screenshots and demo video fallback
-- `pipeline_status.json`
+**Status: Complete**
 
-### DevOps
+Completed:
 
-- Docker Compose for local services
-- GitHub Actions for CI
-- Terraform placeholders for AWS and Snowflake
+- national spatial grid foundation;
+- grid-to-municipality bridge;
+- Climate v2 Gold;
+- Hydro v2 Gold;
+- Wildfire perimeter Gold;
+- national grid-month risk feature mart;
+- disaster-event label products.
+
+Development exposure was intentionally excluded from the national score because the available permit data does not support defensible 10 km grid attribution without introducing false precision.
+
+### Phase B — Risk Scoring and Historical Validation
+
+**Status: Complete**
+
+Completed:
+
+- scoring design;
+- Climate / Hydro / Wildfire sub-scores;
+- composite multi-hazard score;
+- confidence calculation;
+- provincial monthly percentile ranking;
+- priority tiers;
+- risk-score Gold output;
+- disaster-event historical validation;
+- domain diagnostics;
+- label-quality sensitivity;
+- weight sensitivity;
+- validation report.
+
+### Phase C — Azure Foundation and National GIS
+
+**Status: In progress**
+
+Current work:
+
+1. remove legacy AWS/S3 and Airflow infrastructure references;
+2. add Azure Data Lake Storage Gen2 backend;
+3. provision Azure storage foundation through Terraform;
+4. add baseline GitHub Actions CI;
+5. build GIS-ready national exports;
+6. generate static project maps;
+7. build the MapLibre GL + deck.gl National Risk Explorer;
+8. deploy the GIS application to Azure Static Web Apps.
+
+### Phase D — City Gold
+
+Planned:
+
+- Vancouver parcel flood exposure;
+- Calgary property exposure only where a defensible spatial hazard layer exists;
+- optional city development-intensity features.
+
+### Phase E — City Spatial Context and GIS
+
+Planned:
+
+- connect city exposure products to national-grid context;
+- retain explicit 10 km resolution metadata;
+- integrate city / parcel layers into the same MapLibre/deck.gl application.
+
+### Phase F — Snowflake, dbt, and Power BI
+
+Planned:
+
+- load curated Gold products into Snowflake;
+- build dbt staging, intermediate, rollup, reliability, and BI marts;
+- build Power BI pages for executive overview, hazards, city exposure, score validation, and data reliability.
+
+Power BI will handle business analytics and cross-filtering. Detailed polygon exploration remains the responsibility of the dedicated GIS application.
+
+### Phase G — Cloud Automation and Scale-Out
+
+Planned:
+
+- one real Azure Databricks / PySpark pipeline pilot;
+- equivalence testing against the existing pandas implementation;
+- Azure Data Factory orchestration;
+- Terraform hardening for ADF, Databricks, identities, Key Vault, and deployment;
+- expanded GitHub Actions CI/CD.
+
+The existing validated pandas / geospatial pipelines will **not** be rewritten wholesale in Spark.
+
+### Phase H — Final Documentation and Portfolio Delivery
+
+Planned:
+
+- final architecture diagram;
+- public GIS link and screenshots;
+- Power BI evidence;
+- deployment and local-development runbooks;
+- project limitations;
+- interview walkthrough and architecture trade-off notes.
 
 ---
 
 ## Local Development
 
-Install dependencies:
+### Install
 
 ```powershell
+python -m pip install --upgrade pip
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
-Run unit tests:
+### Run Unit Tests
 
 ```powershell
-pytest tests/unit -q
+python -m pytest tests/unit -q
 ```
 
-List municipal ingestion plans:
+### Lint and Format Checks
 
 ```powershell
-python -m src.ingestion.run_bronze_ingestion --list-municipal-plans
+python -m ruff check src tests
+python -m black --check src tests
 ```
 
-Run municipal availability validation:
+### Build the National Risk Feature Mart
 
 ```powershell
-python -m src.ingestion.validate_municipal_sources --download
+python -m src.gold.mart.run_risk_monthly_grid
 ```
 
-Run Bronze extract audit:
+Validate it:
 
 ```powershell
-python -m src.audit.extract_audit --source-group municipal
+python -m src.gold.mart.validate_risk_monthly_grid
 ```
+
+### Build Risk Score v1
+
+```powershell
+python -m src.scoring.run_risk_score
+```
+
+### Run Historical Validation
+
+```powershell
+python -m src.backtesting.run_risk_score_backtest
+```
+
+Generated lakehouse data and audit outputs are runtime artifacts and are not intended to be committed to Git.
 
 ---
 
 ## Repository Structure
 
+The active repository is organized by data-product responsibility rather than by notebook or analysis task.
+
 ```text
 configs/
+  backtesting/
+  platform_config.yml
+  project_scope.yml
+  risk_score_config.yml
+  source_config.yml
+  spatial_config.yml
+
 src/
   ingestion/
   audit/
   profiling/
-  validation/
-  geospatial/
+  silver/
+  gold/
+    climate/
+    hydro/
+    wildfire/
+    disaster/
+    spatial/
+    mart/
   scoring/
+  backtesting/
+  storage/
+  validation/
   utils/
-spark_jobs/
-airflow/
+
 dbt/
   models/
+  macros/
   profiles/
+  tests/
+
 infra/
   terraform/
-    aws/
     snowflake/
+    azure/          # Phase C Azure foundation
+
 dashboard/
-  powerbi/
+  gis/              # Phase C
+  powerbi/          # Phase F
   screenshots/
-public_site/
-  index.html
-  pipeline_status.json
-  assets/
+
+spark_jobs/         # Phase G selective PySpark pilot
+
 docs/
+  analysis/
+  architecture/
+  contracts/
+  data/
+  operations/
+  profiles/
+
 tests/
+  unit/
 ```
+
+Legacy AWS/S3 and Airflow scaffolding is being removed as part of the Azure architecture migration.
 
 ---
 
-## Why AWS S3 + Snowflake
+## Key Design Decisions
 
-This design mirrors a common modern data platform pattern:
+### 1. Local-first development, Azure cloud target
 
-```text
-object storage data lake
-|
-v
-distributed processing
-|
-v
-cloud data warehouse
-|
-v
-dbt marts
-|
-v
-BI + public demo
-```
+The project keeps local Parquet execution because it makes pipeline development and validation fast and reproducible. Azure is the deployment target, not a replacement for the local developer workflow.
 
-It separates raw data storage from compute and keeps warehouse modeling focused on curated, analytics-ready tables.
+### 2. ADLS Gen2 for the lake, Snowflake for analytics
+
+ADLS Gen2 will hold the Bronze / Silver / Gold / Audit lakehouse zones. Snowflake will hold curated analytical datasets and dbt marts rather than duplicating every raw source object.
+
+### 3. Python remains the main geospatial transformation layer
+
+IDW interpolation, basin intersection, fire-perimeter overlay, administrative spatial mapping, and validated geometry logic already exist in Python. They are not being rewritten in SQL simply to increase tool count.
+
+### 4. dbt owns analytical modeling, not geometry
+
+dbt will own staging models, relational transformations, dimensions, rollups, BI marts, warehouse tests, lineage, and documentation. Python retains spatial computations that are naturally expressed through GeoPandas / Shapely.
+
+### 5. Power BI and GIS have different jobs
+
+Power BI will answer KPI, time-series, comparison, distribution, and business-filtering questions.
+
+MapLibre/deck.gl will handle 10 km polygon exploration, hazard layer switching, confidence overlays, grid interaction, and later city / parcel polygons.
+
+### 6. PySpark is a scale-out demonstration, not a rewrite
+
+One meaningful pipeline will be ported to Databricks/PySpark and compared with the existing pandas output. Spark is included only where it demonstrates a legitimate scale-out path.
+
+### 7. Risk score is prioritization, not prediction
+
+The score combines observed monthly hazard conditions. The backtest evaluates historical spatial alignment. The project does not relabel this as disaster prediction, probability, expected loss, or causal impact.
 
 ---
 
 ## Limitations
 
-This project is an exposure screening and prioritization platform.
+The platform is intended for analytical screening, prioritization, portfolio demonstration, and exploratory spatial analysis.
 
 It is not:
 
 - an insurance underwriting model;
-- a legal property risk assessment;
-- a property appraisal model;
+- a catastrophe-loss model;
+- a disaster-probability model;
 - an engineering-grade flood-depth model;
+- a legal property-risk assessment;
+- a property appraisal model;
 - a real-time emergency alerting system.
 
-The platform uses public data and reports coverage confidence, quality flags, and limitations alongside every major output.
+Important analytical limitations include:
+
+- national risk products operate at 10 km resolution;
+- observational Climate and Hydro coverage is incomplete in some grid-months;
+- historical disaster labels are administrative-event footprints rather than authoritative physical damage perimeters;
+- Alberta disaster labels are generally coarser than British Columbia labels in the current validation sample;
+- Wildfire validation compares observed perimeter overlap with broader disaster-event administrative footprints;
+- national risk context must not be presented as parcel-level precision in later city products.
+
+The platform preserves quality flags, coverage indicators, score confidence, spatial-assignment methods, and validation limitations so downstream users can distinguish low risk from low information.
+
+---
+
+## Documentation
+
+Useful starting points:
+
+```text
+docs/contracts/gold_grid_month_risk_feature_mart_contract.md
+docs/contracts/gold_grid_month_risk_score_contract.md
+docs/analysis/risk_score_validation.md
+docs/architecture/risk_scoring_design.md
+docs/architecture/storage_backend.md
+configs/risk_score_config.yml
+```
 
 ---
 

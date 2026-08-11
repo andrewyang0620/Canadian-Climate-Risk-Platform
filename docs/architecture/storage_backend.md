@@ -1,99 +1,121 @@
 # Storage Backend Design
- 
+
 ## Purpose
- 
-This project uses a storage backend abstraction so the same ingestion and processing logic can write to either:
- 
-- local lakehouse paths during development
-- AWS S3 paths for cloud-oriented execution
-This keeps local development reproducible while aligning the architecture with an AWS S3 + Snowflake ELT platform.
- 
+
+The project uses a storage backend abstraction so the same ingestion and processing logic can write to either:
+
+- Local lakehouse paths during development
+- Azure Data Lake Storage Gen2 for cloud-oriented execution
+
+Local development remains the default workflow. ADLS Gen2 is the production-oriented cloud storage target.
+
 ---
- 
+
 ## Backend Modes
- 
+
 ### Local Mode
- 
-```text
+
+```env
 STORAGE_BACKEND=local
 LOCAL_LAKEHOUSE_ROOT=lakehouse
 ```
- 
+
 Example output:
- 
-```text
+```
 lakehouse/bronze/<source_name>/extract_date=<date>/run_id=<run_id>/raw/...
 ```
- 
-### S3 Mode
- 
-```text
-STORAGE_BACKEND=s3
-AWS_REGION=ca-central-1
-AWS_S3_BUCKET_RAW=<raw-bucket>
-AWS_S3_BUCKET_PROCESSED=<processed-bucket>
-AWS_S3_BRONZE_PREFIX=bronze
-AWS_S3_SILVER_PREFIX=silver
-```
- 
-Example output:
- 
-```text
-s3://<raw-bucket>/bronze/<source_name>/extract_date=<date>/run_id=<run_id>/raw/...
-```
- 
+
 ---
- 
+
+### Azure Data Lake Storage Gen2 Mode
+
+```env
+STORAGE_BACKEND=azure
+AZURE_STORAGE_ACCOUNT_NAME=<storage-account>
+AZURE_STORAGE_FILE_SYSTEM_BRONZE=bronze
+AZURE_STORAGE_FILE_SYSTEM_SILVER=silver
+AZURE_STORAGE_FILE_SYSTEM_GOLD=gold
+AZURE_STORAGE_FILE_SYSTEM_AUDIT=audit
+AZURE_STORAGE_FILE_SYSTEM_EXPORTS=exports
+AZURE_STORAGE_FILE_SYSTEM_PROFILES=profiles
+```
+
+Example Bronze URI:
+```
+abfss://bronze@<storage-account>.dfs.core.windows.net/<source_name>/extract_date=<date>/run_id=<run_id>/raw/...
+```
+
+Authentication uses Azure Identity credentials through `DefaultAzureCredential`.
+
+| Environment | Authentication Method |
+|---|---|
+| Local development | `az login` (Azure CLI) |
+| Cloud workloads | Managed identity or service principal |
+
+---
+
+## Storage Layout
+
+The ADLS Gen2 storage account uses separate file systems for each platform zone.
+
+| File System | Purpose |
+|---|---|
+| `bronze` | Immutable raw source snapshots |
+| `silver` | Standardized processed datasets |
+| `gold` | Validated analytical domain and risk-score outputs |
+| `audit` | Run metadata, validation, and backtesting outputs |
+| `exports` | GIS and BI delivery datasets |
+| `profiles` | Schema and data-quality profiling outputs |
+
+---
+
 ## Design Principle
- 
-The storage backend is intentionally small:
- 
-```text
+
+The storage backend interface remains intentionally small:
+
+```
 put_bytes
 put_text
 upload_file
 exists
 uri
 ```
- 
-This is enough for ingestion, audit metadata, manifest files, and later Silver outputs.
- 
+
+Business logic does not depend directly on Azure SDK APIs. The backend abstraction keeps local development reproducible while allowing cloud storage to change independently from ingestion and transformation code.
+
 ---
- 
-## Current Scope
- 
-This feature introduces the abstraction and tests. Existing ingestion flows still write locally by default. Later features will integrate the backend into Bronze writers and Silver outputs.
+
 ## Bronze Sync Utility
 
 The project includes a Bronze sync utility that copies local Bronze files to the configured storage backend while preserving the Bronze relative layout.
 
-Dry run example:
-
+**Dry run:**
 ```powershell
 python -m src.storage.sync_bronze `
   --bronze-root lakehouse/bronze `
   --source eccc_historical_climate `
   --dry-run
+```
 
-Sync all implemented Bronze sources to the configured backend:
-
+**Sync all implemented Bronze sources:**
+```powershell
 python -m src.storage.sync_bronze `
   --bronze-root lakehouse/bronze
+```
 
-The sync utility preserves paths such as:
+**Path mapping example:**
 
+Local:
+```
 eccc_historical_climate/extract_date=2026-05-11/run_id=<run_id>/raw/eccc_climate_daily_bc_ab_2016.jsonl.gz
+```
 
-When STORAGE_BACKEND=s3, this becomes:
+ADLS Gen2:
+```
+abfss://bronze@<storage-account>.dfs.core.windows.net/eccc_historical_climate/extract_date=2026-05-11/run_id=<run_id>/raw/eccc_climate_daily_bc_ab_2016.jsonl.gz
+```
 
-s3://<raw-bucket>/bronze/eccc_historical_climate/extract_date=2026-05-11/run_id=<run_id>/raw/eccc_climate_daily_bc_ab_2016.jsonl.gz
-
-This allows the current local Bronze ingestion pipeline to remain reproducible while enabling cloud storage migration.
-
-### Recommended S3 Sync Mode
-
-For cloud upload, use manifest-aware filtering instead of syncing every local development run:
-
+**Manifest-aware filtering** (recommended for cloud uploads):
 ```powershell
 python -m src.storage.sync_bronze `
   --bronze-root lakehouse/bronze `
@@ -101,5 +123,6 @@ python -m src.storage.sync_bronze `
   --latest-successful-only `
   --exclude-smoke-tests `
   --dry-run
+```
 
-This mode uses bronze_runs.jsonl to select the latest successful non-smoke-test run for each source. It avoids uploading old development runs and smoke-test artifacts.
+This preserves the existing local ingestion workflow while providing a clean migration path to ADLS Gen2.

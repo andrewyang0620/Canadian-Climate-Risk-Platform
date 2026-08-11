@@ -67,7 +67,10 @@ class LocalStorageBackend(StorageBackend):
         content_type: str | None = None,
     ) -> str:
         target_path = self._resolve(relative_path)
-        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
         target_path.write_bytes(data)
         return self.uri(relative_path)
 
@@ -80,8 +83,14 @@ class LocalStorageBackend(StorageBackend):
         content_type: str | None = "text/plain",
     ) -> str:
         target_path = self._resolve(relative_path)
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_text(text, encoding=encoding)
+        target_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+        target_path.write_text(
+            text,
+            encoding=encoding,
+        )
         return self.uri(relative_path)
 
     def upload_file(
@@ -94,55 +103,75 @@ class LocalStorageBackend(StorageBackend):
         source_path = Path(local_path)
 
         if not source_path.exists():
-            raise StorageBackendError(f"Local file does not exist: {source_path}")
+            raise StorageBackendError(
+                f"Local file does not exist: {source_path}"
+            )
 
         target_path = self._resolve(relative_path)
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_bytes(source_path.read_bytes())
+        target_path.parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+        target_path.write_bytes(
+            source_path.read_bytes()
+        )
 
         return self.uri(relative_path)
 
-    def exists(self, relative_path: str | Path) -> bool:
-        return self._resolve(relative_path).exists()
+    def exists(
+        self,
+        relative_path: str | Path,
+    ) -> bool:
+        return self._resolve(
+            relative_path
+        ).exists()
 
-    def uri(self, relative_path: str | Path) -> str:
-        path = self._resolve(relative_path)
-        return path.as_posix()
+    def uri(
+        self,
+        relative_path: str | Path,
+    ) -> str:
+        return self._resolve(
+            relative_path
+        ).as_posix()
 
-    def _resolve(self, relative_path: str | Path) -> Path:
-        clean_path = _clean_relative_path(relative_path)
-        return self.root_path / clean_path
+    def _resolve(
+        self,
+        relative_path: str | Path,
+    ) -> Path:
+        return (
+            self.root_path
+            / _clean_relative_path(relative_path)
+        )
 
 
-class S3StorageBackend(StorageBackend):
-    """AWS S3 implementation of StorageBackend.
-
-    The backend accepts an optional client for unit tests. In production it creates
-    a boto3 S3 client.
-    """
+class AzureDataLakeStorageBackend(StorageBackend):
+    """Azure Data Lake Storage Gen2 implementation."""
 
     def __init__(
         self,
         *,
-        bucket: str,
-        prefix: str = "",
-        region_name: str | None = None,
-        profile_name: str | None = None,
-        s3_client: Any | None = None,
+        account_name: str,
+        file_system: str,
+        file_system_client: Any | None = None,
     ) -> None:
-        if not bucket:
-            raise StorageBackendError("S3 bucket must be non-empty.")
-
-        self.bucket = bucket
-        self.prefix = _clean_prefix(prefix)
-
-        if s3_client is not None:
-            self.s3_client = s3_client
-        else:
-            self.s3_client = self._build_boto3_client(
-                region_name=region_name,
-                profile_name=profile_name,
+        if not account_name:
+            raise StorageBackendError(
+                "Azure storage account name must be non-empty."
             )
+
+        if not file_system:
+            raise StorageBackendError(
+                "Azure file system name must be non-empty."
+            )
+
+        self.account_name = account_name
+        self.file_system = file_system
+
+        self.file_system_client = (
+            file_system_client
+            if file_system_client is not None
+            else self._build_file_system_client()
+        )
 
     def put_bytes(
         self,
@@ -151,17 +180,20 @@ class S3StorageBackend(StorageBackend):
         *,
         content_type: str | None = None,
     ) -> str:
-        key = self._key(relative_path)
-        kwargs: dict[str, Any] = {
-            "Bucket": self.bucket,
-            "Key": key,
-            "Body": data,
-        }
+        file_client = self._file_client(
+            relative_path
+        )
 
-        if content_type:
-            kwargs["ContentType"] = content_type
+        file_client.upload_data(
+            data,
+            overwrite=True,
+        )
 
-        self.s3_client.put_object(**kwargs)
+        self._set_content_type(
+            file_client=file_client,
+            content_type=content_type,
+        )
+
         return self.uri(relative_path)
 
     def put_text(
@@ -188,138 +220,209 @@ class S3StorageBackend(StorageBackend):
         source_path = Path(local_path)
 
         if not source_path.exists():
-            raise StorageBackendError(f"Local file does not exist: {source_path}")
-
-        key = self._key(relative_path)
-
-        extra_args = {}
-        if content_type:
-            extra_args["ContentType"] = content_type
-
-        if extra_args:
-            self.s3_client.upload_file(
-                str(source_path),
-                self.bucket,
-                key,
-                ExtraArgs=extra_args,
+            raise StorageBackendError(
+                f"Local file does not exist: {source_path}"
             )
-        else:
-            self.s3_client.upload_file(str(source_path), self.bucket, key)
+
+        file_client = self._file_client(
+            relative_path
+        )
+
+        with source_path.open("rb") as data:
+            file_client.upload_data(
+                data,
+                overwrite=True,
+            )
+
+        self._set_content_type(
+            file_client=file_client,
+            content_type=content_type,
+        )
 
         return self.uri(relative_path)
 
-    def exists(self, relative_path: str | Path) -> bool:
-        key = self._key(relative_path)
+    def exists(
+        self,
+        relative_path: str | Path,
+    ) -> bool:
+        return bool(
+            self._file_client(
+                relative_path
+            ).exists()
+        )
 
-        try:
-            self.s3_client.head_object(Bucket=self.bucket, Key=key)
-            return True
-        except Exception:
-            return False
+    def uri(
+        self,
+        relative_path: str | Path,
+    ) -> str:
+        path = _clean_relative_path(
+            relative_path
+        )
 
-    def uri(self, relative_path: str | Path) -> str:
-        return f"s3://{self.bucket}/{self._key(relative_path)}"
+        return (
+            f"abfss://{self.file_system}"
+            f"@{self.account_name}.dfs.core.windows.net/"
+            f"{path}"
+        )
 
-    def _key(self, relative_path: str | Path) -> str:
-        clean_path = _clean_relative_path(relative_path)
+    def _file_client(
+        self,
+        relative_path: str | Path,
+    ) -> Any:
+        path = _clean_relative_path(
+            relative_path
+        )
 
-        if self.prefix:
-            return f"{self.prefix}/{clean_path}"
+        return (
+            self.file_system_client
+            .get_file_client(path)
+        )
 
-        return clean_path
-
-    @staticmethod
-    def _build_boto3_client(
-        *,
-        region_name: str | None,
-        profile_name: str | None,
+    def _build_file_system_client(
+        self,
     ) -> Any:
         try:
-            import boto3
-        except ImportError as exc:
-            raise StorageBackendError("boto3 is required for S3StorageBackend.") from exc
-
-        if profile_name:
-            session = boto3.Session(
-                profile_name=profile_name,
-                region_name=region_name,
+            from azure.identity import (
+                DefaultAzureCredential,
             )
-            return session.client("s3")
+            from azure.storage.filedatalake import (
+                DataLakeServiceClient,
+            )
+        except ImportError as exc:
+            raise StorageBackendError(
+                "azure-identity and "
+                "azure-storage-file-datalake are required "
+                "for AzureDataLakeStorageBackend."
+            ) from exc
 
-        return boto3.client("s3", region_name=region_name)
+        credential = DefaultAzureCredential()
+
+        service_client = DataLakeServiceClient(
+            account_url=(
+                f"https://{self.account_name}"
+                ".dfs.core.windows.net"
+            ),
+            credential=credential,
+        )
+
+        return service_client.get_file_system_client(
+            self.file_system
+        )
+
+    @staticmethod
+    def _set_content_type(
+        *,
+        file_client: Any,
+        content_type: str | None,
+    ) -> None:
+        if not content_type:
+            return
+
+        try:
+            from azure.storage.filedatalake import (
+                ContentSettings,
+            )
+        except ImportError as exc:
+            raise StorageBackendError(
+                "azure-storage-file-datalake is required "
+                "to set Azure file content type."
+            ) from exc
+
+        file_client.set_http_headers(
+            content_settings=ContentSettings(
+                content_type=content_type
+            )
+        )
 
 
 def build_storage_backend_from_env(
     *,
     zone: str = "bronze",
 ) -> StorageBackend:
-    """Build a storage backend from environment variables.
+    """Build local or ADLS Gen2 storage from environment."""
 
-    STORAGE_BACKEND=local:
-        writes to LOCAL_LAKEHOUSE_ROOT / zone
+    backend = (
+        os.getenv(
+            "STORAGE_BACKEND",
+            "local",
+        )
+        .strip()
+        .lower()
+    )
 
-    STORAGE_BACKEND=s3:
-        writes to AWS_S3_BUCKET_RAW / AWS_S3_BRONZE_PREFIX for bronze
-        writes to AWS_S3_BUCKET_PROCESSED / AWS_S3_SILVER_PREFIX for silver
-    """
-    backend = os.getenv("STORAGE_BACKEND", "local").strip().lower()
+    zone = zone.strip().lower()
 
     if backend == "local":
-        root = Path(os.getenv("LOCAL_LAKEHOUSE_ROOT", "lakehouse")) / zone
-        return LocalStorageBackend(root)
-
-    if backend == "s3":
-        region = os.getenv("AWS_REGION") or None
-        profile = os.getenv("AWS_PROFILE") or None
-
-        if zone == "bronze":
-            bucket = os.getenv("AWS_S3_BUCKET_RAW", "")
-            prefix = os.getenv("AWS_S3_BRONZE_PREFIX", "bronze")
-        elif zone == "silver":
-            bucket = os.getenv("AWS_S3_BUCKET_PROCESSED", "")
-            prefix = os.getenv("AWS_S3_SILVER_PREFIX", "silver")
-        else:
-            bucket = os.getenv("AWS_S3_BUCKET_PROCESSED", "")
-            prefix = zone
-
-        return S3StorageBackend(
-            bucket=bucket,
-            prefix=prefix,
-            region_name=region,
-            profile_name=profile,
+        root = (
+            Path(
+                os.getenv(
+                    "LOCAL_LAKEHOUSE_ROOT",
+                    "lakehouse",
+                )
+            )
+            / zone
         )
 
-    raise StorageBackendError(f"Unsupported STORAGE_BACKEND: {backend}")
+        return LocalStorageBackend(root)
+
+    if backend in {
+        "azure",
+        "adls",
+        "adls2",
+    }:
+        account_name = os.getenv(
+            "AZURE_STORAGE_ACCOUNT_NAME",
+            "",
+        )
+
+        file_system = os.getenv(
+            (
+                "AZURE_STORAGE_FILE_SYSTEM_"
+                f"{zone.upper()}"
+            ),
+            zone,
+        )
+
+        return AzureDataLakeStorageBackend(
+            account_name=account_name,
+            file_system=file_system,
+        )
+
+    raise StorageBackendError(
+        f"Unsupported STORAGE_BACKEND: {backend}"
+    )
 
 
-def _clean_relative_path(relative_path: str | Path) -> str:
-    raw = str(relative_path).replace("\\", "/").strip()
+def _clean_relative_path(
+    relative_path: str | Path,
+) -> str:
+    raw = (
+        str(relative_path)
+        .replace("\\", "/")
+        .strip()
+    )
 
     if not raw:
-        raise StorageBackendError("relative_path must be non-empty.")
+        raise StorageBackendError(
+            "relative_path must be non-empty."
+        )
 
     path = Path(raw)
 
     if path.is_absolute():
-        raise StorageBackendError(f"Absolute paths are not allowed: {relative_path}")
+        raise StorageBackendError(
+            "Absolute paths are not allowed: "
+            f"{relative_path}"
+        )
 
     parts = raw.split("/")
 
-    if any(part in {"", ".", ".."} for part in parts):
-        raise StorageBackendError(f"Unsafe relative path: {relative_path}")
-
-    return "/".join(parts)
-
-
-def _clean_prefix(prefix: str | Path) -> str:
-    raw = str(prefix).replace("\\", "/").strip().strip("/")
-
-    if not raw:
-        return ""
-
-    parts = raw.split("/")
-
-    if any(part in {"", ".", ".."} for part in parts):
-        raise StorageBackendError(f"Unsafe storage prefix: {prefix}")
+    if any(
+        part in {"", ".", ".."}
+        for part in parts
+    ):
+        raise StorageBackendError(
+            f"Unsafe relative path: {relative_path}"
+        )
 
     return "/".join(parts)

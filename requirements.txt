@@ -12,9 +12,8 @@ geopandas==1.0.1
 shapely==2.0.6
 pyproj==3.7.0
 fiona==1.10.1
-boto3
-botocore
-s3fs
+azure-identity
+azure-storage-file-datalake
 fsspec
 snowflake-connector-python
 snowflake-sqlalchemy

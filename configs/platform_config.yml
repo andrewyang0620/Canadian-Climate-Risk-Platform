@@ -1,134 +1,174 @@
 platform:
   name: Canadian Climate Risk Data Platform
-  architecture_version: aws_snowflake_elt_v1
-  primary_cloud_provider: aws
+  architecture_version: azure_snowflake_elt_v1
+  primary_cloud_provider: azure
   warehouse: snowflake
-  orchestration: airflow
+  orchestration: azure_data_factory
   transformation: dbt_core
-  distributed_processing: pyspark
+  distributed_processing: azure_databricks_pyspark
+
   geospatial_processing:
-    primary: apache_sedona
-    local_fallback: geopandas
+    primary: python_geospatial
+    libraries:
+      - geopandas
+      - shapely
+      - pyproj
+    distributed_optional: apache_sedona
+
+
 deployment_modes:
   local_dev:
     description: Local developer mode using local lakehouse paths and Docker Compose.
     bronze_storage: local_filesystem
     silver_storage: local_filesystem
+    gold_storage: local_filesystem
     warehouse: optional_local_or_snowflake
-    airflow_metadata_db: local_postgres
+
   cloud_target:
-    description: Target portfolio architecture using AWS S3 as the data lake and Snowflake
-      as the warehouse.
-    bronze_storage: aws_s3
-    silver_storage: aws_s3
+    description: Target portfolio architecture using Azure Data Lake Storage Gen2 and Snowflake.
+    bronze_storage: azure_adls_gen2
+    silver_storage: azure_adls_gen2
+    gold_storage: azure_adls_gen2
+    audit_storage: azure_adls_gen2
     warehouse: snowflake
-    orchestration: airflow
+    orchestration: azure_data_factory
+    distributed_processing: azure_databricks
     infrastructure_as_code: terraform
+
+
 storage:
   default_backend: local
+
   local:
     lakehouse_root: lakehouse
-  s3:
-    region: ca-central-1
-    raw_bucket_env: AWS_S3_BUCKET_RAW
-    processed_bucket_env: AWS_S3_BUCKET_PROCESSED
-    bronze_prefix: bronze
-    silver_prefix: silver
-    audit_prefix: audit
-    profiles_prefix: profiles
+
+  azure:
+    account_name_env: AZURE_STORAGE_ACCOUNT_NAME
+
+    file_system_envs:
+      bronze: AZURE_STORAGE_FILE_SYSTEM_BRONZE
+      silver: AZURE_STORAGE_FILE_SYSTEM_SILVER
+      gold: AZURE_STORAGE_FILE_SYSTEM_GOLD
+      audit: AZURE_STORAGE_FILE_SYSTEM_AUDIT
+      exports: AZURE_STORAGE_FILE_SYSTEM_EXPORTS
+      profiles: AZURE_STORAGE_FILE_SYSTEM_PROFILES
+
   zones:
     bronze:
       local_prefix: bronze
-      s3_bucket: raw
-      s3_prefix: bronze
+      azure_file_system: bronze
       purpose: immutable raw source snapshots
+
     silver:
       local_prefix: silver
-      s3_bucket: processed
-      s3_prefix: silver
-      purpose: standardized processed datasets before Snowflake load
+      azure_file_system: silver
+      purpose: standardized processed datasets
+
+    gold:
+      local_prefix: gold
+      azure_file_system: gold
+      purpose: validated analytics-ready domain and scoring outputs
+
     audit:
       local_prefix: audit
-      s3_bucket: processed
-      s3_prefix: audit
-      purpose: pipeline audit logs, run manifests, and validation outputs
+      azure_file_system: audit
+      purpose: pipeline audit logs, run manifests, validation, and backtesting outputs
+
     profiles:
       local_prefix: profiles
-      s3_bucket: processed
-      s3_prefix: profiles
+      azure_file_system: profiles
       purpose: schema profiling and data-quality profiling outputs
-  bronze:
-    local_path: lakehouse/bronze
-    s3_uri_env: S3_BRONZE_URI
-  silver:
-    local_path: lakehouse/silver
-    s3_uri_env: S3_SILVER_URI
+
+    exports:
+      local_prefix: exports
+      azure_file_system: exports
+      purpose: downstream GIS and BI delivery assets
+
+
 warehouse:
   primary: snowflake
   database: CLIMATE_RISK
-  gold_layer: snowflake
+
   schemas:
-    bronze_external:
-      name: BRONZE_EXTERNAL
-      purpose: External access layer for raw Bronze objects stored in S3.
-    bronze:
-      name: BRONZE
-      purpose: Optional loaded/raw landing tables in Snowflake.
-    silver:
-      name: SILVER
-      purpose: Standardized processed tables loaded from S3 Silver outputs.
+    core:
+      name: CORE
+      purpose: Curated analytical data loaded from validated Gold outputs.
+
     staging:
       name: STAGING
       purpose: dbt staging models.
+
     intermediate:
       name: INTERMEDIATE
       purpose: dbt intermediate transformation models.
+
     marts:
       name: MARTS
       purpose: Business-facing dbt mart tables.
-    gold:
-      name: GOLD
-      purpose: Final analytics-ready warehouse layer in Snowflake.
+
     audit:
       name: AUDIT
-      purpose: Warehouse audit tables and pipeline validation outputs.
-  note: Gold marts are stored in Snowflake, not in S3. bronze_external is used for
-    Snowflake access to external Bronze objects.
+      purpose: Warehouse audit and validation tables.
+
+  note: ADLS Gen2 is the system of record for lakehouse data. Snowflake stores curated analytical datasets and dbt marts.
+
+
 dbt:
   profile_name: climate_risk_snowflake
   profiles_dir: dbt
   target_env: DBT_TARGET
+
   model_layers:
     staging: dbt/models/staging
     intermediate: dbt/models/intermediate
     marts: dbt/models/marts
+
   test_strategy:
-  - not_null
-  - unique
-  - relationships
-  - accepted_values
-  - custom_data_quality_tests
+    - not_null
+    - unique
+    - relationships
+    - accepted_values
+    - custom_data_quality_tests
+
+
 pipeline_flow:
-- step: extract
-  tool: Python ingestion layer
-  output: Bronze raw snapshots
-- step: load
-  tool: AWS S3
-  output: Raw data lake objects
-- step: process
-  tool: PySpark / Apache Sedona
-  output: Silver processed datasets
-- step: warehouse_load
-  tool: Snowflake
-  output: Silver and Gold warehouse tables
-- step: transform
-  tool: dbt Core
-  output: marts and risk metrics
-- step: serve
-  tool: Power BI / public demo
-  output: dashboards and portfolio evidence
+  - step: extract
+    tool: Python ingestion layer
+    output: Bronze raw snapshots
+
+  - step: lake_storage
+    tool: Azure Data Lake Storage Gen2
+    output: Bronze / Silver / Gold / Audit lakehouse objects
+
+  - step: process
+    tool: Python / pandas / GeoPandas
+    output: Silver and Gold datasets
+
+  - step: distributed_process
+    tool: Azure Databricks / PySpark
+    output: Selected scalable transformation workloads
+    optional: true
+
+  - step: warehouse_load
+    tool: Snowflake
+    output: Curated analytical tables
+
+  - step: transform
+    tool: dbt Core
+    output: Analytics marts and rollups
+
+  - step: orchestrate
+    tool: Azure Data Factory
+    output: Scheduled cloud pipeline execution
+
+  - step: serve
+    tool: Power BI / MapLibre GL / deck.gl
+    output: Analytics dashboards and public GIS
+
+
 notes:
-- Existing local BronzeWriter remains valid for local development.
-- S3 support should be added through a storage backend abstraction in a later feature.
-- Postgres remains useful for Airflow metadata and optional local PostGIS validation,
-  but Snowflake is the primary analytical warehouse.
+  - Local lakehouse paths remain the default developer workflow.
+  - Azure Data Lake Storage Gen2 is the cloud storage target.
+  - Existing Python geospatial pipelines remain the primary spatial transformation layer.
+  - Azure Databricks is reserved for selected scale-out workloads rather than a full pipeline rewrite.
+  - Snowflake remains the primary analytical warehouse.

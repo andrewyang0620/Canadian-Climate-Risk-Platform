@@ -1,6 +1,6 @@
 ﻿from src.storage.backends import (
     LocalStorageBackend,
-    S3StorageBackend,
+    AzureDataLakeStorageBackend,
     StorageBackend,
     StorageBackendError,
     build_storage_backend_from_env,
@@ -10,7 +10,7 @@ from src.storage.bronze_sync import BronzeSyncObject, BronzeSyncResult, BronzeSy
 
 __all__ = [
     "LocalStorageBackend",
-    "S3StorageBackend",
+    "AzureDataLakeStorageBackend",
     "StorageBackend",
     "StorageBackendError",
     "build_storage_backend_from_env",

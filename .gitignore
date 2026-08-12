@@ -27,6 +27,7 @@ warehouse/
 spark-warehouse/
 metastore_db/
 derby.log
+*/gis/maps/
 
 # dbt
 dbt/target/

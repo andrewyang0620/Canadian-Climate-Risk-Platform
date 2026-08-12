@@ -21,3 +21,4 @@ dbt-snowflake
 apache-sedona
 openpyx
 pyshp
+matplotlib

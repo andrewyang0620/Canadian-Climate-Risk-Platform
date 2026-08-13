@@ -76,3 +76,16 @@ This foundation intentionally does not provision:
 - Azure Static Web Apps
 
 Those services are introduced in later project phases after the Azure data-lake foundation is validated.
+
+### Web GIS Serving
+
+Terraform also provisions the production National GIS serving foundation:
+
+- Azure Static Web App: `ccrisk-dev-national-gis`
+- GIS serving Storage Account: `ccriskdevgisibu7j0`
+- Blob container: `gis`
+- Blob Data Contributor assignment for the deployment principal
+- Blob CORS configuration for local development and the production explorer
+
+The public GIS serving account is intentionally separate from the private
+ADLS Gen2 analytical lake.

@@ -19,5 +19,6 @@ snowflake-connector-python
 snowflake-sqlalchemy
 dbt-snowflake
 apache-sedona
-openpyxlpyshp
-shapefile
+openpyx
+pyshp
+matplotlib

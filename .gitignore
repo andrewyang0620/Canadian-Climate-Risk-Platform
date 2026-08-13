@@ -27,6 +27,7 @@ warehouse/
 spark-warehouse/
 metastore_db/
 derby.log
+*/gis/maps/
 
 # dbt
 dbt/target/
@@ -50,7 +51,7 @@ Thumbs.db
 # Power BI temp files
 *.tmp
 # Terraform
-**/.terraform/
+.terraform/
 *.tfstate
 *.tfstate.*
 *.tfvars
@@ -61,7 +62,8 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
-.terraform.lock.hcl
+tfplan
+*.tfplan
 
 # Project documentation
 SUMMARY.md

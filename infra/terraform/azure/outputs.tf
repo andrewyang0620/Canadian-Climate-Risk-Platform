@@ -46,3 +46,31 @@ output "abfss_uris" {
     )
   }
 }
+
+
+output "gis_serving_storage_account_name" {
+  description = "Storage account hosting public GIS serving artifacts."
+
+  value = azurerm_storage_account.gis_serving.name
+}
+
+
+output "gis_serving_base_url" {
+  description = "Base URL used by the web explorer for GIS serving artifacts."
+
+  value = azurerm_storage_container.gis_serving.url
+}
+
+
+output "static_web_app_name" {
+  description = "Azure Static Web App hosting the national GIS explorer."
+
+  value = azurerm_static_web_app.explorer.name
+}
+
+
+output "static_web_app_url" {
+  description = "Production URL of the national GIS explorer."
+
+  value = "https://${azurerm_static_web_app.explorer.default_host_name}"
+}

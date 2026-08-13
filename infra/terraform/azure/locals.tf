@@ -12,6 +12,14 @@ locals {
     )
   )
 
+  gis_storage_account_base = lower(
+    replace(
+      "${var.storage_account_prefix}${var.environment}gis",
+      "-",
+      "",
+    )
+  )
+
   common_tags = merge(
     {
       project     = "canadian-climate-risk-platform"

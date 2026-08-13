@@ -1,5 +1,5 @@
 import { geojson as flatgeobuf } from "flatgeobuf";
-
+import { gisDataUrl } from "./gis-data-url";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 
 export interface GridProperties {
@@ -16,7 +16,7 @@ export interface ViewportBounds {
   maxY: number;
 }
 
-const GEOMETRY_URL = "/grid_geometry.fgb";
+const GEOMETRY_URL = gisDataUrl("grid_geometry.fgb");
 
 export function padBounds(
   bounds: ViewportBounds,

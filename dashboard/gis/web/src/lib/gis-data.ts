@@ -1,3 +1,8 @@
+import {
+  gisDataUrl
+} from "./gis-data-url"
+
+
 export interface GisManifest {
   geometry: {
     file: string;
@@ -58,7 +63,7 @@ export async function loadManifest(): Promise<GisManifest> {
     return manifestCache;
   }
 
-  const response = await fetch("/manifest.json");
+  const response = await fetch(gisDataUrl("manifest.json"));
 
   if (!response.ok) {
     throw new Error(`Failed to load GIS manifest: ${response.status}`);
@@ -105,7 +110,7 @@ async function loadMonthlyDatasetInternal(
     throw new Error(`No GIS data for ${referenceMonth}`);
   }
 
-  const response = await fetch(`/${relativePath}`);
+  const response = await fetch(gisDataUrl(relativePath));
 
   if (!response.ok) {
     throw new Error(`Failed to load ${referenceMonth}: ${response.status}`);
@@ -217,7 +222,7 @@ export function loadGridMetadata(): Promise<GridMetadataDataset> {
 }
 
 async function loadGridMetadataInternal(): Promise<GridMetadataDataset> {
-  const response = await fetch("/grid_metadata.json");
+  const response = await fetch(gisDataUrl("grid_metadata.json"));
 
   if (!response.ok) {
     throw new Error(`Failed to load grid metadata: ${response.status}`);

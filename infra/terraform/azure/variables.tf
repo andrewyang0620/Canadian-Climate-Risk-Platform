@@ -93,3 +93,16 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "static_web_app_location" {
+  description = "Azure region used by the Static Web App resource."
+  type        = string
+  default     = "eastus2"
+}
+
+
+variable "gis_serving_container_name" {
+  description = "Public blob container containing browser-facing GIS artifacts."
+  type        = string
+  default     = "gis"
+}

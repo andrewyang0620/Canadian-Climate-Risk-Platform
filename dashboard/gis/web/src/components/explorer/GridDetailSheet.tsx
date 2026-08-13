@@ -191,7 +191,7 @@ export function GridDetailSheet({
                     value={
                       detail.climate.meanTemp === null
                         ? "-"
-                        : `${formatNumber(detail.climate.meanTemp)} deg C`
+                        : `${formatNumber(detail.climate.meanTemp)} °C`
                     }
                   />
                   <MetricRow
@@ -208,6 +208,14 @@ export function GridDetailSheet({
                       detail.climate.extremeHeatDays === null
                         ? "-"
                         : `${formatNumber(detail.climate.extremeHeatDays, 0)} days`
+                    }
+                  />
+                  <MetricRow
+                    label="Extreme cold"
+                    value={
+                      detail.climate.extremeColdDays === null
+                        ? "-"
+                        : `${formatNumber(detail.climate.extremeColdDays, 0)} days`
                     }
                   />
                   <MetricRow

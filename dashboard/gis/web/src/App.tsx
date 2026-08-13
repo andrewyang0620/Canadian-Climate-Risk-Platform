@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Info, MapPinned } from "lucide-react";
+import { MapPinned } from "lucide-react";
 import { motion } from "motion/react";
 
 import { ExplorerControls, type RegionId } from "./components/explorer/ExplorerControls";
@@ -20,6 +20,9 @@ export default function App() {
   const [activeLayerId, setActiveLayerId] = useState<LayerId>(
     initialUrlState.layer ?? "composite_risk_score",
   );
+  const [layersVisible, setLayersVisible] = useState(true);
+  const [gridInfoVisible, setGridInfoVisible] = useState(true);
+  const [aboutHovered, setAboutHovered] = useState(false);
   const [region, setRegion] = useState<RegionId>(
     initialUrlState.region ?? "all",
   );
@@ -57,6 +60,9 @@ export default function App() {
           region={region}
           selectedGridKey={selectedGridKey}
           onGridSelect={setSelectedGridKey}
+          layersVisible={layersVisible}
+          gridInfoVisible={gridInfoVisible && !aboutHovered}
+          gridInteractionEnabled={!aboutHovered}
         />
       </div>
 
@@ -85,21 +91,28 @@ export default function App() {
       <ExplorerControls
         activeLayerId={activeLayerId}
         onLayerChange={setActiveLayerId}
+        months={months}
         referenceMonth={referenceMonth}
+        onMonthChange={setReferenceMonth}
         region={region}
         onRegionChange={(nextRegion) => {
           setRegion(nextRegion);
           setSelectedGridKey(null);
         }}
+        layersVisible={layersVisible}
+        onLayersVisibleChange={setLayersVisible}
+        gridInfoVisible={gridInfoVisible}
+        onGridInfoVisibleChange={setGridInfoVisible}
+        onAboutHoverChange={setAboutHovered}
+        showAbout={!selectedGridKey}
       />
 
-      {!selectedGridKey && (
-        <button className="info-button glass-panel" aria-label="About this explorer">
-          <Info size={18} />
-        </button>
+      {layersVisible && (
+        <LegendPanel
+          layerId={activeLayerId}
+          referenceMonth={referenceMonth}
+        />
       )}
-
-      <LegendPanel layerId={activeLayerId} />
 
       {months.length > 0 && (
         <TimelineControl

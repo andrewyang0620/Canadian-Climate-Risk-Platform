@@ -436,6 +436,7 @@ button {
   background: rgba(248, 249, 246, 0.72) !important;
 
   font-size: 9px !important;
+  font-weight: 400 !important;
 }
 
 .maplibregl-ctrl-bottom-right,
@@ -445,12 +446,45 @@ button {
 }
 
 .maplibregl-ctrl-bottom-right {
-  bottom: 72px !important;
+  right: 2px !important;
+  bottom: 2px !important;
 }
 
-.detail-open .maplibregl-ctrl-bottom-right,
-.detail-open .maplibregl-ctrl-top-right {
-  right: 398px !important;
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl {
+  margin: 0 4px 2px 0 !important;
+}
+
+.maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+  margin-bottom: 82px !important;
+}
+
+.maplibregl-ctrl a[aria-label="MapTiler logo"] {
+  width: 66px !important;
+  height: 20px !important;
+
+  margin: 0 !important;
+
+  background-size: 66px 20px !important;
+
+  opacity: 0.86;
+}
+
+.maplibregl-ctrl-attrib {
+  padding: 0 3px !important;
+
+  background: rgba(255, 255, 255, 0.62) !important;
+
+  font-size: 9px !important;
+  line-height: 12px !important;
+}
+
+.maplibregl-ctrl-attrib a {
+  font-size: inherit !important;
+}
+
+.detail-open .maplibregl-ctrl-top-right .maplibregl-ctrl-group,
+.detail-open .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+  display: none !important;
 }
 
 /* --------------------------------------------------
@@ -488,8 +522,13 @@ button {
   position: relative;
 }
 
+.layer-control-segment {
+  display: flex;
+  align-items: center;
+}
+
 .control-readout {
-  cursor: default;
+  cursor: pointer;
 }
 
 .control-menu {
@@ -523,6 +562,142 @@ button {
   right: 0;
 
   width: 230px;
+}
+
+.date-menu {
+  left: 50%;
+  translate: -50% 0;
+
+  width: 246px;
+  max-height: min(430px, calc(100vh - 130px));
+
+  overflow-y: auto;
+}
+
+.date-year-group + .date-year-group {
+  margin-top: 4px;
+
+  border-top: 1px solid var(--border);
+}
+
+.date-month-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+
+  padding: 2px 2px 5px;
+}
+
+.date-month-option {
+  min-height: 31px;
+
+  border: 0;
+  border-radius: 8px;
+
+  color: var(--ink);
+  background: transparent;
+
+  font-size: 10px;
+  font-weight: 570;
+
+  cursor: pointer;
+}
+
+.date-month-option:hover,
+.date-month-option.active {
+  background: rgba(31, 45, 38, 0.065);
+}
+
+.date-month-option.active {
+  color: #17231d;
+
+  font-weight: 700;
+}
+
+.about-control {
+  justify-content: center;
+
+  width: 38px;
+  padding: 0;
+}
+
+.grid-info-control {
+  justify-content: center;
+
+  width: 38px;
+  padding: 0;
+}
+
+.grid-info-control:not(.active) {
+  color: rgba(53, 65, 59, 0.5);
+}
+
+.layer-none-group {
+  padding-top: 4px;
+}
+
+.layer-swatch-empty {
+  height: 10px;
+
+  border: 1px solid rgba(20, 31, 26, 0.3);
+
+  background:
+    linear-gradient(
+      135deg,
+      transparent 44%,
+      rgba(20, 31, 26, 0.55) 46%,
+      rgba(20, 31, 26, 0.55) 54%,
+      transparent 56%
+    );
+}
+
+.layer-about-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 5px;
+
+  width: min(320px, calc(100vw - 28px));
+
+  padding: 12px 13px;
+
+  border: 1px solid rgba(20, 31, 26, 0.11);
+  border-radius: 14px;
+
+  color: var(--ink);
+  background: rgba(250, 251, 248, 0.97);
+
+  box-shadow: 0 14px 40px rgba(19, 29, 24, 0.13);
+
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px) scale(0.985);
+
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.about-control:hover + .layer-about-popover,
+.about-control:focus-visible + .layer-about-popover,
+.layer-about-popover:hover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+
+.layer-about-title {
+  margin-bottom: 6px;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.layer-about-copy {
+  color: var(--muted);
+
+  font-size: 11px;
+  font-weight: 520;
+  line-height: 1.45;
 }
 
 .menu-section-label {
@@ -1059,12 +1234,5 @@ button {
     height: min(66vh, 620px);
 
     border-radius: 18px;
-  }
-}
-
-@media (max-width: 900px) {
-  .detail-open .maplibregl-ctrl-bottom-right,
-  .detail-open .maplibregl-ctrl-top-right {
-    right: 0 !important;
   }
 }

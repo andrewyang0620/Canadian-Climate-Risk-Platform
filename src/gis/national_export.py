@@ -223,6 +223,12 @@ RATIO_COLUMNS = [
 ]
 
 
+DISPLAY_STATISTIC_COLUMNS = [
+    "climate_mean_temp_c",
+    "climate_total_precip_mm",
+]
+
+
 LAYER_DEFINITIONS = {
     # risk
     "composite_risk_score": {
@@ -272,6 +278,12 @@ LAYER_DEFINITIONS = {
     "climate_extreme_heat_days": {
         "group": "climate",
         "label": "Extreme Heat Days",
+        "unit": "days",
+        "format": "integer",
+    },
+    "climate_extreme_cold_days": {
+        "group": "climate",
+        "label": "Extreme Cold Days",
         "unit": "days",
         "format": "integer",
     },
@@ -505,6 +517,61 @@ def build_monthly_gis_attributes(
         result
     )
     
+    return result
+
+
+def _build_monthly_display_statistics(
+    dataframe: pd.DataFrame,
+) -> dict[str, dict[str, int | float | None]]:
+    """Build robust monthly statistics for dynamic GIS color scales."""
+
+    _require_columns(
+        dataframe,
+        DISPLAY_STATISTIC_COLUMNS,
+        table_name="monthly GIS attributes",
+    )
+
+    result: dict[
+        str,
+        dict[str, int | float | None],
+    ] = {}
+
+    for column in DISPLAY_STATISTIC_COLUMNS:
+        values = pd.to_numeric(
+            dataframe[column],
+            errors="coerce",
+        ).dropna()
+
+        if values.empty:
+            result[column] = {
+                "valid_count": 0,
+                "min": None,
+                "p02": None,
+                "median": None,
+                "p98": None,
+                "max": None,
+            }
+            continue
+
+        quantiles = values.quantile(
+            [0.02, 0.50, 0.98]
+        )
+
+        result[column] = {
+            "valid_count": int(len(values)),
+            "min": float(values.min()),
+            "p02": float(
+                quantiles.loc[0.02]
+            ),
+            "median": float(
+                quantiles.loc[0.50]
+            ),
+            "p98": float(
+                quantiles.loc[0.98]
+            ),
+            "max": float(values.max()),
+        }
+
     return result
 
 
@@ -775,6 +842,11 @@ def export_national_gis_data(
             "grid_cell_count": int(
                 len(monthly)
             ),
+            "display_statistics": (
+                _build_monthly_display_statistics(
+                    monthly
+                )
+            ),
             "rows": (
                 monthly
                 .astype(object)
@@ -784,7 +856,7 @@ def export_national_gis_data(
                 )
                 .values
                 .tolist()
-            )
+            ),
         }
 
         month_path.write_text(

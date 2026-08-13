@@ -13,10 +13,25 @@ export interface GisManifest {
   };
 }
 
+export interface DisplayStatisticSummary {
+  valid_count: number;
+  min: number | null;
+  p02: number | null;
+  median: number | null;
+  p98: number | null;
+  max: number | null;
+}
+
+export type MonthlyDisplayStatistics = Record<
+  string,
+  DisplayStatisticSummary
+>;
+
 export interface MonthlyDataset {
   columns: string[];
   columnIndex: Map<string, number>;
   rowsByGrid: Map<string, unknown[]>;
+  displayStatistics: MonthlyDisplayStatistics;
 }
 
 export interface GridMetadataDataset {
@@ -34,6 +49,7 @@ interface RegionContext {
 
 let manifestCache: GisManifest | null = null;
 const monthlyDatasetCache = new Map<string, Promise<MonthlyDataset>>();
+const MAX_MONTHLY_DATASET_CACHE_SIZE = 8;
 let gridMetadataCache: Promise<GridMetadataDataset> | null = null;
 let regionContextCache: Promise<Record<RegionId, RegionContext>> | null = null;
 
@@ -57,12 +73,23 @@ export function loadMonthlyDataset(referenceMonth: string): Promise<MonthlyDatas
   const cached = monthlyDatasetCache.get(referenceMonth);
 
   if (cached) {
+    monthlyDatasetCache.delete(referenceMonth);
+    monthlyDatasetCache.set(referenceMonth, cached);
+
     return cached;
   }
 
   const request = loadMonthlyDatasetInternal(referenceMonth);
 
   monthlyDatasetCache.set(referenceMonth, request);
+
+  if (monthlyDatasetCache.size > MAX_MONTHLY_DATASET_CACHE_SIZE) {
+    const oldestKey = monthlyDatasetCache.keys().next().value;
+
+    if (oldestKey) {
+      monthlyDatasetCache.delete(oldestKey);
+    }
+  }
 
   return request;
 }
@@ -87,6 +114,7 @@ async function loadMonthlyDatasetInternal(
   const payload = (await response.json()) as {
     reference_month: string;
     grid_cell_count: number;
+    display_statistics?: MonthlyDisplayStatistics;
     rows: unknown[][];
   };
 
@@ -114,6 +142,7 @@ async function loadMonthlyDatasetInternal(
     columns,
     columnIndex,
     rowsByGrid,
+    displayStatistics: payload.display_statistics ?? {},
   };
 }
 

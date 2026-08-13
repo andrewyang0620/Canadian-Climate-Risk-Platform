@@ -10,11 +10,13 @@ export function getMapStyle(): string {
 
 export function getMapTilerStyleConfig() {
   const styleUrl = new URL(getMapStyle());
-  const styleId = styleUrl.pathname.match(/\/maps\/([^/]+)\/style\.json$/)?.[1];
+  const styleId = styleUrl.pathname.match(
+    /\/maps\/([^/]+)(?:\/style\.json|\/)?$/,
+  )?.[1];
   const apiKey = styleUrl.searchParams.get("key");
 
   if (!styleId) {
-    throw new Error("VITE_MAP_STYLE_URL must be a MapTiler style.json URL.");
+    throw new Error("VITE_MAP_STYLE_URL must be a MapTiler map style URL.");
   }
 
   if (!apiKey) {

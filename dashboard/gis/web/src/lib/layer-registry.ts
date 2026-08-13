@@ -1,16 +1,18 @@
+import type { MonthlyDisplayStatistics } from "./gis-data";
+
 export type RGB = [number, number, number];
 
 export type RGBA = [number, number, number, number];
 
-export type LayerGroup = "risk" | "climate" | "hydro" | "wildfire";
+export type LayerGroup = "composite" | "climate" | "hydro" | "wildfire";
 
 export type LayerId =
   | "composite_risk_score"
-  | "score_confidence"
   | "climate_sub_score"
   | "climate_mean_temp_c"
   | "climate_total_precip_mm"
   | "climate_extreme_heat_days"
+  | "climate_extreme_cold_days"
   | "hydro_sub_score"
   | "wildfire_sub_score"
   | "wildfire_intersection_area_ratio_of_grid";
@@ -31,7 +33,9 @@ export interface LayerDefinition {
   alphaMode: "value" | "fixed" | "nonzero";
   alphaMin: number;
   alphaMax: number;
+  transparentBelow?: number;
   legendLabels: [string, string, string];
+  about: string;
 }
 
 export const LAYER_DEFINITIONS: Record<LayerId, LayerDefinition> = {
@@ -39,34 +43,21 @@ export const LAYER_DEFINITIONS: Record<LayerId, LayerDefinition> = {
     id: "composite_risk_score",
     column: "composite_risk_score",
     label: "Composite Risk",
-    group: "risk",
+    group: "composite",
     domain: [0, 0.8],
     stops: [
-      { position: 0, color: [244, 234, 200] },
-      { position: 0.35, color: [242, 175, 91] },
-      { position: 0.65, color: [217, 112, 65] },
-      { position: 1, color: [112, 35, 52] },
+      { position: 0, color: [252, 250, 244] },
+      { position: 0.28, color: [246, 190, 106] },
+      { position: 0.58, color: [203, 58, 48] },
+      { position: 1, color: [78, 8, 30] },
     ],
     alphaMode: "value",
-    alphaMin: 55,
-    alphaMax: 205,
+    alphaMin: 78,
+    alphaMax: 252,
+    transparentBelow: 0.15,
     legendLabels: ["Low", "Elevated", "High"],
-  },
-  score_confidence: {
-    id: "score_confidence",
-    column: "score_confidence",
-    label: "Score Confidence",
-    group: "risk",
-    domain: [0, 1],
-    stops: [
-      { position: 0, color: [84, 86, 124] },
-      { position: 0.5, color: [65, 137, 139] },
-      { position: 1, color: [154, 210, 174] },
-    ],
-    alphaMode: "value",
-    alphaMin: 55,
-    alphaMax: 185,
-    legendLabels: ["Low", "Medium", "High"],
+    about:
+      "Composite Risk combines Climate, Hydro, and Wildfire scores with base weights of 35%, 35%, and 30%. Missing domains are not treated as zero; available weights are renormalized, and at least two domains are required.",
   },
   climate_sub_score: {
     id: "climate_sub_score",
@@ -75,14 +66,18 @@ export const LAYER_DEFINITIONS: Record<LayerId, LayerDefinition> = {
     group: "climate",
     domain: [0, 1],
     stops: [
-      { position: 0, color: [242, 232, 206] },
-      { position: 0.5, color: [229, 145, 94] },
-      { position: 1, color: [157, 50, 55] },
+      { position: 0, color: [252, 250, 244] },
+      { position: 0.32, color: [244, 181, 96] },
+      { position: 0.62, color: [196, 49, 47] },
+      { position: 1, color: [84, 9, 34] },
     ],
     alphaMode: "value",
-    alphaMin: 50,
-    alphaMax: 195,
+    alphaMin: 76,
+    alphaMax: 250,
+    transparentBelow: 0.15,
     legendLabels: ["Low", "Elevated", "High"],
+    about:
+      "Climate Risk combines extreme heat, heavy precipitation, freeze-thaw, extreme cold, and total precipitation signals. Each signal is ranked within the same province and calendar month, preserving true zero values as zero.",
   },
   climate_mean_temp_c: {
     id: "climate_mean_temp_c",
@@ -90,16 +85,18 @@ export const LAYER_DEFINITIONS: Record<LayerId, LayerDefinition> = {
     label: "Mean Temperature",
     group: "climate",
     domain: [-30, 30],
-    unit: "deg C",
+    unit: "°C",
     stops: [
       { position: 0, color: [54, 83, 177] },
       { position: 0.5, color: [238, 235, 223] },
       { position: 1, color: [194, 70, 61] },
     ],
     alphaMode: "fixed",
-    alphaMin: 145,
-    alphaMax: 145,
-    legendLabels: ["-30 deg C", "0 deg C", "30 deg C"],
+    alphaMin: 205,
+    alphaMax: 205,
+    legendLabels: ["-30 °C", "0 °C", "30 °C"],
+    about:
+      "Mean Temperature is a physical climate indicator, not an input to Climate Risk. Station daily mean temperatures are averaged to a monthly value, then mapped to each 10 km grid by direct station values or 150 km IDW interpolation.",
   },
   climate_total_precip_mm: {
     id: "climate_total_precip_mm",
@@ -114,9 +111,11 @@ export const LAYER_DEFINITIONS: Record<LayerId, LayerDefinition> = {
       { position: 1, color: [25, 70, 116] },
     ],
     alphaMode: "value",
-    alphaMin: 45,
-    alphaMax: 190,
+    alphaMin: 96,
+    alphaMax: 238,
     legendLabels: ["0 mm", "200 mm", "400+ mm"],
+    about:
+      "Total Precipitation is the monthly sum of daily precipitation at stations, mapped to each grid by direct stations or 150 km IDW interpolation. It also contributes 15% to Climate Risk after province-month percentile ranking.",
   },
   climate_extreme_heat_days: {
     id: "climate_extreme_heat_days",
@@ -126,14 +125,37 @@ export const LAYER_DEFINITIONS: Record<LayerId, LayerDefinition> = {
     domain: [0, 31],
     unit: "days",
     stops: [
-      { position: 0, color: [244, 237, 217] },
-      { position: 0.5, color: [236, 143, 76] },
-      { position: 1, color: [152, 43, 45] },
+      { position: 0, color: [253, 250, 242] },
+      { position: 0.18, color: [246, 181, 86] },
+      { position: 0.48, color: [171, 34, 43] },
+      { position: 1, color: [74, 7, 28] },
     ],
     alphaMode: "value",
-    alphaMin: 35,
-    alphaMax: 205,
+    alphaMin: 76,
+    alphaMax: 250,
     legendLabels: ["0", "15 days", "31 days"],
+    about:
+      "Extreme Heat Days count days where daily maximum temperature is at least 30 °C. Grid values can be fractional after station averaging or IDW interpolation, then feed Climate Risk with a 30% weight.",
+  },
+  climate_extreme_cold_days: {
+    id: "climate_extreme_cold_days",
+    column: "climate_extreme_cold_days",
+    label: "Extreme Cold Days",
+    group: "climate",
+    domain: [0, 31],
+    unit: "days",
+    stops: [
+      { position: 0, color: [249, 252, 255] },
+      { position: 0.18, color: [147, 190, 222] },
+      { position: 0.48, color: [42, 83, 162] },
+      { position: 1, color: [13, 28, 90] },
+    ],
+    alphaMode: "value",
+    alphaMin: 76,
+    alphaMax: 250,
+    legendLabels: ["0", "15 days", "31 days"],
+    about:
+      "Extreme Cold Days count days where daily minimum temperature is at or below -20 °C. The mapped grid value contributes 15% to Climate Risk after zero-preserving province-month percentile ranking.",
   },
   hydro_sub_score: {
     id: "hydro_sub_score",
@@ -142,14 +164,17 @@ export const LAYER_DEFINITIONS: Record<LayerId, LayerDefinition> = {
     group: "hydro",
     domain: [0, 1],
     stops: [
-      { position: 0, color: [219, 239, 235] },
-      { position: 0.5, color: [59, 145, 178] },
-      { position: 1, color: [25, 57, 111] },
+      { position: 0, color: [205, 235, 231] },
+      { position: 0.5, color: [39, 139, 186] },
+      { position: 1, color: [12, 49, 128] },
     ],
     alphaMode: "value",
-    alphaMin: 45,
-    alphaMax: 200,
+    alphaMin: 100,
+    alphaMax: 245,
+    transparentBelow: 0.15,
     legendLabels: ["Low", "Elevated", "High"],
+    about:
+      "Hydro Risk combines flow P95, flow variability, zero-flow ratio, level P95, and level variability. Historical percentiles are calculated within each grid and calendar month; missing signals are renormalized.",
   },
   wildfire_sub_score: {
     id: "wildfire_sub_score",
@@ -158,14 +183,17 @@ export const LAYER_DEFINITIONS: Record<LayerId, LayerDefinition> = {
     group: "wildfire",
     domain: [0, 1],
     stops: [
-      { position: 0, color: [245, 231, 197] },
-      { position: 0.45, color: [235, 139, 65] },
-      { position: 1, color: [123, 28, 43] },
+      { position: 0, color: [252, 250, 244] },
+      { position: 0.28, color: [246, 190, 106] },
+      { position: 0.58, color: [203, 58, 48] },
+      { position: 1, color: [78, 8, 30] },
     ],
     alphaMode: "value",
-    alphaMin: 35,
-    alphaMax: 210,
+    alphaMin: 76,
+    alphaMax: 252,
     legendLabels: ["Low", "Elevated", "High"],
+    about:
+      "Wildfire Risk is derived from wildfire-grid overlap. Positive overlaps are ranked within the province across the dataset; zero overlap remains exactly zero rather than a low percentile.",
   },
   wildfire_intersection_area_ratio_of_grid: {
     id: "wildfire_intersection_area_ratio_of_grid",
@@ -179,9 +207,11 @@ export const LAYER_DEFINITIONS: Record<LayerId, LayerDefinition> = {
       { position: 1, color: [112, 20, 38] },
     ],
     alphaMode: "nonzero",
-    alphaMin: 110,
-    alphaMax: 225,
+    alphaMin: 172,
+    alphaMax: 252,
     legendLabels: ["None", "50%", "100%"],
+    about:
+      "Wildfire Grid Overlap is the raw share of a grid cell intersected by wildfire perimeter polygons in the selected month. It is an exposure indicator, not a percentile risk score.",
   },
 };
 
@@ -189,7 +219,7 @@ export const LAYER_GROUPS: Array<{
   id: LayerGroup;
   label: string;
 }> = [
-  { id: "risk", label: "Risk" },
+  { id: "composite", label: "Composite" },
   { id: "climate", label: "Climate" },
   { id: "hydro", label: "Hydro" },
   { id: "wildfire", label: "Wildfire" },
@@ -197,6 +227,86 @@ export const LAYER_GROUPS: Array<{
 
 export function getLayerDefinition(layerId: LayerId): LayerDefinition {
   return LAYER_DEFINITIONS[layerId];
+}
+
+export function resolveLayerDefinition(
+  layerId: LayerId,
+  displayStatistics?: MonthlyDisplayStatistics,
+): LayerDefinition {
+  const baseDefinition = getLayerDefinition(layerId);
+
+  if (!displayStatistics) {
+    return baseDefinition;
+  }
+
+  if (layerId === "climate_mean_temp_c") {
+    const statistics = displayStatistics.climate_mean_temp_c;
+
+    if (
+      !statistics ||
+      statistics.p02 === null ||
+      statistics.median === null ||
+      statistics.p98 === null ||
+      statistics.p98 <= statistics.p02
+    ) {
+      return baseDefinition;
+    }
+
+    const medianPosition = Math.max(
+      0,
+      Math.min(
+        1,
+        (statistics.median - statistics.p02) /
+          (statistics.p98 - statistics.p02),
+      ),
+    );
+
+    return {
+      ...baseDefinition,
+      domain: [statistics.p02, statistics.p98],
+      stops: [
+        {
+          position: 0,
+          color: [54, 83, 177],
+        },
+        {
+          position: medianPosition,
+          color: [238, 235, 223],
+        },
+        {
+          position: 1,
+          color: [194, 70, 61],
+        },
+      ],
+      legendLabels: [
+        `<= ${statistics.p02.toFixed(1)} °C`,
+        `${statistics.median.toFixed(1)} °C`,
+        `>= ${statistics.p98.toFixed(1)} °C`,
+      ],
+    };
+  }
+
+  if (layerId === "climate_total_precip_mm") {
+    const statistics = displayStatistics.climate_total_precip_mm;
+
+    if (!statistics || statistics.p98 === null || statistics.p98 <= 0) {
+      return baseDefinition;
+    }
+
+    const midpoint = statistics.p98 / 2;
+
+    return {
+      ...baseDefinition,
+      domain: [0, statistics.p98],
+      legendLabels: [
+        "0 mm",
+        `${midpoint.toFixed(1)} mm`,
+        `>= ${statistics.p98.toFixed(1)} mm`,
+      ],
+    };
+  }
+
+  return baseDefinition;
 }
 
 export function isLayerId(value: string | null): value is LayerId {
@@ -228,6 +338,13 @@ export function layerColor(
 ): RGBA {
   if (value === null) {
     return [90, 102, 96, 38];
+  }
+
+  if (
+    definition.transparentBelow !== undefined &&
+    value < definition.transparentBelow
+  ) {
+    return [0, 0, 0, 0];
   }
 
   if (definition.alphaMode === "nonzero" && value <= 0) {
@@ -277,8 +394,8 @@ export function formatLayerValue(
     return "No data";
   }
 
-  if (definition.unit === "deg C") {
-    return `${value.toFixed(1)} deg C`;
+  if (definition.unit === "°C") {
+    return `${value.toFixed(1)} °C`;
   }
 
   if (definition.unit === "mm") {

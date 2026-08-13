@@ -33,6 +33,29 @@ export function padBounds(
   };
 }
 
+export function containsBounds(
+  outer: ViewportBounds,
+  inner: ViewportBounds,
+): boolean {
+  return (
+    inner.minX >= outer.minX &&
+    inner.minY >= outer.minY &&
+    inner.maxX <= outer.maxX &&
+    inner.maxY <= outer.maxY
+  );
+}
+
+export function boundsKey(bounds: ViewportBounds): string {
+  return [
+    bounds.minX,
+    bounds.minY,
+    bounds.maxX,
+    bounds.maxY,
+  ]
+    .map((value) => value.toFixed(4))
+    .join(",");
+}
+
 export async function loadGridGeometry(
   bounds: ViewportBounds,
 ): Promise<FeatureCollection<Geometry, GridProperties>> {

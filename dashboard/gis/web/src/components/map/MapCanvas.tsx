@@ -47,6 +47,7 @@ export function MapCanvas({
     null,
   );
   const [hideLayerFill, setHideLayerFill] = useState(false);
+  const [isMapMoving, setIsMapMoving] = useState(false);
   const viewportBoundsRef = useRef<ViewportBounds | null>(null);
   const hideLayerFillRef = useRef(false);
   const fitBoundsCaptureTimeoutRef = useRef<number | null>(null);
@@ -203,10 +204,15 @@ export function MapCanvas({
         });
       }}
       onIdle={(event) => {
+        setIsMapMoving(false);
         captureBounds(event.target);
         captureZoom(event.target);
       }}
+      onMoveStart={() => {
+        setIsMapMoving(true);
+      }}
       onMoveEnd={(event) => {
+        setIsMapMoving(false);
         captureBounds(event.target);
         captureZoom(event.target);
       }}
@@ -222,7 +228,7 @@ export function MapCanvas({
           viewportBounds={viewportBounds}
           hideLayerFill={hideLayerFill}
           gridInfoVisible={gridInfoVisible}
-          gridInteractionEnabled={gridInteractionEnabled}
+          gridInteractionEnabled={gridInteractionEnabled && !isMapMoving}
         />
       )}
 

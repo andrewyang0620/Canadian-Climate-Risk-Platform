@@ -153,6 +153,7 @@ def build_gold_vancouver_parcel_flood_zone_overlay(
                     "source_zone_area_sq_m": flood_record["source_zone_area_sq_m"],
                     "intersection_area_sq_m": intersection_area_sq_m,
                     "parcel_overlap_ratio": parcel_overlap_ratio,
+                    "intersection_geometry_wkt_3347": intersection.wkt,
                     "parcel_geometry_repaired": bool(parcel_repaired),
                     "flood_geometry_repaired": bool(
                         flood_record["_geometry_repaired"]

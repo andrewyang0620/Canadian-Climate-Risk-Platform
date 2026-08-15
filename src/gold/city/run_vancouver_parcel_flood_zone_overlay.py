@@ -22,7 +22,9 @@ TABLE_NAME = "gold_vancouver_parcel_flood_zone_overlay"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build Vancouver parcel -- flood source-zone Gold overlay."
+        description=(
+            "Build Vancouver parcel × flood source-zone Gold overlay."
+        )
     )
 
     parser.add_argument(
@@ -65,6 +67,7 @@ def run_vancouver_parcel_flood_zone_overlay(
         root=silver_root,
         table_name="silver_property_parcel",
     )
+
     flood_path = latest_table_parquet(
         root=silver_root,
         table_name="silver_flood_hazard_zone",
@@ -94,10 +97,12 @@ def run_vancouver_parcel_flood_zone_overlay(
         ],
     )
 
-    overlay, summary = build_gold_vancouver_parcel_flood_zone_overlay(
-        parcel_dataframe=parcels,
-        flood_dataframe=floods,
-        progress_interval=progress_interval,
+    overlay, summary = (
+        build_gold_vancouver_parcel_flood_zone_overlay(
+            parcel_dataframe=parcels,
+            flood_dataframe=floods,
+            progress_interval=progress_interval,
+        )
     )
 
     output_dir = (
@@ -106,7 +111,10 @@ def run_vancouver_parcel_flood_zone_overlay(
         / f"extract_date={final_extract_date}"
         / f"run_id={run_id}"
     )
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
     output_path = output_dir / f"{TABLE_NAME}.parquet"
 
@@ -117,12 +125,16 @@ def run_vancouver_parcel_flood_zone_overlay(
 
     spatial_audit = {
         "run_id": run_id,
-        "join_name": "vancouver_parcel_flood_zone_overlay",
+        "join_name": (
+            "vancouver_parcel_flood_zone_overlay"
+        ),
         "left_table": "silver_property_parcel",
         "right_table": "silver_flood_hazard_zone",
         "left_count": summary["parcel_input_count"],
         "matched_count": summary["matched_parcel_count"],
-        "unmatched_count": summary["unmatched_parcel_count"],
+        "unmatched_count": summary[
+            "unmatched_parcel_count"
+        ],
         "match_rate": summary["parcel_match_rate"],
         "median_distance_km": None,
         "p95_distance_km": None,
@@ -148,7 +160,10 @@ def run_vancouver_parcel_flood_zone_overlay(
         / f"extract_date={final_extract_date}"
         / f"run_id={run_id}"
     )
-    audit_dir.mkdir(parents=True, exist_ok=True)
+    audit_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
     audit_path = audit_dir / "audit.json"
 
@@ -167,7 +182,10 @@ def run_vancouver_parcel_flood_zone_overlay(
         / f"extract_date={final_extract_date}"
         / f"run_id={run_id}"
     )
-    metadata_dir.mkdir(parents=True, exist_ok=True)
+    metadata_dir.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
 
     metadata_path = metadata_dir / "metadata.json"
 
@@ -182,8 +200,12 @@ def run_vancouver_parcel_flood_zone_overlay(
         "output_path": output_path.as_posix(),
         "audit_path": audit_path.as_posix(),
         "input_paths": {
-            "silver_property_parcel": parcel_path.as_posix(),
-            "silver_flood_hazard_zone": flood_path.as_posix(),
+            "silver_property_parcel": (
+                parcel_path.as_posix()
+            ),
+            "silver_flood_hazard_zone": (
+                flood_path.as_posix()
+            ),
         },
     }
 
@@ -201,8 +223,10 @@ def run_vancouver_parcel_flood_zone_overlay(
         f"matched_parcels={summary['matched_parcel_count']} "
         f"match_rate={summary['parcel_match_rate']:.4%} "
         f"candidate_pairs={summary['candidate_pair_count']} "
-        f"boundary_touches={summary['boundary_touch_only_pair_count']} "
-        f"repairs={spatial_audit['geometry_repaired_count']} "
+        f"boundary_touches="
+        f"{summary['boundary_touch_only_pair_count']} "
+        f"repairs="
+        f"{spatial_audit['geometry_repaired_count']} "
         f"run_id={run_id}"
     )
 

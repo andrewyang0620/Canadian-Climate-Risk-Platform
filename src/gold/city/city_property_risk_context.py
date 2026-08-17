@@ -15,6 +15,8 @@ ANALYSIS_CRS = "EPSG:3347"
 NATIONAL_RISK_RESOLUTION = "10km"
 SPATIAL_ASSIGNMENT_METHOD = "max_area_overlap"
 
+AREA_EPSILON = 1e-6
+
 GRID_SYSTEM_BY_CITY = {
     "vancouver": "bc_10km",
     "calgary": "ab_10km",
@@ -221,8 +223,10 @@ def _attach_national_grid_context(
                 overlap = geometry.intersection(grid_geometries[grid_index])
                 overlap_area = float(overlap.area)
 
-                if overlap_area > 0:
-                    candidates.append((grid_index, overlap_area))
+                if overlap_area <= AREA_EPSILON:
+                    continue
+                
+                candidates.append((grid_index, overlap_area))
 
         if not candidates:
             assignment_rows.append(

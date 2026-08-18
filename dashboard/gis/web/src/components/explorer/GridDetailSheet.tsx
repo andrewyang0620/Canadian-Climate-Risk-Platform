@@ -14,6 +14,7 @@ interface GridDetailSheetProps {
   gridCellKey: string | null;
   referenceMonth: string;
   onClose: () => void;
+  onHoverChange: (hovering: boolean) => void;
 }
 
 function formatNumber(value: number | null, digits = 1): string {
@@ -38,11 +39,21 @@ export function GridDetailSheet({
   gridCellKey,
   referenceMonth,
   onClose,
+  onHoverChange,
 }: GridDetailSheetProps) {
   const [detail, setDetail] = useState<GridDetailData | null>(null);
   const [detailVersion, setDetailVersion] = useState<string | null>(null);
   const [loadedMonth, setLoadedMonth] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Safety net: if the sheet unmounts (closes) while the pointer is still
+  // over it, the pointerleave that would normally clear the hover flag never
+  // fires — without this, map interaction would stay blocked.
+  useEffect(() => {
+    return () => {
+      onHoverChange(false);
+    };
+  }, [onHoverChange]);
 
   useEffect(() => {
     if (!gridCellKey) {
@@ -81,6 +92,12 @@ export function GridDetailSheet({
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 16 }}
+          onPointerEnter={() => {
+            onHoverChange(true);
+          }}
+          onPointerLeave={() => {
+            onHoverChange(false);
+          }}
         >
           <div className="detail-sheet-header">
             <div>

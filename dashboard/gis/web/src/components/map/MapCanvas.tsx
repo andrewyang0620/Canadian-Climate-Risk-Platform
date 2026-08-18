@@ -144,10 +144,7 @@ export function MapCanvas({
   gridInfoVisible,
   gridInteractionEnabled,
 }: MapCanvasProps) {
-  const cityPropertyVisible = cityLayerId !== "none";
   const cityShowFlood = cityLayerId === "flood";
-  const cityBuildingPermitsVisible = cityLayerId === "building_permits";
-  const cityDevelopmentPermitsVisible = cityLayerId === "development_permits";
   const mapRef = useRef<MapRef>(null);
   const [overlayPlacement, setOverlayPlacement] = useState<OverlayPlacement>({
     national: null,
@@ -162,6 +159,20 @@ export function MapCanvas({
   const [hideLayerFill, setHideLayerFill] = useState(false);
   const [mapZoom, setMapZoom] = useState(4.3);
   const [isMapMoving, setIsMapMoving] = useState(false);
+  // Folds the LOD zoom gate into `visible` (rather than conditionally
+  // rendering the layer components at all) so CitySpatialLayer/
+  // CityActivityLayer stay mounted continuously while in city scope, the
+  // same way BP and DP already coexist mounted and just toggle `visible`
+  // between each other. Unmounting/remounting on every zoom-threshold
+  // crossing was discarding each component's geometryCacheRef, forcing a
+  // full re-fetch of the same viewport on every small zoom wobble near the
+  // threshold.
+  const cityPropertyVisible =
+    cityLayerId !== "none" && mapZoom >= CITY_PROPERTY_MIN_ZOOM;
+  const cityBuildingPermitsVisible =
+    cityLayerId === "building_permits" && mapZoom >= CITY_ACTIVITY_MIN_ZOOM;
+  const cityDevelopmentPermitsVisible =
+    cityLayerId === "development_permits" && mapZoom >= CITY_ACTIVITY_MIN_ZOOM;
   // Property/BP/DP each report their deck.gl layers here instead of owning
   // their own DeckGLOverlay — see CitySpatialLayer's onLayersChange comment
   // for why multiple simultaneous interleaved MapboxOverlay instances on one
@@ -409,8 +420,7 @@ export function MapCanvas({
       )}
 
       {isCityScope(scope) &&
-        viewportBounds &&
-        mapZoom >= CITY_PROPERTY_MIN_ZOOM && (
+        viewportBounds && (
           <CitySpatialLayer
             key={scope}
             scope={scope}
@@ -429,8 +439,7 @@ export function MapCanvas({
         )}
 
       {isCityScope(scope) &&
-        viewportBounds &&
-        mapZoom >= CITY_ACTIVITY_MIN_ZOOM && (
+        viewportBounds && (
           <CityActivityLayer
             key={`${scope}-building-permits`}
             scope={scope}
@@ -453,8 +462,7 @@ export function MapCanvas({
         )}
 
       {scope === "calgary" &&
-        viewportBounds &&
-        mapZoom >= CITY_ACTIVITY_MIN_ZOOM && (
+        viewportBounds && (
           <CityActivityLayer
             key="calgary-development-permits"
             scope="calgary"

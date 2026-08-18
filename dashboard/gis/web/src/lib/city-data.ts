@@ -97,8 +97,10 @@ export function cityBoundsToMapBounds(
 
 export function loadCityManifest(): Promise<CityManifest> {
   if (!manifestCache) {
-    manifestCache = fetch(gisDataUrl("cities/manifest.json")).then(
-      async (response) => {
+    // On failure, drop the cached (now-rejected) promise so the next call
+    // retries the fetch instead of replaying the same rejection forever.
+    manifestCache = fetch(gisDataUrl("cities/manifest.json"))
+      .then(async (response) => {
         if (!response.ok) {
           throw new Error(
             `Failed to load city GIS manifest: ${response.status}`,
@@ -106,8 +108,12 @@ export function loadCityManifest(): Promise<CityManifest> {
         }
 
         return (await response.json()) as CityManifest;
-      },
-    );
+      })
+      .catch((error) => {
+        manifestCache = null;
+
+        throw error;
+      });
   }
 
   return manifestCache;
@@ -116,6 +122,11 @@ export function loadCityManifest(): Promise<CityManifest> {
 export async function loadCityFeatures(
   layer: CityLayerManifest,
   bounds: ViewportBounds,
+  // Checked between features so a caller can stop an in-flight stream early
+  // (component unmounted, layer toggled off) instead of paying for the
+  // remaining range requests — some of these files run to hundreds of MB —
+  // just to discard the result.
+  shouldContinue?: () => boolean,
 ): Promise<FeatureCollection<Geometry, CityFeatureProperties>> {
   const features: CityFeature[] = [];
   const paddedBounds = padBounds(bounds);
@@ -126,6 +137,11 @@ export async function loadCityFeatures(
   );
 
   for await (const feature of iterator) {
+    if (shouldContinue && !shouldContinue()) {
+      await iterator.return?.(undefined);
+      break;
+    }
+
     features.push(feature as CityFeature);
   }
 
@@ -141,17 +157,25 @@ export async function loadCityFeatures(
 // permits never trigger this fetch at all.
 export function loadDevelopmentPermitPropertyLinks(): Promise<DevelopmentPermitPropertyLinksPayload> {
   if (!developmentPermitLinksCache) {
+    // On failure, drop the cached (now-rejected) promise so the next call
+    // retries the fetch instead of replaying the same rejection forever.
     developmentPermitLinksCache = fetch(
       gisDataUrl("cities/calgary/development_permit_property_links.json"),
-    ).then(async (response) => {
-      if (!response.ok) {
-        throw new Error(
-          `Failed to load development permit property links: ${response.status}`,
-        );
-      }
+    )
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(
+            `Failed to load development permit property links: ${response.status}`,
+          );
+        }
 
-      return (await response.json()) as DevelopmentPermitPropertyLinksPayload;
-    });
+        return (await response.json()) as DevelopmentPermitPropertyLinksPayload;
+      })
+      .catch((error) => {
+        developmentPermitLinksCache = null;
+
+        throw error;
+      });
   }
 
   return developmentPermitLinksCache;

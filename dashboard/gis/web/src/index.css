@@ -313,6 +313,10 @@ button {
   gap: 7px;
 }
 
+.city-legend-items {
+  margin-top: 10px;
+}
+
 .legend-item {
   display: flex;
   align-items: center;

@@ -18,29 +18,55 @@ import {
   type LayerId,
 } from "../../lib/layer-registry";
 import type { RegionId } from "../../lib/gis-data";
-import type { CityLayerId, ExplorerScope } from "../../lib/city-data";
+import type { CityLayerId, CityScope, ExplorerScope } from "../../lib/city-data";
 import { formatMonth } from "./TimelineControl";
 
 interface CityLayerOption {
   id: CityLayerId;
   label: string;
   swatch: string | null;
+  // Mirrors National's per-layer `about` copy (layer-registry.ts) — omitted
+  // for "none" the same way National has no about text while layersVisible
+  // is false.
+  about?: string;
 }
 
-const VANCOUVER_LAYER_OPTIONS: CityLayerOption[] = [
-  { id: "property", label: "Property", swatch: "rgba(120, 132, 145, 0.7)" },
-  { id: "flood", label: "Flood Exposure", swatch: "rgba(53, 183, 205, 0.85)" },
-  { id: "building_permits", label: "Building Permits", swatch: "rgba(246, 148, 60, 0.9)" },
-  { id: "none", label: "No Layer", swatch: null },
-];
+function propertyAboutCopy(scope: CityScope): string {
+  return scope === "vancouver"
+    ? "Property renders every Vancouver parcel as a selectable, neutral-colored shape — no flood or activity styling. It's the base layer for browsing and clicking into individual parcels; switch to Flood Exposure or Building Permits for those overlays."
+    : "Property renders every Calgary property as a selectable, neutral-colored shape — no flood or activity styling. It's the base layer for browsing and clicking into individual properties; switch to Flood Exposure, Building Permits, or Development Permits for those overlays.";
+}
 
-const CALGARY_LAYER_OPTIONS: CityLayerOption[] = [
-  { id: "property", label: "Property", swatch: "rgba(120, 132, 145, 0.7)" },
-  { id: "flood", label: "Flood Exposure", swatch: "rgba(53, 183, 205, 0.85)" },
-  { id: "building_permits", label: "Building Permits", swatch: "rgba(246, 148, 60, 0.9)" },
-  { id: "development_permits", label: "Development Permits", swatch: "rgba(168, 123, 219, 0.9)" },
-  { id: "none", label: "No Layer", swatch: null },
-];
+function floodAboutCopy(scope: CityScope): string {
+  return scope === "vancouver"
+    ? "Flood Exposure colors each parcel by mapped flood exposure, drawn from the same floodplain and Fraser Basin scenario overlays used to score properties. Parcels intersecting one or more mapped scenarios highlight in cyan; the scenario count shows on hover."
+    : "Flood Exposure colors each parcel by regulatory flood exposure, combining floodway, floodplain, flood fringe, and overland flow zone overlaps. Parcels that only intersect the Normal River Channel — not a hazard zone — render in a separate context-only color and are not counted as exposed.";
+}
+
+const BUILDING_PERMITS_ABOUT =
+  "Building Permits plots each issued permit as a point, colored by whether it's housing-related (orange) or not (grey). Selecting a permit highlights its linked parcel using the relationship already resolved in Gold — permits with no mapped parcel select with no highlight, never a nearest-parcel guess.";
+
+const DEVELOPMENT_PERMITS_ABOUT =
+  "Development Permits plots each Calgary development permit as a point in purple. A permit mapped to one property links directly; permits mapped to several resolve through a dedicated development-permit-to-property relationship table, fetched once and cached in memory.";
+
+function vancouverLayerOptions(): CityLayerOption[] {
+  return [
+    { id: "property", label: "Property", swatch: "rgba(120, 132, 145, 0.7)", about: propertyAboutCopy("vancouver") },
+    { id: "flood", label: "Flood Exposure", swatch: "rgba(53, 183, 205, 0.85)", about: floodAboutCopy("vancouver") },
+    { id: "building_permits", label: "Building Permits", swatch: "rgba(246, 148, 60, 0.9)", about: BUILDING_PERMITS_ABOUT },
+    { id: "none", label: "No Layer", swatch: null },
+  ];
+}
+
+function calgaryLayerOptions(): CityLayerOption[] {
+  return [
+    { id: "property", label: "Property", swatch: "rgba(120, 132, 145, 0.7)", about: propertyAboutCopy("calgary") },
+    { id: "flood", label: "Flood Exposure", swatch: "rgba(53, 183, 205, 0.85)", about: floodAboutCopy("calgary") },
+    { id: "building_permits", label: "Building Permits", swatch: "rgba(246, 148, 60, 0.9)", about: BUILDING_PERMITS_ABOUT },
+    { id: "development_permits", label: "Development Permits", swatch: "rgba(168, 123, 219, 0.9)", about: DEVELOPMENT_PERMITS_ABOUT },
+    { id: "none", label: "No Layer", swatch: null },
+  ];
+}
 
 interface ExplorerControlsProps {
   scope: ExplorerScope;
@@ -105,6 +131,19 @@ export function ExplorerControls({
     };
   }, []);
 
+  // Selecting a dropdown option closes the menu while the pointer is still
+  // sitting exactly where that option was — the menu item unmounts out from
+  // under the cursor without ever firing pointerleave on the outer bar, so
+  // onControlsHoverChange never gets its "false" and map picking stays
+  // blocked until the user happens to move the mouse again. Closing via this
+  // helper (instead of a bare setOpenMenu(null)) clears the hover flag right
+  // away, since the option is closing specifically because the user is done
+  // with the bar.
+  function closeMenu() {
+    setOpenMenu(null);
+    onControlsHoverChange(false);
+  }
+
   const activeLayer = getLayerDefinition(activeLayerId);
   const scopeRegionLabel =
     scope === "vancouver" ? "Vancouver" : scope === "calgary" ? "Calgary" : "AB + BC";
@@ -114,10 +153,11 @@ export function ExplorerControls({
     { id: "calgary" as const, label: "Calgary" },
   ];
   const cityLayerOptions =
-    scope === "calgary" ? CALGARY_LAYER_OPTIONS : VANCOUVER_LAYER_OPTIONS;
-  const cityLayerLabel =
-    cityLayerOptions.find((option) => option.id === cityLayerId)?.label ??
-    "Property";
+    scope === "calgary" ? calgaryLayerOptions() : vancouverLayerOptions();
+  const activeCityLayerOption = cityLayerOptions.find(
+    (option) => option.id === cityLayerId,
+  );
+  const cityLayerLabel = activeCityLayerOption?.label ?? "Property";
   const monthsByYear = months.reduce<Record<string, string[]>>((groups, month) => {
     const year = month.slice(0, 4);
 
@@ -186,7 +226,7 @@ export function ExplorerControls({
                       onRegionChange("all");
                     }
 
-                    setOpenMenu(null);
+                    closeMenu();
                   }}
                 >
                   <span>{option.label}</span>
@@ -239,7 +279,7 @@ export function ExplorerControls({
                           onClick={() => {
                             onLayerChange(layer.id);
                             onLayersVisibleChange(true);
-                            setOpenMenu(null);
+                            closeMenu();
                           }}
                         >
                           {layersVisible && layer.id === activeLayerId && (
@@ -272,7 +312,7 @@ export function ExplorerControls({
                     className={`layer-option ${!layersVisible ? "active" : ""}`}
                     onClick={() => {
                       onLayersVisibleChange(false);
-                      setOpenMenu(null);
+                      closeMenu();
                     }}
                   >
                     {!layersVisible && (
@@ -325,7 +365,7 @@ export function ExplorerControls({
                       }`}
                       onClick={() => {
                         onCityLayerChange(option.id);
-                        setOpenMenu(null);
+                        closeMenu();
                       }}
                     >
                       {option.id === cityLayerId && (
@@ -398,7 +438,7 @@ export function ExplorerControls({
                       }`}
                       onClick={() => {
                         onMonthChange(month);
-                        setOpenMenu(null);
+                        closeMenu();
                       }}
                     >
                       {new Intl.DateTimeFormat("en", {
@@ -414,44 +454,59 @@ export function ExplorerControls({
         </AnimatePresence>
       </div>
 
-      {scope === "national" && showAbout && layersVisible && (
-        <>
-          <div className="control-divider" />
+      {(() => {
+        const about =
+          scope === "national"
+            ? layersVisible
+              ? { label: activeLayer.label, text: activeLayer.about }
+              : null
+            : activeCityLayerOption?.about
+              ? { label: activeCityLayerOption.label, text: activeCityLayerOption.about }
+              : null;
 
-          <button
-            className="control-button about-control"
-            aria-label={`About ${activeLayer.label}`}
-            title={`About ${activeLayer.label}`}
-            onPointerEnter={() => {
-              onAboutHoverChange(true);
-            }}
-            onPointerLeave={() => {
-              onAboutHoverChange(false);
-            }}
-            onFocus={() => {
-              onAboutHoverChange(true);
-            }}
-            onBlur={() => {
-              onAboutHoverChange(false);
-            }}
-          >
-            <Info size={16} />
-          </button>
+        if (!showAbout || !about) {
+          return null;
+        }
 
-          <div
-            className="layer-about-popover"
-            onPointerEnter={() => {
-              onAboutHoverChange(true);
-            }}
-            onPointerLeave={() => {
-              onAboutHoverChange(false);
-            }}
-          >
-            <div className="layer-about-title">{activeLayer.label}</div>
-            <div className="layer-about-copy">{activeLayer.about}</div>
-          </div>
-        </>
-      )}
+        return (
+          <>
+            <div className="control-divider" />
+
+            <button
+              className="control-button about-control"
+              aria-label={`About ${about.label}`}
+              title={`About ${about.label}`}
+              onPointerEnter={() => {
+                onAboutHoverChange(true);
+              }}
+              onPointerLeave={() => {
+                onAboutHoverChange(false);
+              }}
+              onFocus={() => {
+                onAboutHoverChange(true);
+              }}
+              onBlur={() => {
+                onAboutHoverChange(false);
+              }}
+            >
+              <Info size={16} />
+            </button>
+
+            <div
+              className="layer-about-popover"
+              onPointerEnter={() => {
+                onAboutHoverChange(true);
+              }}
+              onPointerLeave={() => {
+                onAboutHoverChange(false);
+              }}
+            >
+              <div className="layer-about-title">{about.label}</div>
+              <div className="layer-about-copy">{about.text}</div>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

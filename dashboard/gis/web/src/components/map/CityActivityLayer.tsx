@@ -62,6 +62,11 @@ interface GeometryState {
   features: CityFeature[];
 }
 
+interface PendingGeometryRequest {
+  bounds: ViewportBounds;
+  activeLayer: CityLayerManifest;
+}
+
 function stringProperty(feature: CityFeature, name: string): string | null {
   const value = feature.properties?.[name];
 
@@ -240,6 +245,7 @@ export function CityActivityLayer({
   onLayersChange,
 }: CityActivityLayerProps) {
   const [manifest, setManifest] = useState<CityManifest | null>(null);
+  const [manifestLoading, setManifestLoading] = useState(false);
   const [geometryState, setGeometryState] = useState<GeometryState | null>(
     null,
   );
@@ -254,7 +260,8 @@ export function CityActivityLayer({
   const geometryStateRef = useRef<GeometryState | null>(null);
   const geometryCacheRef = useRef(new Map<string, GeometryState>());
   const geometryLoadInFlightRef = useRef(false);
-  const pendingViewportBoundsRef = useRef<ViewportBounds | null>(null);
+  const pendingGeometryRequestRef = useRef<PendingGeometryRequest | null>(null);
+  const visibleRef = useRef(visible);
   const unmountedRef = useRef(false);
   const activityKeysRef = useRef(new WeakMap<CityFeature, string>());
 
@@ -323,6 +330,7 @@ export function CityActivityLayer({
       currentGeometry.features.length > 0 &&
       containsBounds(currentGeometry.bounds, bounds)
     ) {
+      setLoadError(null);
       setGeometryLoading(false);
       return;
     }
@@ -331,20 +339,25 @@ export function CityActivityLayer({
 
     if (cachedGeometry) {
       setLoadedGeometry(cachedGeometry);
+      setLoadError(null);
       setGeometryLoading(false);
       return;
     }
 
     if (geometryLoadInFlightRef.current) {
-      pendingViewportBoundsRef.current = bounds;
+      pendingGeometryRequestRef.current = {
+        bounds,
+        activeLayer,
+      };
       setGeometryLoading(true);
       return;
     }
 
     geometryLoadInFlightRef.current = true;
     setGeometryLoading(true);
+    setLoadError(null);
 
-    loadCityFeatures(activeLayer, bounds)
+    loadCityFeatures(activeLayer, bounds, () => !unmountedRef.current)
       .then((collection) => {
         const loadedGeometry = {
           bounds: padBounds(bounds),
@@ -358,27 +371,35 @@ export function CityActivityLayer({
 
         if (!unmountedRef.current) {
           setLoadedGeometry(loadedGeometry);
+          setLoadError(null);
         }
       })
       .catch((error) => {
         console.error("Failed to load city activity geometry", error);
 
-        if (!unmountedRef.current) {
+        if (
+          !unmountedRef.current &&
+          visibleRef.current &&
+          !pendingGeometryRequestRef.current
+        ) {
           setLoadError("This area could not be loaded.");
         }
       })
       .finally(() => {
         geometryLoadInFlightRef.current = false;
 
-        const pendingBounds = pendingViewportBoundsRef.current;
-        pendingViewportBoundsRef.current = null;
+        const pendingRequest = pendingGeometryRequestRef.current;
+        pendingGeometryRequestRef.current = null;
 
         if (unmountedRef.current) {
           return;
         }
 
-        if (pendingBounds) {
-          requestGeometry(pendingBounds, activeLayer);
+        if (pendingRequest && visibleRef.current) {
+          requestGeometry(
+            pendingRequest.bounds,
+            pendingRequest.activeLayer,
+          );
           return;
         }
 
@@ -389,6 +410,7 @@ export function CityActivityLayer({
   useEffect(() => {
     unmountedRef.current = false;
     setLoadError(null);
+    setManifestLoading(true);
 
     loadCityManifest()
       .then((loaded) => {
@@ -401,6 +423,11 @@ export function CityActivityLayer({
 
         if (!unmountedRef.current) {
           setLoadError("City data could not be loaded.");
+        }
+      })
+      .finally(() => {
+        if (!unmountedRef.current) {
+          setManifestLoading(false);
         }
       });
 
@@ -450,7 +477,12 @@ export function CityActivityLayer({
   }, [interactionEnabled]);
 
   useEffect(() => {
+    visibleRef.current = visible;
+
     if (!visible) {
+      pendingGeometryRequestRef.current = null;
+      setGeometryLoading(false);
+      setLoadError(null);
       clearHoverTimer();
       hoverCandidateRef.current = null;
       hoverActivityKeyRef.current = null;
@@ -649,7 +681,8 @@ export function CityActivityLayer({
   const estimatedCost = hover ? estimatedCostOf(hover.feature) : null;
   const mappedProperties = hover ? mappedPropertiesOf(hover.feature) : null;
   const floodExposed = hover ? isFloodExposed(hover.feature) : false;
-  const isLoading = geometryLoading && geometry.length === 0;
+  const isLoading =
+    visible && (manifestLoading || (geometryLoading && geometry.length === 0));
 
   useEffect(() => {
     onLayersChange(layers);
@@ -675,7 +708,7 @@ export function CityActivityLayer({
       </AnimatePresence>
 
       <AnimatePresence>
-        {loadError && (
+        {visible && loadError && (
           <motion.div
             className="map-status-message glass-panel"
             initial={{

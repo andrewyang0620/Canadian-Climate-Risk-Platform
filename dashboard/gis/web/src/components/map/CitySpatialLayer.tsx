@@ -19,7 +19,6 @@ import {
   padBounds,
   type ViewportBounds,
 } from "../../lib/grid-geometry";
-
 interface CitySpatialLayerProps {
   scope: CityScope;
   visible: boolean;
@@ -73,6 +72,11 @@ const CITY_COLORS = {
 interface GeometryState {
   bounds: ViewportBounds;
   features: CityFeature[];
+}
+
+interface PendingGeometryRequest {
+  bounds: ViewportBounds;
+  activeLayer: CityLayerManifest;
 }
 
 // The manifest carries the feature-key field name per city (property_parcel_key
@@ -151,6 +155,24 @@ function resolveFeatureKey(
   return `${scope}-${fallbackIndex}`;
 }
 
+// Direct key lookup for click/selection matching — unlike resolveFeatureKey
+// (used for the per-render hover/cache key) this has no index fallback,
+// since a selected feature must resolve to the same key across viewport
+// reloads. A parcel missing its manifest key field can't be selected by key
+// at all (mirrors CityActivityLayer's activityFeatureKey for BP/DP).
+function stableFeatureKey(
+  layer: CityLayerManifest | null,
+  properties: CityFeatureProperties,
+): string | null {
+  const value = layer ? properties[layer.key] : undefined;
+
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  return String(value);
+}
+
 function propertyDisplayName(
   scope: CityScope,
   layer: CityLayerManifest | null,
@@ -212,6 +234,7 @@ export function CitySpatialLayer({
   onLayersChange,
 }: CitySpatialLayerProps) {
   const [manifest, setManifest] = useState<CityManifest | null>(null);
+  const [manifestLoading, setManifestLoading] = useState(false);
   const [geometryState, setGeometryState] = useState<GeometryState | null>(
     null,
   );
@@ -226,7 +249,8 @@ export function CitySpatialLayer({
   const geometryStateRef = useRef<GeometryState | null>(null);
   const geometryCacheRef = useRef(new Map<string, GeometryState>());
   const geometryLoadInFlightRef = useRef(false);
-  const pendingViewportBoundsRef = useRef<ViewportBounds | null>(null);
+  const pendingGeometryRequestRef = useRef<PendingGeometryRequest | null>(null);
+  const visibleRef = useRef(visible);
   const unmountedRef = useRef(false);
   const featureKeysRef = useRef(new WeakMap<CityFeature, string>());
 
@@ -295,6 +319,7 @@ export function CitySpatialLayer({
       currentGeometry.features.length > 0 &&
       containsBounds(currentGeometry.bounds, bounds)
     ) {
+      setLoadError(null);
       setGeometryLoading(false);
       return;
     }
@@ -303,20 +328,25 @@ export function CitySpatialLayer({
 
     if (cachedGeometry) {
       setLoadedGeometry(cachedGeometry);
+      setLoadError(null);
       setGeometryLoading(false);
       return;
     }
 
     if (geometryLoadInFlightRef.current) {
-      pendingViewportBoundsRef.current = bounds;
+      pendingGeometryRequestRef.current = {
+        bounds,
+        activeLayer,
+      };
       setGeometryLoading(true);
       return;
     }
 
     geometryLoadInFlightRef.current = true;
     setGeometryLoading(true);
+    setLoadError(null);
 
-    loadCityFeatures(activeLayer, bounds)
+    loadCityFeatures(activeLayer, bounds, () => !unmountedRef.current)
       .then((collection) => {
         const loadedGeometry = {
           bounds: padBounds(bounds),
@@ -330,27 +360,35 @@ export function CitySpatialLayer({
 
         if (!unmountedRef.current) {
           setLoadedGeometry(loadedGeometry);
+          setLoadError(null);
         }
       })
       .catch((error) => {
         console.error("Failed to load city viewport geometry", error);
 
-        if (!unmountedRef.current) {
+        if (
+          !unmountedRef.current &&
+          visibleRef.current &&
+          !pendingGeometryRequestRef.current
+        ) {
           setLoadError("This area could not be loaded.");
         }
       })
       .finally(() => {
         geometryLoadInFlightRef.current = false;
 
-        const pendingBounds = pendingViewportBoundsRef.current;
-        pendingViewportBoundsRef.current = null;
+        const pendingRequest = pendingGeometryRequestRef.current;
+        pendingGeometryRequestRef.current = null;
 
         if (unmountedRef.current) {
           return;
         }
 
-        if (pendingBounds) {
-          requestGeometry(pendingBounds, activeLayer);
+        if (pendingRequest && visibleRef.current) {
+          requestGeometry(
+            pendingRequest.bounds,
+            pendingRequest.activeLayer,
+          );
           return;
         }
 
@@ -361,6 +399,7 @@ export function CitySpatialLayer({
   useEffect(() => {
     unmountedRef.current = false;
     setLoadError(null);
+    setManifestLoading(true);
 
     loadCityManifest()
       .then((loaded) => {
@@ -373,6 +412,11 @@ export function CitySpatialLayer({
 
         if (!unmountedRef.current) {
           setLoadError("City data could not be loaded.");
+        }
+      })
+      .finally(() => {
+        if (!unmountedRef.current) {
+          setManifestLoading(false);
         }
       });
 
@@ -420,7 +464,12 @@ export function CitySpatialLayer({
   }, [interactionEnabled]);
 
   useEffect(() => {
+    visibleRef.current = visible;
+
     if (!visible) {
+      pendingGeometryRequestRef.current = null;
+      setGeometryLoading(false);
+      setLoadError(null);
       clearHoverTimer();
       hoverCandidateRef.current = null;
       hoverFeatureKeyRef.current = null;
@@ -435,12 +484,14 @@ export function CitySpatialLayer({
     () =>
       selectedFeatureKey
         ? geometry.find(
-            (feature, index) =>
-              featureKeyFor(feature, index) === selectedFeatureKey,
+            (feature) =>
+              stableFeatureKey(layer, feature.properties ?? {}) ===
+              selectedFeatureKey,
           ) ?? null
         : null,
     [
       geometry,
+      layer,
       selectedFeatureKey,
     ],
   );
@@ -459,10 +510,11 @@ export function CitySpatialLayer({
       return [];
     }
 
-    return geometry.filter(
-      (feature, index) =>
-        relatedFeatureKeySet.has(featureKeyFor(feature, index)),
-    );
+    return geometry.filter((feature) => {
+      const key = stableFeatureKey(layer, feature.properties ?? {});
+
+      return key !== null && relatedFeatureKeySet.has(key);
+    });
   }, [geometry, layer, relatedFeatureKeySet]);
 
   const layers = useMemo(() => {
@@ -486,46 +538,46 @@ export function CitySpatialLayer({
       lineWidthUnits: "pixels",
       lineWidthMinPixels: 0.6,
       getFillColor: (feature: CityFeature) => {
-        if (!showFlood) {
+        if (showFlood) {
+          if (isFloodExposed(feature)) {
+            return CITY_COLORS.exposedFill;
+          }
+
+          if (isNormalRiverChannelOnly(scope, feature)) {
+            return CITY_COLORS.contextualFill;
+          }
+
           return CITY_COLORS.neutralFill;
-        }
-
-        if (isFloodExposed(feature)) {
-          return CITY_COLORS.exposedFill;
-        }
-
-        if (isNormalRiverChannelOnly(scope, feature)) {
-          return CITY_COLORS.contextualFill;
         }
 
         return CITY_COLORS.neutralFill;
       },
       getLineColor: (feature: CityFeature) => {
-        if (!showFlood) {
+        if (showFlood) {
+          if (isFloodExposed(feature)) {
+            return CITY_COLORS.exposedLine;
+          }
+
+          if (isNormalRiverChannelOnly(scope, feature)) {
+            return CITY_COLORS.contextualLine;
+          }
+
           return CITY_COLORS.neutralLine;
-        }
-
-        if (isFloodExposed(feature)) {
-          return CITY_COLORS.exposedLine;
-        }
-
-        if (isNormalRiverChannelOnly(scope, feature)) {
-          return CITY_COLORS.contextualLine;
         }
 
         return CITY_COLORS.neutralLine;
       },
       getLineWidth: (feature: CityFeature) => {
-        if (!showFlood) {
+        if (showFlood) {
+          if (isFloodExposed(feature)) {
+            return 0.8;
+          }
+
+          if (isNormalRiverChannelOnly(scope, feature)) {
+            return 0.55;
+          }
+
           return 0.35;
-        }
-
-        if (isFloodExposed(feature)) {
-          return 0.8;
-        }
-
-        if (isNormalRiverChannelOnly(scope, feature)) {
-          return 0.55;
         }
 
         return 0.35;
@@ -537,10 +589,13 @@ export function CitySpatialLayer({
           return;
         }
 
-        onFeatureSelect(
-          featureKeyFor(feature, info.index ?? 0),
-          feature,
-        );
+        const key = stableFeatureKey(layer, feature.properties ?? {});
+
+        if (!key) {
+          return;
+        }
+
+        onFeatureSelect(key, feature);
       },
       onHover: (info) => {
         const feature = info.object as CityFeature | null;
@@ -689,7 +744,8 @@ export function CitySpatialLayer({
     hover && showFlood ? floodStatusLabel(scope, hover.feature) : null;
   const hoverFloodCount =
     hover && showFlood ? floodMembershipCount(scope, hover.feature) : null;
-  const isLoading = geometryLoading && geometry.length === 0;
+  const isLoading =
+    visible && (manifestLoading || (geometryLoading && geometry.length === 0));
 
   return (
     <>
@@ -707,7 +763,7 @@ export function CitySpatialLayer({
       </AnimatePresence>
 
       <AnimatePresence>
-        {loadError && (
+        {visible && loadError && (
           <motion.div
             className="map-status-message glass-panel"
             initial={{

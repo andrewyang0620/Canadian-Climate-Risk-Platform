@@ -262,7 +262,7 @@ export default function App() {
         onGridInfoVisibleChange={setGridInfoVisible}
         onAboutHoverChange={setAboutHovered}
         onControlsHoverChange={setChromeHovered}
-        showAbout={!selectedGridKey}
+        showAbout={!selectedGridKey && !selectedCityFeature && !selectedCityActivity}
       />
 
       {scope === "national" && layersVisible && (
@@ -272,7 +272,7 @@ export default function App() {
         />
       )}
 
-      {isCityScope(scope) && cityLayerId !== "property" && cityLayerId !== "none" && (
+      {isCityScope(scope) && cityLayerId !== "none" && (
         <CityLegendPanel scope={scope} cityLayerId={cityLayerId} />
       )}
 

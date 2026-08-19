@@ -307,6 +307,36 @@ button {
   font-weight: 520;
 }
 
+.legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.city-legend-items {
+  margin-top: 10px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  color: var(--ink);
+
+  font-size: 10px;
+  font-weight: 520;
+}
+
+.legend-swatch {
+  flex-shrink: 0;
+
+  width: 10px;
+  height: 10px;
+
+  border-radius: 3px;
+}
+
 /* --------------------------------------------------
    Timeline
 -------------------------------------------------- */
@@ -1220,6 +1250,13 @@ button {
   color: var(--muted);
 
   font-size: 10px;
+}
+
+.detail-note {
+  color: var(--muted);
+
+  font-size: 9px;
+  line-height: 1.5;
 }
 
 @media (max-width: 800px) {

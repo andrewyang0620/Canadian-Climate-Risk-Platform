@@ -58,12 +58,21 @@ export function boundsKey(bounds: ViewportBounds): string {
 
 export async function loadGridGeometry(
   bounds: ViewportBounds,
+  // Checked between features so a caller can stop an in-flight stream early
+  // (component unmounted, request superseded) instead of paying for the
+  // remaining range requests just to discard the result.
+  shouldContinue?: () => boolean,
 ): Promise<FeatureCollection<Geometry, GridProperties>> {
   const features: GridFeature[] = [];
   const paddedBounds = padBounds(bounds);
   const iterator = flatgeobuf.deserialize(GEOMETRY_URL, paddedBounds);
 
   for await (const feature of iterator) {
+    if (shouldContinue && !shouldContinue()) {
+      await iterator.return?.(undefined);
+      break;
+    }
+
     features.push(feature as GridFeature);
   }
 

@@ -84,7 +84,15 @@ export function loadMonthlyDataset(referenceMonth: string): Promise<MonthlyDatas
     return cached;
   }
 
-  const request = loadMonthlyDatasetInternal(referenceMonth);
+  // On failure, drop the cached (now-rejected) promise so the next call
+  // retries the fetch instead of replaying the same rejection forever.
+  const request = loadMonthlyDatasetInternal(referenceMonth).catch((error) => {
+    if (monthlyDatasetCache.get(referenceMonth) === request) {
+      monthlyDatasetCache.delete(referenceMonth);
+    }
+
+    throw error;
+  });
 
   monthlyDatasetCache.set(referenceMonth, request);
 
@@ -216,7 +224,13 @@ export function loadGridMetadata(): Promise<GridMetadataDataset> {
     return gridMetadataCache;
   }
 
-  gridMetadataCache = loadGridMetadataInternal();
+  // On failure, drop the cached (now-rejected) promise so the next call
+  // retries the fetch instead of replaying the same rejection forever.
+  gridMetadataCache = loadGridMetadataInternal().catch((error) => {
+    gridMetadataCache = null;
+
+    throw error;
+  });
 
   return gridMetadataCache;
 }
@@ -263,7 +277,13 @@ export async function loadRegionContexts(): Promise<
     return regionContextCache;
   }
 
-  regionContextCache = buildRegionContexts();
+  // On failure, drop the cached (now-rejected) promise so the next call
+  // retries instead of replaying the same rejection forever.
+  regionContextCache = buildRegionContexts().catch((error) => {
+    regionContextCache = null;
+
+    throw error;
+  });
 
   return regionContextCache;
 }

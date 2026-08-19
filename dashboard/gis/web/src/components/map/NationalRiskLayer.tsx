@@ -155,6 +155,7 @@ export function NationalRiskLayer({
       currentGeometry.features.length > 0 &&
       containsBounds(currentGeometry.bounds, bounds)
     ) {
+      setLoadError(null);
       setGeometryLoading(false);
       return;
     }
@@ -163,6 +164,7 @@ export function NationalRiskLayer({
 
     if (cachedGeometry) {
       setLoadedGeometry(cachedGeometry);
+      setLoadError(null);
       setGeometryLoading(false);
       return;
     }
@@ -175,8 +177,9 @@ export function NationalRiskLayer({
 
     geometryLoadInFlightRef.current = true;
     setGeometryLoading(true);
+    setLoadError(null);
 
-    loadGridGeometry(bounds)
+    loadGridGeometry(bounds, () => !unmountedRef.current)
       .then((collection) => {
         const loadedGeometry = {
           bounds: padBounds(bounds),
@@ -190,10 +193,15 @@ export function NationalRiskLayer({
 
         if (!unmountedRef.current) {
           setLoadedGeometry(loadedGeometry);
+          setLoadError(null);
         }
       })
       .catch((error) => {
         console.error("Failed to load viewport geometry", error);
+
+        if (!unmountedRef.current) {
+          setLoadError("This area could not be loaded.");
+        }
       })
       .finally(() => {
         geometryLoadInFlightRef.current = false;

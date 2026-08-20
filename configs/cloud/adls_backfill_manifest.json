@@ -1,0 +1,473 @@
+{
+  "manifest_version": 1,
+  "entries": [
+    {
+      "name": "bronze_manifests",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/_manifests",
+      "remote_path": "_manifests"
+    },
+    {
+      "name": "calgary_building_permits",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/calgary_building_permits/extract_date=2026-05-09/run_id=efa9d031-20ff-4504-828f-ff5c9505591a",
+      "remote_path": "calgary_building_permits/extract_date=2026-05-09/run_id=efa9d031-20ff-4504-828f-ff5c9505591a"
+    },
+    {
+      "name": "calgary_development_permits",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/calgary_development_permits/extract_date=2026-05-09/run_id=440c2f88-9cfe-49d0-af5b-5ce7d78875b2",
+      "remote_path": "calgary_development_permits/extract_date=2026-05-09/run_id=440c2f88-9cfe-49d0-af5b-5ce7d78875b2"
+    },
+    {
+      "name": "calgary_flood_hazard",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/calgary_flood_hazard/extract_date=2026-05-09/run_id=6bd00f75-b068-4e12-8e93-085d8bae53dc",
+      "remote_path": "calgary_flood_hazard/extract_date=2026-05-09/run_id=6bd00f75-b068-4e12-8e93-085d8bae53dc"
+    },
+    {
+      "name": "calgary_property_assessment",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/calgary_property_assessment/extract_date=2026-05-09/run_id=8381ebd7-8d81-4506-a443-5d1ff5c69003",
+      "remote_path": "calgary_property_assessment/extract_date=2026-05-09/run_id=8381ebd7-8d81-4506-a443-5d1ff5c69003"
+    },
+    {
+      "name": "canadian_disaster_database",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/canadian_disaster_database/extract_date=2026-05-09/run_id=f1647c35-b69f-414a-b685-3193cb01cef8",
+      "remote_path": "canadian_disaster_database/extract_date=2026-05-09/run_id=f1647c35-b69f-414a-b685-3193cb01cef8"
+    },
+    {
+      "name": "census_boundaries_raw",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/census_boundaries/extract_date=2026-05-11/run_id=42f22465-7050-4f4f-8e9d-0ed87b30115c",
+      "remote_path": "census_boundaries/extract_date=2026-05-11/run_id=42f22465-7050-4f4f-8e9d-0ed87b30115c"
+    },
+    {
+      "name": "census_division_boundary_2021",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/census_boundaries/census_division_boundary_2021",
+      "remote_path": "census_boundaries/census_division_boundary_2021"
+    },
+    {
+      "name": "eccc_historical_climate",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/eccc_historical_climate/extract_date=2026-05-11/run_id=aaa1cfff-492d-4088-b70a-a0cb7df1bda9",
+      "remote_path": "eccc_historical_climate/extract_date=2026-05-11/run_id=aaa1cfff-492d-4088-b70a-a0cb7df1bda9"
+    },
+    {
+      "name": "eccc_hydrometric_realtime",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/eccc_hydrometric_realtime/extract_date=2026-06-14/run_id=f6ae7f43-68f0-41fe-9c8d-fefba13ad3df",
+      "remote_path": "eccc_hydrometric_realtime/extract_date=2026-06-14/run_id=f6ae7f43-68f0-41fe-9c8d-fefba13ad3df"
+    },
+    {
+      "name": "hydat_archive",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/hydat_archive/extract_date=2026-05-11/run_id=5c4d56c6-8131-4947-8710-4f9590f71f5b",
+      "remote_path": "hydat_archive/extract_date=2026-05-11/run_id=5c4d56c6-8131-4947-8710-4f9590f71f5b"
+    },
+    {
+      "name": "national_hydrometric_basin_polygons",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/national_hydrometric_basin_polygons/extract_date=2026-06-28/run_id=2f671fc9-e7e4-4f0b-802e-2b3838e9b796",
+      "remote_path": "national_hydrometric_basin_polygons/extract_date=2026-06-28/run_id=2f671fc9-e7e4-4f0b-802e-2b3838e9b796"
+    },
+    {
+      "name": "statcan_building_permits",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/statcan_building_permits/extract_date=2026-06-11/run_id=ff98fb73-8bdc-426b-bec0-17d4b20eb31a",
+      "remote_path": "statcan_building_permits/extract_date=2026-06-11/run_id=ff98fb73-8bdc-426b-bec0-17d4b20eb31a"
+    },
+    {
+      "name": "vancouver_building_permits",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/vancouver_building_permits/extract_date=2026-05-09/run_id=47abe4c3-53a2-455c-a8f6-3b2113cca282",
+      "remote_path": "vancouver_building_permits/extract_date=2026-05-09/run_id=47abe4c3-53a2-455c-a8f6-3b2113cca282"
+    },
+    {
+      "name": "vancouver_floodplain",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/vancouver_floodplain/extract_date=2026-05-09/run_id=e57af2e0-5d6d-45ed-ac21-04f06fe5816c",
+      "remote_path": "vancouver_floodplain/extract_date=2026-05-09/run_id=e57af2e0-5d6d-45ed-ac21-04f06fe5816c"
+    },
+    {
+      "name": "vancouver_property_parcels",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/vancouver_property_parcels/extract_date=2026-05-09/run_id=925bbfcc-1a20-4ab2-bdd6-20c9d44d4fbe",
+      "remote_path": "vancouver_property_parcels/extract_date=2026-05-09/run_id=925bbfcc-1a20-4ab2-bdd6-20c9d44d4fbe"
+    },
+    {
+      "name": "vancouver_property_tax",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/vancouver_property_tax/extract_date=2026-05-09/run_id=782d9486-0751-490b-8bdb-8286289dbfdd",
+      "remote_path": "vancouver_property_tax/extract_date=2026-05-09/run_id=782d9486-0751-490b-8bdb-8286289dbfdd"
+    },
+    {
+      "name": "wildfire_history",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/wildfire_history/extract_date=2026-05-11/run_id=22d3f6af-5842-4e2d-97c7-26998e302751",
+      "remote_path": "wildfire_history/extract_date=2026-05-11/run_id=22d3f6af-5842-4e2d-97c7-26998e302751"
+    },
+    {
+      "name": "wildfire_perimeter_polygons",
+      "zone": "bronze",
+      "local_path": "lakehouse/bronze/wildfire_perimeter_polygons/extract_date=2026-06-28/run_id=d8bdf8e8-3533-4b37-ac70-4db2a0350699",
+      "remote_path": "wildfire_perimeter_polygons/extract_date=2026-06-28/run_id=d8bdf8e8-3533-4b37-ac70-4db2a0350699"
+    },
+    {
+      "name": "silver___manifests",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/_manifests",
+      "remote_path": "_manifests"
+    },
+    {
+      "name": "silver___metadata",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/_metadata",
+      "remote_path": "_metadata"
+    },
+    {
+      "name": "silver___validation",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/_validation",
+      "remote_path": "_validation"
+    },
+    {
+      "name": "silver__silver_boundary_municipality",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_boundary_municipality",
+      "remote_path": "silver_boundary_municipality"
+    },
+    {
+      "name": "silver__silver_boundary_province",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_boundary_province",
+      "remote_path": "silver_boundary_province"
+    },
+    {
+      "name": "silver__silver_building_permit",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_building_permit",
+      "remote_path": "silver_building_permit"
+    },
+    {
+      "name": "silver__silver_climate_daily",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_climate_daily",
+      "remote_path": "silver_climate_daily"
+    },
+    {
+      "name": "silver__silver_development_permit",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_development_permit",
+      "remote_path": "silver_development_permit"
+    },
+    {
+      "name": "silver__silver_disaster_event_month",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_disaster_event_month",
+      "remote_path": "silver_disaster_event_month"
+    },
+    {
+      "name": "silver__silver_flood_hazard_zone",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_flood_hazard_zone",
+      "remote_path": "silver_flood_hazard_zone"
+    },
+    {
+      "name": "silver__silver_hydro_basin_polygon",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_hydro_basin_polygon",
+      "remote_path": "silver_hydro_basin_polygon"
+    },
+    {
+      "name": "silver__silver_hydro_basin_pour_point",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_hydro_basin_pour_point",
+      "remote_path": "silver_hydro_basin_pour_point"
+    },
+    {
+      "name": "silver__silver_hydro_basin_station_point",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_hydro_basin_station_point",
+      "remote_path": "silver_hydro_basin_station_point"
+    },
+    {
+      "name": "silver__silver_hydro_daily",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_hydro_daily",
+      "remote_path": "silver_hydro_daily"
+    },
+    {
+      "name": "silver__silver_hydro_realtime_observation",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_hydro_realtime_observation",
+      "remote_path": "silver_hydro_realtime_observation"
+    },
+    {
+      "name": "silver__silver_hydro_station",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_hydro_station",
+      "remote_path": "silver_hydro_station"
+    },
+    {
+      "name": "silver__silver_permit_monthly",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_permit_monthly",
+      "remote_path": "silver_permit_monthly"
+    },
+    {
+      "name": "silver__silver_property_assessment",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_property_assessment",
+      "remote_path": "silver_property_assessment"
+    },
+    {
+      "name": "silver__silver_property_parcel",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_property_parcel",
+      "remote_path": "silver_property_parcel"
+    },
+    {
+      "name": "silver__silver_property_tax_assessment",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_property_tax_assessment",
+      "remote_path": "silver_property_tax_assessment"
+    },
+    {
+      "name": "silver__silver_wildfire_event",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_wildfire_event",
+      "remote_path": "silver_wildfire_event"
+    },
+    {
+      "name": "silver__silver_wildfire_perimeter_polygon",
+      "zone": "silver",
+      "local_path": "lakehouse/silver/silver_wildfire_perimeter_polygon",
+      "remote_path": "silver_wildfire_perimeter_polygon"
+    },
+    {
+      "name": "gold___audit",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/_audit",
+      "remote_path": "_audit"
+    },
+    {
+      "name": "gold___manifests",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/_manifests",
+      "remote_path": "_manifests"
+    },
+    {
+      "name": "gold___metadata",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/_metadata",
+      "remote_path": "_metadata"
+    },
+    {
+      "name": "gold___validation",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/_validation",
+      "remote_path": "_validation"
+    },
+    {
+      "name": "gold__gold_calgary_building_permit_context",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_calgary_building_permit_context",
+      "remote_path": "gold_calgary_building_permit_context"
+    },
+    {
+      "name": "gold__gold_calgary_development_permit_context",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_calgary_development_permit_context",
+      "remote_path": "gold_calgary_development_permit_context"
+    },
+    {
+      "name": "gold__gold_calgary_development_permit_location_bridge",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_calgary_development_permit_location_bridge",
+      "remote_path": "gold_calgary_development_permit_location_bridge"
+    },
+    {
+      "name": "gold__gold_calgary_property_location_assessment",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_calgary_property_location_assessment",
+      "remote_path": "gold_calgary_property_location_assessment"
+    },
+    {
+      "name": "gold__gold_calgary_property_location_flood_exposure",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_calgary_property_location_flood_exposure",
+      "remote_path": "gold_calgary_property_location_flood_exposure"
+    },
+    {
+      "name": "gold__gold_calgary_property_location_flood_overlay",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_calgary_property_location_flood_overlay",
+      "remote_path": "gold_calgary_property_location_flood_overlay"
+    },
+    {
+      "name": "gold__gold_calgary_property_risk_context",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_calgary_property_risk_context",
+      "remote_path": "gold_calgary_property_risk_context"
+    },
+    {
+      "name": "gold__gold_climate_station_month_feature",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_climate_station_month_feature",
+      "remote_path": "gold_climate_station_month_feature"
+    },
+    {
+      "name": "gold__gold_disaster_cd_spatial_reference",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_disaster_cd_spatial_reference",
+      "remote_path": "gold_disaster_cd_spatial_reference"
+    },
+    {
+      "name": "gold__gold_disaster_event_cd_scope_reference",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_disaster_event_cd_scope_reference",
+      "remote_path": "gold_disaster_event_cd_scope_reference"
+    },
+    {
+      "name": "gold__gold_disaster_event_grid_scope",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_disaster_event_grid_scope",
+      "remote_path": "gold_disaster_event_grid_scope"
+    },
+    {
+      "name": "gold__gold_disaster_event_reference",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_disaster_event_reference",
+      "remote_path": "gold_disaster_event_reference"
+    },
+    {
+      "name": "gold__gold_grid_cell",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_grid_cell",
+      "remote_path": "gold_grid_cell"
+    },
+    {
+      "name": "gold__gold_grid_month_climate_feature",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_grid_month_climate_feature",
+      "remote_path": "gold_grid_month_climate_feature"
+    },
+    {
+      "name": "gold__gold_grid_month_disaster_event_label",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_grid_month_disaster_event_label",
+      "remote_path": "gold_grid_month_disaster_event_label"
+    },
+    {
+      "name": "gold__gold_grid_month_hydro_feature",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_grid_month_hydro_feature",
+      "remote_path": "gold_grid_month_hydro_feature"
+    },
+    {
+      "name": "gold__gold_grid_month_risk_feature_mart",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_grid_month_risk_feature_mart",
+      "remote_path": "gold_grid_month_risk_feature_mart"
+    },
+    {
+      "name": "gold__gold_grid_month_risk_score",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_grid_month_risk_score",
+      "remote_path": "gold_grid_month_risk_score"
+    },
+    {
+      "name": "gold__gold_grid_month_wildfire_perimeter_feature",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_grid_month_wildfire_perimeter_feature",
+      "remote_path": "gold_grid_month_wildfire_perimeter_feature"
+    },
+    {
+      "name": "gold__gold_grid_municipality_bridge",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_grid_municipality_bridge",
+      "remote_path": "gold_grid_municipality_bridge"
+    },
+    {
+      "name": "gold__gold_hydro_station_month_feature",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_hydro_station_month_feature",
+      "remote_path": "gold_hydro_station_month_feature"
+    },
+    {
+      "name": "gold__gold_vancouver_building_permit_context",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_vancouver_building_permit_context",
+      "remote_path": "gold_vancouver_building_permit_context"
+    },
+    {
+      "name": "gold__gold_vancouver_land_coordinate_assessment",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_vancouver_land_coordinate_assessment",
+      "remote_path": "gold_vancouver_land_coordinate_assessment"
+    },
+    {
+      "name": "gold__gold_vancouver_parcel_assessment_context",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_vancouver_parcel_assessment_context",
+      "remote_path": "gold_vancouver_parcel_assessment_context"
+    },
+    {
+      "name": "gold__gold_vancouver_parcel_flood_exposure",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_vancouver_parcel_flood_exposure",
+      "remote_path": "gold_vancouver_parcel_flood_exposure"
+    },
+    {
+      "name": "gold__gold_vancouver_parcel_flood_scenario_exposure",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_vancouver_parcel_flood_scenario_exposure",
+      "remote_path": "gold_vancouver_parcel_flood_scenario_exposure"
+    },
+    {
+      "name": "gold__gold_vancouver_parcel_flood_zone_overlay",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_vancouver_parcel_flood_zone_overlay",
+      "remote_path": "gold_vancouver_parcel_flood_zone_overlay"
+    },
+    {
+      "name": "gold__gold_vancouver_parcel_risk_context",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_vancouver_parcel_risk_context",
+      "remote_path": "gold_vancouver_parcel_risk_context"
+    },
+    {
+      "name": "gold__gold_vancouver_property_parcel_bridge",
+      "zone": "gold",
+      "local_path": "lakehouse/gold/gold_vancouver_property_parcel_bridge",
+      "remote_path": "gold_vancouver_property_parcel_bridge"
+    },
+    {
+      "name": "audit__extract_audit",
+      "zone": "audit",
+      "local_path": "lakehouse/audit/extract_audit.json",
+      "remote_path": "extract_audit.json"
+    },
+    {
+      "name": "audit__risk_score_backtest",
+      "zone": "audit",
+      "local_path": "lakehouse/audits/risk_score_backtest/extract_date=2026-08-10",
+      "remote_path": "risk_score_backtest/extract_date=2026-08-10"
+    },
+    {
+      "name": "audit__risk_scoring_design_probe",
+      "zone": "audit",
+      "local_path": "lakehouse/audits/risk_scoring_design_probe",
+      "remote_path": "risk_scoring_design_probe"
+    },
+    {
+      "name": "audit__wildfire_point_polygon_linkage",
+      "zone": "audit",
+      "local_path": "lakehouse/audits/wildfire_point_polygon_linkage/run_timestamp=20260629T051330Z",
+      "remote_path": "wildfire_point_polygon_linkage/run_timestamp=20260629T051330Z"
+    }
+  ]
+}

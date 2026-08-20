@@ -181,6 +181,8 @@ def _execute_plan(
     results = []
     uploaded_objects = 0
     uploaded_bytes = 0
+    skipped_objects = 0
+    skipped_bytes = 0
 
     for index, obj in enumerate(plan.objects, start=1):
         if obj.zone not in backends:
@@ -205,8 +207,49 @@ def _execute_plan(
             obj.local_path.name
         )
 
+        file_client = (
+            backend.file_system_client
+            .get_file_client(obj.remote_path)
+        )
+
+        remote_size = None
+
+        try:
+            if file_client.exists():
+                remote_size = (
+                    file_client
+                    .get_file_properties()
+                    .size
+                )
+        except Exception:
+            remote_size = None
+
+        if remote_size == obj.size_bytes:
+            print(
+                f"[{index:>3}/{plan.object_count}] "
+                f"SKIP "
+                f"{obj.zone}/{obj.remote_path} "
+                f"({obj.size_bytes / 1024**2:.2f} MB)"
+            )
+
+            results.append({
+                "entry_name": obj.entry_name,
+                "zone": obj.zone,
+                "local_path": obj.local_path.as_posix(),
+                "remote_path": obj.remote_path,
+                "size_bytes": obj.size_bytes,
+                "status": "skipped_existing",
+                "uri": backend.uri(obj.remote_path),
+            })
+
+            skipped_objects += 1
+            skipped_bytes += obj.size_bytes
+
+            continue
+
         print(
             f"[{index:>3}/{plan.object_count}] "
+            f"UPLOAD "
             f"{obj.zone}/{obj.remote_path} "
             f"({obj.size_bytes / 1024**2:.2f} MB)"
         )
@@ -236,6 +279,8 @@ def _execute_plan(
                 "execution_status": "failed",
                 "uploaded_object_count": uploaded_objects,
                 "uploaded_size_bytes": uploaded_bytes,
+                "skipped_object_count": skipped_objects,
+                "skipped_size_bytes": skipped_bytes,
                 "results": results,
             }
 
@@ -260,6 +305,8 @@ def _execute_plan(
         "execution_status": "success",
         "uploaded_object_count": uploaded_objects,
         "uploaded_size_bytes": uploaded_bytes,
+        "skipped_object_count": skipped_objects,
+        "skipped_size_bytes": skipped_bytes,
         "results": results,
     }
 
@@ -308,6 +355,10 @@ def main() -> None:
     print(
         "uploaded :",
         report["uploaded_object_count"],
+    )
+    print(
+        "skipped  :",
+        report["skipped_object_count"],
     )
     print(
         "GB       :",

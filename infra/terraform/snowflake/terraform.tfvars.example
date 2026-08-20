@@ -16,12 +16,7 @@ database_name = "CLIMATE_RISK"
 
 # Schemas
 schema_names = {
-  bronze_external = "BRONZE_EXTERNAL"
-  bronze          = "BRONZE"
-  silver          = "SILVER"
-  staging         = "STAGING"
-  intermediate    = "INTERMEDIATE"
-  marts           = "MARTS"
-  gold            = "GOLD"
-  audit           = "AUDIT"
+  core = "CORE"
+  analytics = "ANALYTICS"
+  audit = "AUDIT"
 }

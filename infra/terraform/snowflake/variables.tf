@@ -34,25 +34,15 @@ variable "warehouse_size" {
 variable "schema_names" {
   description = "Snowflake schemas used by the data platform."
   type = object({
-    bronze_external = string
-    bronze          = string
-    silver          = string
-    staging         = string
-    intermediate    = string
-    marts           = string
-    gold            = string
-    audit           = string
+    core      = string
+    analytics = string
+    audit     = string
   })
 
   default = {
-    bronze_external = "BRONZE_EXTERNAL"
-    bronze          = "BRONZE"
-    silver          = "SILVER"
-    staging         = "STAGING"
-    intermediate    = "INTERMEDIATE"
-    marts           = "MARTS"
-    gold            = "GOLD"
-    audit           = "AUDIT"
+    core      = "CORE"
+    analytics = "ANALYTICS"
+    audit     = "AUDIT"
   }
 }
 

@@ -23,6 +23,7 @@ snapshot-paths:
   - snapshots
 
 target-path: target
+
 clean-targets:
   - target
   - dbt_packages
@@ -31,10 +32,9 @@ models:
   canadian_climate_risk_platform:
     staging:
       +materialized: view
-      +schema: STAGING
+
     intermediate:
       +materialized: view
-      +schema: INTERMEDIATE
+
     marts:
       +materialized: table
-      +schema: GOLD

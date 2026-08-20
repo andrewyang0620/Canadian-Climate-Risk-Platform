@@ -1,5 +1,6 @@
 ﻿climate_risk_snowflake:
   target: "{{ env_var('DBT_TARGET', 'dev') }}"
+
   outputs:
     dev:
       type: snowflake
@@ -9,7 +10,7 @@
       role: "{{ env_var('SNOWFLAKE_ROLE', 'TRANSFORM_ROLE') }}"
       warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'CLIMATE_RISK_WH') }}"
       database: "{{ env_var('SNOWFLAKE_DATABASE', 'CLIMATE_RISK') }}"
-      schema: "{{ env_var('SNOWFLAKE_SCHEMA', 'DEV') }}"
+      schema: "{{ env_var('SNOWFLAKE_SCHEMA', 'ANALYTICS') }}"
       threads: "{{ env_var('SNOWFLAKE_THREADS', 4) | int }}"
       client_session_keep_alive: false
       query_tag: "canadian_climate_risk_platform_dbt_dev"
@@ -22,7 +23,7 @@
       role: "{{ env_var('SNOWFLAKE_ROLE', 'TRANSFORM_ROLE') }}"
       warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE', 'CLIMATE_RISK_WH') }}"
       database: "{{ env_var('SNOWFLAKE_DATABASE', 'CLIMATE_RISK') }}"
-      schema: GOLD
+      schema: ANALYTICS
       threads: "{{ env_var('SNOWFLAKE_THREADS', 4) | int }}"
       client_session_keep_alive: false
       query_tag: "canadian_climate_risk_platform_dbt_prod"

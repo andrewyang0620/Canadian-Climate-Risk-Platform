@@ -178,20 +178,20 @@
     {
       "name": "silver__silver_hydro_basin_polygon",
       "zone": "silver",
-      "local_path": "lakehouse/silver/silver_hydro_basin_polygon",
-      "remote_path": "silver_hydro_basin_polygon"
+      "local_path": "lakehouse/silver/silver_hydro_basin_polygon/extract_date=2026-06-28/run_id=b727b4e8-c383-4dd8-bfea-4dc82c17094c",
+      "remote_path": "silver_hydro_basin_polygon/extract_date=2026-06-28/run_id=b727b4e8-c383-4dd8-bfea-4dc82c17094c"
     },
     {
       "name": "silver__silver_hydro_basin_pour_point",
       "zone": "silver",
-      "local_path": "lakehouse/silver/silver_hydro_basin_pour_point",
-      "remote_path": "silver_hydro_basin_pour_point"
+      "local_path": "lakehouse/silver/silver_hydro_basin_pour_point/extract_date=2026-06-28/run_id=b727b4e8-c383-4dd8-bfea-4dc82c17094c",
+      "remote_path": "silver_hydro_basin_pour_point/extract_date=2026-06-28/run_id=b727b4e8-c383-4dd8-bfea-4dc82c17094c"
     },
     {
       "name": "silver__silver_hydro_basin_station_point",
       "zone": "silver",
-      "local_path": "lakehouse/silver/silver_hydro_basin_station_point",
-      "remote_path": "silver_hydro_basin_station_point"
+      "local_path": "lakehouse/silver/silver_hydro_basin_station_point/extract_date=2026-06-28/run_id=b727b4e8-c383-4dd8-bfea-4dc82c17094c",
+      "remote_path": "silver_hydro_basin_station_point/extract_date=2026-06-28/run_id=b727b4e8-c383-4dd8-bfea-4dc82c17094c"
     },
     {
       "name": "silver__silver_hydro_daily",
@@ -202,8 +202,8 @@
     {
       "name": "silver__silver_hydro_realtime_observation",
       "zone": "silver",
-      "local_path": "lakehouse/silver/silver_hydro_realtime_observation",
-      "remote_path": "silver_hydro_realtime_observation"
+      "local_path": "lakehouse/silver/silver_hydro_realtime_observation/extract_date=2026-06-14/run_id=fb280b53-72a7-4f9c-b0c9-6d36fe322ba6",
+      "remote_path": "silver_hydro_realtime_observation/extract_date=2026-06-14/run_id=fb280b53-72a7-4f9c-b0c9-6d36fe322ba6"
     },
     {
       "name": "silver__silver_hydro_station",
@@ -244,8 +244,8 @@
     {
       "name": "silver__silver_wildfire_perimeter_polygon",
       "zone": "silver",
-      "local_path": "lakehouse/silver/silver_wildfire_perimeter_polygon",
-      "remote_path": "silver_wildfire_perimeter_polygon"
+      "local_path": "lakehouse/silver/silver_wildfire_perimeter_polygon/extract_date=2026-06-28/run_id=7f8b4346-f6cc-4dfb-b5ce-5aaf75bb7d77",
+      "remote_path": "silver_wildfire_perimeter_polygon/extract_date=2026-06-28/run_id=7f8b4346-f6cc-4dfb-b5ce-5aaf75bb7d77"
     },
     {
       "name": "gold___audit",
@@ -310,14 +310,14 @@
     {
       "name": "gold__gold_calgary_property_risk_context",
       "zone": "gold",
-      "local_path": "lakehouse/gold/gold_calgary_property_risk_context",
-      "remote_path": "gold_calgary_property_risk_context"
+      "local_path": "lakehouse/gold/gold_calgary_property_risk_context/extract_date=2026-08-17/run_id=5c165b57-63cc-4c0f-8303-f2d6cb340bbe",
+      "remote_path": "gold_calgary_property_risk_context/extract_date=2026-08-17/run_id=5c165b57-63cc-4c0f-8303-f2d6cb340bbe"
     },
     {
       "name": "gold__gold_climate_station_month_feature",
       "zone": "gold",
-      "local_path": "lakehouse/gold/gold_climate_station_month_feature",
-      "remote_path": "gold_climate_station_month_feature"
+      "local_path": "lakehouse/gold/gold_climate_station_month_feature/extract_date=2026-07-01/run_id=d484a18a-33c5-4949-80de-8cb5c0e42d31",
+      "remote_path": "gold_climate_station_month_feature/extract_date=2026-07-01/run_id=d484a18a-33c5-4949-80de-8cb5c0e42d31"
     },
     {
       "name": "gold__gold_disaster_cd_spatial_reference",
@@ -340,8 +340,8 @@
     {
       "name": "gold__gold_disaster_event_reference",
       "zone": "gold",
-      "local_path": "lakehouse/gold/gold_disaster_event_reference",
-      "remote_path": "gold_disaster_event_reference"
+      "local_path": "lakehouse/gold/gold_disaster_event_reference/extract_date=2026-07-23/run_id=a481957b-94ef-492d-a02a-76afbbe4e786",
+      "remote_path": "gold_disaster_event_reference/extract_date=2026-07-23/run_id=a481957b-94ef-492d-a02a-76afbbe4e786"
     },
     {
       "name": "gold__gold_grid_cell",
@@ -352,8 +352,8 @@
     {
       "name": "gold__gold_grid_month_climate_feature",
       "zone": "gold",
-      "local_path": "lakehouse/gold/gold_grid_month_climate_feature",
-      "remote_path": "gold_grid_month_climate_feature"
+      "local_path": "lakehouse/gold/gold_grid_month_climate_feature/extract_date=2026-07-01/run_id=d484a18a-33c5-4949-80de-8cb5c0e42d31",
+      "remote_path": "gold_grid_month_climate_feature/extract_date=2026-07-01/run_id=d484a18a-33c5-4949-80de-8cb5c0e42d31"
     },
     {
       "name": "gold__gold_grid_month_disaster_event_label",
@@ -364,14 +364,14 @@
     {
       "name": "gold__gold_grid_month_hydro_feature",
       "zone": "gold",
-      "local_path": "lakehouse/gold/gold_grid_month_hydro_feature",
-      "remote_path": "gold_grid_month_hydro_feature"
+      "local_path": "lakehouse/gold/gold_grid_month_hydro_feature/extract_date=2026-07-02/run_id=5fbbdb2e-226e-4c09-909b-897d89f0569b",
+      "remote_path": "gold_grid_month_hydro_feature/extract_date=2026-07-02/run_id=5fbbdb2e-226e-4c09-909b-897d89f0569b"
     },
     {
       "name": "gold__gold_grid_month_risk_feature_mart",
       "zone": "gold",
-      "local_path": "lakehouse/gold/gold_grid_month_risk_feature_mart",
-      "remote_path": "gold_grid_month_risk_feature_mart"
+      "local_path": "lakehouse/gold/gold_grid_month_risk_feature_mart/extract_date=2026-07-04/run_id=3cd37b22-656c-4621-8c0d-90a375f85e45",
+      "remote_path": "gold_grid_month_risk_feature_mart/extract_date=2026-07-04/run_id=3cd37b22-656c-4621-8c0d-90a375f85e45"
     },
     {
       "name": "gold__gold_grid_month_risk_score",
@@ -388,14 +388,14 @@
     {
       "name": "gold__gold_grid_municipality_bridge",
       "zone": "gold",
-      "local_path": "lakehouse/gold/gold_grid_municipality_bridge",
-      "remote_path": "gold_grid_municipality_bridge"
+      "local_path": "lakehouse/gold/gold_grid_municipality_bridge/extract_date=2026-06-17/run_id=034d9473-2d91-4a0a-ba4e-3c2ab5466720",
+      "remote_path": "gold_grid_municipality_bridge/extract_date=2026-06-17/run_id=034d9473-2d91-4a0a-ba4e-3c2ab5466720"
     },
     {
       "name": "gold__gold_hydro_station_month_feature",
       "zone": "gold",
-      "local_path": "lakehouse/gold/gold_hydro_station_month_feature",
-      "remote_path": "gold_hydro_station_month_feature"
+      "local_path": "lakehouse/gold/gold_hydro_station_month_feature/extract_date=2026-07-02/run_id=5fbbdb2e-226e-4c09-909b-897d89f0569b",
+      "remote_path": "gold_hydro_station_month_feature/extract_date=2026-07-02/run_id=5fbbdb2e-226e-4c09-909b-897d89f0569b"
     },
     {
       "name": "gold__gold_vancouver_building_permit_context",
@@ -430,14 +430,14 @@
     {
       "name": "gold__gold_vancouver_parcel_flood_zone_overlay",
       "zone": "gold",
-      "local_path": "lakehouse/gold/gold_vancouver_parcel_flood_zone_overlay",
-      "remote_path": "gold_vancouver_parcel_flood_zone_overlay"
+      "local_path": "lakehouse/gold/gold_vancouver_parcel_flood_zone_overlay/extract_date=2026-08-15/run_id=7d3d2367-ef1c-4691-b40b-4aaffd68ab90",
+      "remote_path": "gold_vancouver_parcel_flood_zone_overlay/extract_date=2026-08-15/run_id=7d3d2367-ef1c-4691-b40b-4aaffd68ab90"
     },
     {
       "name": "gold__gold_vancouver_parcel_risk_context",
       "zone": "gold",
-      "local_path": "lakehouse/gold/gold_vancouver_parcel_risk_context",
-      "remote_path": "gold_vancouver_parcel_risk_context"
+      "local_path": "lakehouse/gold/gold_vancouver_parcel_risk_context/extract_date=2026-08-17/run_id=5c165b57-63cc-4c0f-8303-f2d6cb340bbe",
+      "remote_path": "gold_vancouver_parcel_risk_context/extract_date=2026-08-17/run_id=5c165b57-63cc-4c0f-8303-f2d6cb340bbe"
     },
     {
       "name": "gold__gold_vancouver_property_parcel_bridge",

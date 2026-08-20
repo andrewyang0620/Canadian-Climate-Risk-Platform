@@ -15,8 +15,23 @@ class FakeAzureFileClient:
         self.objects = objects
         self.path = path
         self.content_type = None
+        self.upload_length = None
+        self.upload_chunk_size = None
+        self.upload_max_concurrency = None
 
-    def upload_data(self, data, *, overwrite=False):
+    def upload_data(
+        self,
+        data,
+        *,
+        overwrite=False,
+        length=None,
+        chunk_size=None,
+        max_concurrency=None,
+    ):
+        self.upload_length = length
+        self.upload_chunk_size = chunk_size
+        self.upload_max_concurrency = max_concurrency
+
         if hasattr(data, "read"):
             data = data.read()
 

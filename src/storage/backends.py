@@ -5,6 +5,9 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
+ADLS_UPLOAD_CHUNK_SIZE = 8 * 1024 * 1024
+ADLS_UPLOAD_MAX_CONCURRENCY = 4
+
 
 class StorageBackendError(Exception):
     """Raised when a storage backend operation fails."""
@@ -228,10 +231,14 @@ class AzureDataLakeStorageBackend(StorageBackend):
             relative_path
         )
 
+        file_size = source_path.stat().st_size
         with source_path.open("rb") as data:
             file_client.upload_data(
                 data,
+                length = file_size,
                 overwrite=True,
+                chunk_size=ADLS_UPLOAD_CHUNK_SIZE,
+                max_concurrency=ADLS_UPLOAD_MAX_CONCURRENCY,
             )
 
         self._set_content_type(

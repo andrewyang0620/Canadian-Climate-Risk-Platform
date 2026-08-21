@@ -15,4 +15,8 @@ provider "snowflake" {
   user              = var.snowflake_user
   password          = var.snowflake_password
   role              = var.snowflake_role
+  preview_features_enabled = [
+    "snowflake_storage_integration_azure_resource",
+    "snowflake_stage_external_azure_resource",
+  ]
 }

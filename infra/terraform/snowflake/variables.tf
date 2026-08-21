@@ -50,3 +50,20 @@ variable "snowflake_organization_name" {
   description = "Snowflake organization name. This is required by the snowflakedb/snowflake provider."
   type        = string
 }
+
+variable "azure_tenant_id" {
+  description = "Microsoft Entra tenant ID containing the ADLS storage account."
+  type        = string
+}
+
+variable "adls_storage_account_name" {
+  description = "Canonical ADLS Gen2 storage account."
+  type        = string
+  default     = "ccriskdevibu7j0"
+}
+
+variable "adls_gold_file_system" {
+  description = "Canonical ADLS Gold filesystem."
+  type        = string
+  default     = "gold"
+}

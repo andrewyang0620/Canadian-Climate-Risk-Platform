@@ -24,6 +24,8 @@ data/
 !docs/data/
 lakehouse/
 warehouse/
+!/configs/warehouse
+!/src/warehouse
 spark-warehouse/
 metastore_db/
 derby.log

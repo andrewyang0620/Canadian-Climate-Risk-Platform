@@ -1,0 +1,116 @@
+{
+  "manifest_version": 1,
+  "target": {
+    "database": "CLIMATE_RISK",
+    "schema": "CORE",
+    "stage": "ADLS_GOLD_STAGE",
+    "file_format": "PARQUET_FORMAT",
+    "file_pattern": ".*[.]parquet"
+  },
+  "tables": [
+    {
+      "table": "GRID_CELL",
+      "source_product": "gold_grid_cell",
+      "stage_path": "gold_grid_cell/extract_date=2026-06-17/run_id=b947ed24-47da-4134-94b5-0b4d1a818c32/",
+      "expected_rows": 17611,
+      "expected_columns": 32,
+      "primary_key": "GRID_CELL_KEY"
+    },
+    {
+      "table": "GRID_MUNICIPALITY_BRIDGE",
+      "source_product": "gold_grid_municipality_bridge",
+      "stage_path": "gold_grid_municipality_bridge/extract_date=2026-06-17/run_id=034d9473-2d91-4a0a-ba4e-3c2ab5466720/",
+      "expected_rows": 24397,
+      "expected_columns": 22,
+      "primary_key": "GRID_MUNICIPALITY_BRIDGE_KEY"
+    },
+    {
+      "table": "GRID_MONTH_RISK_FEATURE",
+      "source_product": "gold_grid_month_risk_feature_mart",
+      "stage_path": "gold_grid_month_risk_feature_mart/extract_date=2026-07-04/run_id=3cd37b22-656c-4621-8c0d-90a375f85e45/",
+      "expected_rows": 1980960,
+      "expected_columns": 107,
+      "primary_key": "GRID_MONTH_RISK_FEATURE_KEY"
+    },
+    {
+      "table": "GRID_MONTH_RISK_SCORE",
+      "source_product": "gold_grid_month_risk_score",
+      "stage_path": "gold_grid_month_risk_score/extract_date=2026-08-09/run_id=b2be1574-8085-45bb-a50c-8ea74b42cfe4/",
+      "expected_rows": 1980960,
+      "expected_columns": 33,
+      "primary_key": "RISK_SCORE_KEY"
+    },
+    {
+      "table": "DISASTER_EVENT_REFERENCE",
+      "source_product": "gold_disaster_event_reference",
+      "stage_path": "gold_disaster_event_reference/extract_date=2026-07-23/run_id=a481957b-94ef-492d-a02a-76afbbe4e786/",
+      "expected_rows": 1311,
+      "expected_columns": 36,
+      "primary_key": "DISASTER_EVENT_REFERENCE_KEY"
+    },
+    {
+      "table": "DISASTER_EVENT_GRID_SCOPE",
+      "source_product": "gold_disaster_event_grid_scope",
+      "stage_path": "gold_disaster_event_grid_scope/extract_date=2026-07-30/run_id=4cd7224f-11c7-4cc3-abd0-df83b245d58a/",
+      "expected_rows": 36681,
+      "expected_columns": 30,
+      "primary_key": "EVENT_GRID_SCOPE_KEY"
+    },
+    {
+      "table": "GRID_MONTH_DISASTER_EVENT_LABEL",
+      "source_product": "gold_grid_month_disaster_event_label",
+      "stage_path": "gold_grid_month_disaster_event_label/extract_date=2026-07-30/run_id=bfeabac0-6cda-4fb6-ad68-8f0a5306fcf6/",
+      "expected_rows": 1337148,
+      "expected_columns": 28,
+      "primary_key": "GRID_MONTH_DISASTER_LABEL_KEY"
+    },
+    {
+      "table": "VANCOUVER_PARCEL_RISK_CONTEXT",
+      "source_product": "gold_vancouver_parcel_risk_context",
+      "stage_path": "gold_vancouver_parcel_risk_context/extract_date=2026-08-17/run_id=5c165b57-63cc-4c0f-8303-f2d6cb340bbe/",
+      "expected_rows": 99726,
+      "expected_columns": 64,
+      "primary_key": "PROPERTY_PARCEL_KEY"
+    },
+    {
+      "table": "VANCOUVER_BUILDING_PERMIT_CONTEXT",
+      "source_product": "gold_vancouver_building_permit_context",
+      "stage_path": "gold_vancouver_building_permit_context/extract_date=2026-08-16/run_id=c5afcc66-9416-495f-bd6d-cac7c226373c/",
+      "expected_rows": 50610,
+      "expected_columns": 46,
+      "primary_key": "BUILDING_PERMIT_KEY"
+    },
+    {
+      "table": "VANCOUVER_LAND_COORDINATE_ASSESSMENT",
+      "source_product": "gold_vancouver_land_coordinate_assessment",
+      "stage_path": "gold_vancouver_land_coordinate_assessment/extract_date=2026-08-15/run_id=b3e8b25f-a8bb-4ed6-9fe2-de9053335ba1/",
+      "expected_rows": 655171,
+      "expected_columns": 21,
+      "primary_key": "LAND_COORDINATE_ASSESSMENT_KEY"
+    },
+    {
+      "table": "CALGARY_PROPERTY_RISK_CONTEXT",
+      "source_product": "gold_calgary_property_risk_context",
+      "stage_path": "gold_calgary_property_risk_context/extract_date=2026-08-17/run_id=5c165b57-63cc-4c0f-8303-f2d6cb340bbe/",
+      "expected_rows": 410049,
+      "expected_columns": 56,
+      "primary_key": "PROPERTY_LOCATION_ASSESSMENT_KEY"
+    },
+    {
+      "table": "CALGARY_BUILDING_PERMIT_CONTEXT",
+      "source_product": "gold_calgary_building_permit_context",
+      "stage_path": "gold_calgary_building_permit_context/extract_date=2026-08-16/run_id=caee3ed4-e697-4c00-9ffe-d04998e6d35e/",
+      "expected_rows": 489276,
+      "expected_columns": 76,
+      "primary_key": "BUILDING_PERMIT_KEY"
+    },
+    {
+      "table": "CALGARY_DEVELOPMENT_PERMIT_CONTEXT",
+      "source_product": "gold_calgary_development_permit_context",
+      "stage_path": "gold_calgary_development_permit_context/extract_date=2026-08-17/run_id=2a6afeab-3b03-4649-a6a5-ba74436ece3f/",
+      "expected_rows": 190399,
+      "expected_columns": 59,
+      "primary_key": "DEVELOPMENT_PERMIT_KEY"
+    }
+  ]
+}

@@ -68,3 +68,124 @@ models:
       - name: REFERENCE_MONTH
         data_tests:
           - not_null
+
+  - name: stg_disaster_event_reference
+    description: >
+      Staged normalized disaster-event reference.
+    columns:
+      - name: DISASTER_EVENT_REFERENCE_KEY
+        data_tests:
+          - not_null
+          - unique
+
+  - name: stg_disaster_event_grid_scope
+    description: >
+      Staged disaster-event to national-grid relationship.
+    columns:
+      - name: EVENT_GRID_SCOPE_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: DISASTER_EVENT_REFERENCE_KEY
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_disaster_event_reference')
+                field: DISASTER_EVENT_REFERENCE_KEY
+
+      - name: GRID_CELL_KEY
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_grid_cell')
+                field: GRID_CELL_KEY
+
+  - name: stg_grid_month_disaster_event_label
+    description: >
+      Staged grid-month disaster observation and backtesting labels.
+      Reference month is normalized to DATE.
+    columns:
+      - name: GRID_MONTH_DISASTER_LABEL_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: GRID_CELL_KEY
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_grid_cell')
+                field: GRID_CELL_KEY
+
+      - name: REFERENCE_MONTH
+        data_tests:
+          - not_null
+
+  - name: stg_vancouver_parcel_risk_context
+    description: >
+      Staged Vancouver parcel-level assessment and flood-risk context.
+    columns:
+      - name: PROPERTY_PARCEL_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: NATIONAL_GRID_CELL_KEY
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_grid_cell')
+                field: GRID_CELL_KEY
+
+  - name: stg_vancouver_building_permit_context
+    description: >
+      Staged Vancouver building-permit analytical context.
+    columns:
+      - name: BUILDING_PERMIT_KEY
+        data_tests:
+          - not_null
+          - unique
+
+  - name: stg_vancouver_land_coordinate_assessment
+    description: >
+      Staged Vancouver longitudinal land-coordinate assessment history.
+    columns:
+      - name: LAND_COORDINATE_ASSESSMENT_KEY
+        data_tests:
+          - not_null
+          - unique
+
+  - name: stg_calgary_property_risk_context
+    description: >
+      Staged Calgary property-location assessment and flood-risk context.
+    columns:
+      - name: PROPERTY_LOCATION_ASSESSMENT_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: NATIONAL_GRID_CELL_KEY
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_grid_cell')
+                field: GRID_CELL_KEY
+
+  - name: stg_calgary_building_permit_context
+    description: >
+      Staged Calgary building-permit analytical context.
+    columns:
+      - name: BUILDING_PERMIT_KEY
+        data_tests:
+          - not_null
+          - unique
+
+  - name: stg_calgary_development_permit_context
+    description: >
+      Staged Calgary development-permit planning and risk context.
+    columns:
+      - name: DEVELOPMENT_PERMIT_KEY
+        data_tests:
+          - not_null
+          - unique

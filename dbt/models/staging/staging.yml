@@ -1,0 +1,70 @@
+version: 2
+
+models:
+  - name: stg_grid_cell
+    description: >
+      Staged national grid-cell dimension from Snowflake CORE.
+    columns:
+      - name: GRID_CELL_KEY
+        data_tests:
+          - not_null
+          - unique
+
+  - name: stg_grid_municipality_bridge
+    description: >
+      Staged many-to-many relationship between national grid cells
+      and municipalities.
+    columns:
+      - name: GRID_MUNICIPALITY_BRIDGE_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: GRID_CELL_KEY
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_grid_cell')
+                field: GRID_CELL_KEY
+
+  - name: stg_grid_month_risk_feature
+    description: >
+      Staged national grid-month physical risk feature table.
+      Reference month is normalized from YYYY-MM text to DATE.
+    columns:
+      - name: GRID_MONTH_RISK_FEATURE_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: GRID_CELL_KEY
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_grid_cell')
+                field: GRID_CELL_KEY
+
+      - name: REFERENCE_MONTH
+        data_tests:
+          - not_null
+
+  - name: stg_grid_month_risk_score
+    description: >
+      Staged national grid-month risk score output.
+      Reference month is normalized from YYYY-MM text to DATE.
+    columns:
+      - name: RISK_SCORE_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: GRID_MONTH_RISK_FEATURE_KEY
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_grid_month_risk_feature')
+                field: GRID_MONTH_RISK_FEATURE_KEY
+
+      - name: REFERENCE_MONTH
+        data_tests:
+          - not_null

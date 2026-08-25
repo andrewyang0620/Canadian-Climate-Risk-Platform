@@ -5,5 +5,123 @@ sources:
     database: "{{ env_var('SNOWFLAKE_DATABASE', 'CLIMATE_RISK') }}"
     schema: CORE
     description: >
-      Curated warehouse source tables loaded from canonical ADLS Gold outputs.
-    tables: []
+      Curated Snowflake CORE tables loaded from frozen canonical
+      ADLS Gold snapshots.
+
+    tables:
+      - name: grid_cell
+        identifier: GRID_CELL
+        description: National grid-cell dimension.
+        columns:
+          - name: GRID_CELL_KEY
+            data_tests:
+              - not_null
+              - unique
+
+      - name: grid_municipality_bridge
+        identifier: GRID_MUNICIPALITY_BRIDGE
+        description: Many-to-many bridge between national grid cells and municipalities.
+        columns:
+          - name: GRID_MUNICIPALITY_BRIDGE_KEY
+            data_tests:
+              - not_null
+              - unique
+
+      - name: grid_month_risk_feature
+        identifier: GRID_MONTH_RISK_FEATURE
+        description: National grid-month risk feature fact table.
+        columns:
+          - name: GRID_MONTH_RISK_FEATURE_KEY
+            data_tests:
+              - not_null
+              - unique
+
+      - name: grid_month_risk_score
+        identifier: GRID_MONTH_RISK_SCORE
+        description: National grid-month risk scoring output.
+        columns:
+          - name: RISK_SCORE_KEY
+            data_tests:
+              - not_null
+              - unique
+
+      - name: disaster_event_reference
+        identifier: DISASTER_EVENT_REFERENCE
+        description: Normalized disaster-event reference dimension.
+        columns:
+          - name: DISASTER_EVENT_REFERENCE_KEY
+            data_tests:
+              - not_null
+              - unique
+
+      - name: disaster_event_grid_scope
+        identifier: DISASTER_EVENT_GRID_SCOPE
+        description: Disaster-event to national-grid mapping bridge.
+        columns:
+          - name: EVENT_GRID_SCOPE_KEY
+            data_tests:
+              - not_null
+              - unique
+
+      - name: grid_month_disaster_event_label
+        identifier: GRID_MONTH_DISASTER_EVENT_LABEL
+        description: Grid-month disaster observation and backtesting labels.
+        columns:
+          - name: GRID_MONTH_DISASTER_LABEL_KEY
+            data_tests:
+              - not_null
+              - unique
+
+      - name: vancouver_parcel_risk_context
+        identifier: VANCOUVER_PARCEL_RISK_CONTEXT
+        description: Vancouver parcel-level assessment and flood-risk context.
+        columns:
+          - name: PROPERTY_PARCEL_KEY
+            data_tests:
+              - not_null
+              - unique
+
+      - name: vancouver_building_permit_context
+        identifier: VANCOUVER_BUILDING_PERMIT_CONTEXT
+        description: Vancouver building-permit analytical context.
+        columns:
+          - name: BUILDING_PERMIT_KEY
+            data_tests:
+              - not_null
+              - unique
+
+      - name: vancouver_land_coordinate_assessment
+        identifier: VANCOUVER_LAND_COORDINATE_ASSESSMENT
+        description: Vancouver longitudinal land-coordinate assessment history.
+        columns:
+          - name: LAND_COORDINATE_ASSESSMENT_KEY
+            data_tests:
+              - not_null
+              - unique
+
+      - name: calgary_property_risk_context
+        identifier: CALGARY_PROPERTY_RISK_CONTEXT
+        description: Calgary property-location assessment and flood-risk context.
+        columns:
+          - name: PROPERTY_LOCATION_ASSESSMENT_KEY
+            data_tests:
+              - not_null
+              - unique
+
+      - name: calgary_building_permit_context
+        identifier: CALGARY_BUILDING_PERMIT_CONTEXT
+        description: Calgary building-permit analytical context.
+        columns:
+          - name: BUILDING_PERMIT_KEY
+            data_tests:
+              - not_null
+              - unique
+
+      - name: calgary_development_permit_context
+        identifier: CALGARY_DEVELOPMENT_PERMIT_CONTEXT
+        description: Calgary development-permit planning and risk context.
+        columns:
+          - name: DEVELOPMENT_PERMIT_KEY
+            data_tests:
+              - not_null
+              - unique

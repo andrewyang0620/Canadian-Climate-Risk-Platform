@@ -1,0 +1,32 @@
+version: 2
+
+models:
+  - name: int_grid_month_risk_panel
+    description: >
+      National grid-month analytical backbone combining physical risk
+      features, risk scores, and observed disaster-event labels.
+      Disaster labels are left joined because label coverage spans a
+      shorter observation window than the 120-month risk panel.
+
+    columns:
+      - name: GRID_MONTH_RISK_FEATURE_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: RISK_SCORE_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: GRID_CELL_KEY
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_grid_cell')
+                field: GRID_CELL_KEY
+
+      - name: REFERENCE_MONTH
+        data_tests:
+          - not_null

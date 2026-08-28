@@ -1,0 +1,135 @@
+version: 2
+
+models:
+  - name: fct_grid_month_risk
+    description: >
+      Power BI-facing national grid-month risk fact table.
+      Combines multi-hazard prioritization scores, physical hazard
+      indicators, data-quality context, and observed disaster labels.
+      Disaster label nulls outside the observation window are preserved
+      and must not be interpreted as no-event observations.
+
+    columns:
+      - name: RISK_SCORE_KEY
+        description: Unique key for the grid-month risk score record.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: GRID_MONTH_RISK_FEATURE_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: GRID_CELL_KEY
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_grid')
+                field: GRID_CELL_KEY
+
+      - name: REFERENCE_MONTH
+        data_tests:
+          - not_null
+
+      - name: PRIORITY_TIER
+        description: >
+          Province-month relative prioritization tier. Very high means
+          top 10% among eligible grids, not a disaster probability.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values:
+                  - very_high
+                  - high
+                  - elevated
+                  - moderate
+                  - low
+                  - insufficient_data
+
+  - name: dim_month
+    description: >
+      Month dimension for national climate-risk analytics.
+      Contains one row per reference month represented in the
+      national grid-month risk panel.
+
+    columns:
+      - name: MONTH_KEY
+        description: First calendar day of the reference month.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: YEAR
+        data_tests:
+          - not_null
+
+      - name: MONTH_NUMBER
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+
+  - name: dim_grid
+    description: >
+      National grid-cell dimension containing stable grid identity,
+      provincial geography, centroid coordinates, area measures, and
+      analytical geometry metadata. The full grid universe is retained,
+      including grid cells that do not currently have monthly risk facts.
+
+    columns:
+      - name: GRID_CELL_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: GRID_SYSTEM
+        data_tests:
+          - not_null
+
+      - name: PROVINCE_KEY
+        data_tests:
+          - not_null
+
+      - name: CENTROID_LONGITUDE
+        data_tests:
+          - not_null
+
+      - name: CENTROID_LATITUDE
+        data_tests:
+          - not_null
+
+      - name: CRS_EPSG
+        data_tests:
+          - not_null
+
+  - name: bridge_grid_municipality
+    description: >
+      Many-to-many bridge between national grid cells and municipalities.
+      Each row represents one spatial grid-municipality relationship,
+      including intersection coverage and the designated primary
+      municipality for the grid.
+
+    columns:
+      - name: GRID_MUNICIPALITY_BRIDGE_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: GRID_CELL_KEY
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_grid')
+                field: GRID_CELL_KEY
+
+      - name: MUNICIPALITY_KEY
+        data_tests:
+          - not_null
+
+      - name: IS_PRIMARY_MUNICIPALITY
+        data_tests:
+          - not_null

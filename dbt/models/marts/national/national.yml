@@ -129,7 +129,31 @@ models:
       - name: MUNICIPALITY_KEY
         data_tests:
           - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_municipality')
+                field: MUNICIPALITY_KEY
 
       - name: IS_PRIMARY_MUNICIPALITY
+        data_tests:
+          - not_null
+
+  - name: dim_municipality
+    description: >
+      Municipality dimension for national climate-risk analytics.
+      Contains one row per municipality represented in the
+      grid-municipality spatial bridge.
+
+    columns:
+      - name: MUNICIPALITY_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: MUNICIPALITY_NAME
+        data_tests:
+          - not_null
+
+      - name: MUNICIPALITY_PROVINCE_CODE
         data_tests:
           - not_null

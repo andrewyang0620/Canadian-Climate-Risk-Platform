@@ -1,0 +1,190 @@
+version: 2
+
+models:
+  - name: fct_vancouver_parcel_risk
+    description: >
+      Power BI-facing Vancouver parcel-level property risk fact.
+      Contains one row per parcel with flood exposure, latest
+      assessment context, zoning context, and national-grid assignment.
+
+    columns:
+      - name: PROPERTY_PARCEL_KEY
+        description: Unique Vancouver parcel analytical key.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: CITY
+        data_tests:
+          - not_null
+
+      - name: IS_FLOOD_EXPOSED
+        data_tests:
+          - not_null
+
+      - name: NATIONAL_GRID_CELL_KEY
+        description: >
+          Assigned national 10 km grid cell. Null is permitted when
+          no valid national-grid assignment exists.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_grid')
+                field: GRID_CELL_KEY
+
+  - name: fct_calgary_property_risk
+    description: >
+      Power BI-facing Calgary property-level risk fact.
+      Contains one row per property location with assessment,
+      land-use, flood exposure, and national-grid assignment context.
+
+    columns:
+      - name: PROPERTY_LOCATION_ASSESSMENT_KEY
+        description: Unique Calgary property analytical key.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: SOURCE_PARCEL_ID
+        data_tests:
+          - not_null
+
+      - name: ASSESSMENT_YEAR
+        data_tests:
+          - not_null
+
+      - name: IS_FLOOD_EXPOSED
+        data_tests:
+          - not_null
+
+      - name: NATIONAL_GRID_CELL_KEY
+        description: >
+          Assigned national grid cell. Null remains valid when no
+          national-grid assignment exists.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('dim_grid')
+                field: GRID_CELL_KEY
+
+  - name: fct_vancouver_building_permit
+    description: >
+      Power BI-facing Vancouver building-permit fact.
+      Contains one row per permit with permit classification,
+      housing activity, project cost, parcel linkage, and flood context.
+
+    columns:
+      - name: BUILDING_PERMIT_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: PERMIT_NUMBER
+        data_tests:
+          - not_null
+
+      - name: ISSUE_DATE
+        data_tests:
+          - not_null
+
+      - name: IS_HOUSING_RELATED
+        data_tests:
+          - not_null
+
+      - name: PROPERTY_PARCEL_KEY
+        description: >
+          Linked Vancouver parcel when parcel mapping is available.
+          Null values are permitted for unmapped permits.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fct_vancouver_parcel_risk')
+                field: PROPERTY_PARCEL_KEY
+
+  - name: fct_calgary_building_permit
+    description: >
+      Power BI-facing Calgary building-permit fact with one row per
+      permit. Includes permit classification, housing supply, project
+      economics, property-assessment mapping, and flood-risk context.
+
+    columns:
+      - name: BUILDING_PERMIT_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: SOURCE_PERMIT_ID
+        data_tests:
+          - not_null
+
+      - name: PERMIT_NUMBER
+        data_tests:
+          - not_null
+
+      - name: APPLICATION_DATE
+        data_tests:
+          - not_null
+
+      - name: IS_HOUSING_RELATED
+        data_tests:
+          - not_null
+
+      - name: CREATES_NEW_HOUSING_UNITS
+        data_tests:
+          - not_null
+
+      - name: SOURCE_PARCEL_ID
+        description: >
+          Calgary parcel identifier when the permit was successfully
+          mapped to property context. Null is permitted for unmapped
+          permits.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fct_calgary_property_risk')
+                field: SOURCE_PARCEL_ID
+
+  - name: fct_calgary_development_permit
+    description: >
+      Power BI-facing Calgary development-permit fact with one row per
+      permit. Includes planning and land-use context, permit decisions,
+      spatial-property mapping quality, mapped assessment values, and
+      flood-risk context.
+
+    columns:
+      - name: DEVELOPMENT_PERMIT_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: SOURCE_PERMIT_ID
+        data_tests:
+          - not_null
+          - unique
+
+      - name: PERMIT_NUMBER
+        data_tests:
+          - not_null
+
+      - name: APPLIED_DATE
+        data_tests:
+          - not_null
+
+      - name: APPLIED_YEAR
+        data_tests:
+          - not_null
+
+      - name: LOCATION_MAPPING_STATUS
+        data_tests:
+          - not_null
+
+      - name: SINGLE_SOURCE_PARCEL_ID
+        description: >
+          Calgary parcel identifier when the development permit maps
+          uniquely to one property. Null is expected for unmapped or
+          multi-property permits.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('fct_calgary_property_risk')
+                field: SOURCE_PARCEL_ID

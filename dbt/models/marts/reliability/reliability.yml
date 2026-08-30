@@ -1,0 +1,150 @@
+version: 2
+
+models:
+  - name: fct_disaster_event
+    description: >
+      Power BI-facing historical disaster-event fact with one row per
+      normalized disaster event-month record. Includes disaster
+      classification, location-mapping quality, impact measures, and
+      backtesting eligibility semantics.
+
+    columns:
+      - name: DISASTER_EVENT_REFERENCE_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: SOURCE_DISASTER_EVENT_KEY
+        data_tests:
+          - not_null
+
+      - name: REFERENCE_MONTH
+        data_tests:
+          - not_null
+
+      - name: EVENT_YEAR
+        data_tests:
+          - not_null
+
+      - name: EVENT_MONTH_NUMBER
+        data_tests:
+          - not_null
+
+      - name: PROVINCE_KEY
+        data_tests:
+          - not_null
+
+      - name: DISASTER_DOMAIN
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  - wildfire
+                  - flood
+                  - severe_storm_or_climate
+                  - climate_extreme
+                  - other_or_unmapped
+
+      - name: IS_DOMAIN_RELEVANT
+        data_tests:
+          - not_null
+
+      - name: IS_GRID_BACKTEST_ELIGIBLE
+        data_tests:
+          - not_null
+
+      - name: IS_PROVINCE_MONTH_BACKTEST_ELIGIBLE
+        data_tests:
+          - not_null
+
+      - name: IS_BACKTEST_WINDOW
+        data_tests:
+          - not_null
+
+      - name: IS_BACKTEST_ELIGIBLE
+        data_tests:
+          - not_null
+
+  - name: bridge_disaster_event_grid
+    description: >
+      Many-to-many bridge between grid-eligible historical disaster
+      events and affected national grid cells. Includes spatial coverage,
+      Census Division resolution lineage, and backtesting eligibility
+      context.
+
+    columns:
+      - name: EVENT_GRID_SCOPE_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: DISASTER_EVENT_REFERENCE_KEY
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fct_disaster_event')
+                field: DISASTER_EVENT_REFERENCE_KEY
+
+      - name: GRID_CELL_KEY
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_grid')
+                field: GRID_CELL_KEY
+
+      - name: REFERENCE_MONTH
+        data_tests:
+          - not_null
+
+      - name: AFFECTED_GRID_COVERAGE_RATIO
+        data_tests:
+          - not_null
+
+      - name: IS_GRID_BACKTEST_ELIGIBLE
+        data_tests:
+          - not_null
+
+  - name: fct_grid_month_disaster_observation
+    description: >
+      Power BI-facing grid-month historical disaster observation fact.
+      Contains one row per grid and observed month with disaster-event
+      occurrence, domain event counts, spatial-resolution lineage, and
+      event-to-grid coverage quality. Absence of a row outside the
+      observation window must not be interpreted as a no-event label.
+
+    columns:
+      - name: GRID_MONTH_DISASTER_LABEL_KEY
+        data_tests:
+          - not_null
+          - unique
+
+      - name: GRID_CELL_KEY
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_grid')
+                field: GRID_CELL_KEY
+
+      - name: REFERENCE_MONTH
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_month')
+                field: MONTH_KEY
+
+      - name: LABEL_IS_OBSERVED
+        data_tests:
+          - not_null
+
+      - name: DISASTER_EVENT_OCCURRED
+        data_tests:
+          - not_null
+
+      - name: DISASTER_EVENT_COUNT
+        data_tests:
+          - not_null
